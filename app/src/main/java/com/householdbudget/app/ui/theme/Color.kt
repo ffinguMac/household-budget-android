@@ -2,49 +2,50 @@ package com.householdbudget.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Brand - Terracotta
-val Terracotta = Color(0xFFc96442)
-val Coral = Color(0xFFd97757)
-val TerracottaContainer = Color(0xFFf2ddd5)
-val OnTerracottaContainer = Color(0xFF3d1a0a)
+// Primary – Navy
+val NavyDeep = Color(0xFF162839)
+val NavyContainer = Color(0xFF2C3E50)
+val NavyFixed = Color(0xFFD1E4FB)
+val NavyFixedDim = Color(0xFFB5C8DF)
 
-// Light Backgrounds
-val Parchment = Color(0xFFf5f4ed)
-val Ivory = Color(0xFFfaf9f5)
-val WarmSand = Color(0xFFe8e6dc)
-val PureWhite = Color(0xFFffffff)
+// Secondary – Teal
+val TealGreen = Color(0xFF056B59)
+val TealContainer = Color(0xFF9DEFD9)
+val TealFixed = Color(0xFFA0F2DC)
+val TealFixedDim = Color(0xFF84D6C0)
+val OnTealContainer = Color(0xFF106F5D)
+val OnTealFixed = Color(0xFF00201A)
+val OnTealFixedVariant = Color(0xFF005143)
+
+// Tertiary – Rust (expense accent)
+val RustDark = Color(0xFF4F0E00)
+val RustContainer = Color(0xFF6E230F)
+val RustFixed = Color(0xFFFFDBD2)
+val RustFixedDim = Color(0xFFFFB4A1)
+val OnRustContainer = Color(0xFFF48A6E)
+val OnRustFixed = Color(0xFF3C0800)
+val OnRustFixedVariant = Color(0xFF7C2E19)
+
+// Surfaces
+val BackgroundLight = Color(0xFFF8F9FA)
+val SurfaceLowest = Color(0xFFFFFFFF)
+val SurfaceLow = Color(0xFFF3F4F5)
+val SurfaceMid = Color(0xFFEDEEEF)
+val SurfaceHigh = Color(0xFFE7E8E9)
+val SurfaceHighest = Color(0xFFE1E3E4)
+val SurfaceDimmed = Color(0xFFD9DADB)
 
 // Text / Neutrals
-val NearBlack = Color(0xFF141413)
-val CharcoalWarm = Color(0xFF4d4c48)
-val OliveGray = Color(0xFF5e5d59)
-val StoneGray = Color(0xFF87867f)
-val WarmSilver = Color(0xFFb0aea5)
+val OnSurfaceColor = Color(0xFF191C1D)
+val OnSurfaceVarColor = Color(0xFF43474C)
+val OutlineColor = Color(0xFF74777D)
+val OutlineVarColor = Color(0xFFC4C6CD)
 
-// Borders
-val BorderCream = Color(0xFFf0eee6)
-val BorderWarm = Color(0xFFe8e6dc)
+// Inverse
+val InverseSurfaceColor = Color(0xFF2E3132)
+val InverseOnSurfaceColor = Color(0xFFF0F1F2)
 
-// Income - warm sage green
-val SageGreen = Color(0xFF355342)
-val SageContainer = Color(0xFFe4eeea)
-val OnSageContainer = Color(0xFF0d2219)
-
-// Dark theme surfaces
-val DeepDark = Color(0xFF141413)
-val DarkSurface = Color(0xFF30302e)
-val DarkWarm = Color(0xFF3d3d3a)
-val DarkBorder = Color(0xFF30302e)
-
-// Semantic
-val ErrorCrimson = Color(0xFFb53333)
-val ErrorContainer = Color(0xFFf5e0e0)
-val OnErrorContainer = Color(0xFF4a0f0f)
-
-// Focus (accessibility only - only cool color)
-val FocusBlue = Color(0xFF3898ec)
-
-// Dark theme variants
-val CoralDark = Color(0xFFd97757)
-val SageDark = Color(0xFF7ab89a)
-val SageDarkContainer = Color(0xFF1a3328)
+// Error
+val ErrorRed = Color(0xFFBA1A1A)
+val ErrorContainerColor = Color(0xFFFFDAD6)
+val OnErrorContainerColor = Color(0xFF93000A)

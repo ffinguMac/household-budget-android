@@ -83,8 +83,8 @@ fun MainTabScaffold(
                 FloatingActionButton(
                     onClick = onNavigateAdd,
                     shape = MaterialTheme.shapes.medium,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     elevation =
                         FloatingActionButtonDefaults.elevation(
                             defaultElevation = 4.dp,
