@@ -1,0 +1,5 @@
+## 사용법: 이 파일을 복사해 `local.properties`로 저장한 뒤 sdk.dir만 본인 PC 경로로 수정하세요.
+## Android Studio: File → Settings → Languages & Frameworks → Android SDK → "Android SDK Location"
+## 또는 환경 변수 ANDROID_HOME 이 SDK 루트를 가리키면, Studio가 local.properties를 자동 생성하기도 합니다.
+
+sdk.dir=C:/Users/YOUR_USERNAME/AppData/Local/Android/Sdk
