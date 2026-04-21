@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,7 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.theme.SurfaceLow
+import com.householdbudget.app.ui.theme.NavyContainer
+import com.householdbudget.app.ui.theme.NavyDeep
 import com.householdbudget.app.ui.util.formatRangeKorean
 import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
@@ -68,6 +74,7 @@ fun HomeScreen(
             Text(
                 text = stringResource(R.string.home_title),
                 style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
@@ -77,15 +84,26 @@ fun HomeScreen(
             )
         }
 
-        // ── 순액 카드 (네이비) ───────────────────────────────────────────────
-        Surface(
+        // ── 순액 카드 (네이비 그라디언트) ───────────────────────────────────
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = ScreenHorizontalPadding),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = 0.dp,
+                .padding(horizontal = ScreenHorizontalPadding)
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(NavyContainer, NavyDeep),
+                    )
+                ),
         ) {
+            // decorative circle glow
+            Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .align(Alignment.TopEnd)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(NavyDeep.copy(alpha = 0.25f))
+            )
             Column(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -93,7 +111,12 @@ fun HomeScreen(
                 Text(
                     text = stringResource(R.string.home_net),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = androidx.compose.ui.unit.TextUnit(
+                        1.5f,
+                        androidx.compose.ui.unit.TextUnitType.Sp,
+                    ),
                 )
                 Text(
                     text = netPrefix + absNet.formatWon(),
@@ -101,11 +124,11 @@ fun HomeScreen(
                     color = netAmountColor,
                     fontWeight = FontWeight.Bold,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = summary.period.formatRangeKorean(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.45f),
+                    color = Color.White.copy(alpha = 0.45f),
                 )
             }
         }
@@ -148,22 +171,25 @@ fun HomeScreen(
                                     .background(MaterialTheme.colorScheme.secondaryContainer),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(
-                                    text = "↑",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
                             }
                             Text(
                                 text = stringResource(R.string.home_income),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                         Text(
                             text = summary.totalIncomeMinor.formatWon(),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -198,22 +224,25 @@ fun HomeScreen(
                                     .background(MaterialTheme.colorScheme.errorContainer),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(
-                                    text = "↓",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
                                 )
                             }
                             Text(
                                 text = stringResource(R.string.home_expense),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                         Text(
                             text = summary.totalExpenseMinor.formatWon(),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -232,6 +261,7 @@ fun HomeScreen(
             Text(
                 text = stringResource(R.string.home_recent),
                 style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
 
@@ -246,7 +276,7 @@ fun HomeScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = SurfaceLow,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                     tonalElevation = 0.dp,
                 ) {
                     Column(
@@ -300,6 +330,7 @@ fun HomeScreen(
                                         Text(
                                             text = row.categoryName,
                                             style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -318,6 +349,7 @@ fun HomeScreen(
                                     Text(
                                         text = (if (row.isIncome) "+" else "−") + row.amountMinor.formatWon(),
                                         style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
                                         color = amountColor,
                                     )
                                 }
