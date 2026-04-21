@@ -66,11 +66,12 @@ fun MainTabScaffold(
         }
     }
 
+    // Terracotta indicator, no cool colors
     val navItemColors =
         NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -81,13 +82,13 @@ fun MainTabScaffold(
             if (selected <= 2) {
                 FloatingActionButton(
                     onClick = onNavigateAdd,
-                    shape = MaterialTheme.shapes.large,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation =
                         FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 10.dp,
+                            defaultElevation = 4.dp,
+                            pressedElevation = 8.dp,
                         ),
                 ) {
                     Icon(
@@ -100,41 +101,41 @@ fun MainTabScaffold(
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp,
+                tonalElevation = 0.dp,
             ) {
                 NavigationBarItem(
                     selected = selected == 0,
                     onClick = { selected = 0 },
                     icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_home)) },
+                    label = { Text(stringResource(R.string.nav_home), style = MaterialTheme.typography.labelMedium) },
                     colors = navItemColors,
                 )
                 NavigationBarItem(
                     selected = selected == 1,
                     onClick = { selected = 1 },
                     icon = { Icon(Icons.Filled.List, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_ledger)) },
+                    label = { Text(stringResource(R.string.nav_ledger), style = MaterialTheme.typography.labelMedium) },
                     colors = navItemColors,
                 )
                 NavigationBarItem(
                     selected = selected == 2,
                     onClick = { selected = 2 },
                     icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_calendar)) },
+                    label = { Text(stringResource(R.string.nav_calendar), style = MaterialTheme.typography.labelMedium) },
                     colors = navItemColors,
                 )
                 NavigationBarItem(
                     selected = selected == 3,
                     onClick = { selected = 3 },
                     icon = { Icon(Icons.Filled.Folder, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_archive)) },
+                    label = { Text(stringResource(R.string.nav_archive), style = MaterialTheme.typography.labelMedium) },
                     colors = navItemColors,
                 )
                 NavigationBarItem(
                     selected = selected == 4,
                     onClick = { selected = 4 },
                     icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_settings)) },
+                    label = { Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.labelMedium) },
                     colors = navItemColors,
                 )
             }

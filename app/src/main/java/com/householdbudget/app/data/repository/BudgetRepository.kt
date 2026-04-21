@@ -36,10 +36,15 @@ class BudgetRepository(
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
 ) {
     val paydayDom: Flow<Int> = userPreferencesRepository.paydayDom
+    val kbankCardEnabled: Flow<Boolean> = userPreferencesRepository.kbankCardEnabled
 
     suspend fun setPaydayDom(day: Int) {
         userPreferencesRepository.setPaydayDom(day)
         userPreferencesRepository.clearLastSeenPeriodStart()
+    }
+
+    suspend fun setKbankCardEnabled(enabled: Boolean) {
+        userPreferencesRepository.setKbankCardEnabled(enabled)
     }
 
     fun observeArchivedPeriods(): Flow<List<ArchivedPeriodEntity>> = archivedPeriodDao.observeAll()

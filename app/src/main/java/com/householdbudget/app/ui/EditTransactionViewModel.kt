@@ -11,8 +11,11 @@ import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+enum class CashbackChannel { ONLINE, OFFLINE }
 
 data class EditTransactionUiState(
     val date: LocalDate = LocalDate.now(ZoneId.of("Asia/Seoul")),
@@ -86,7 +89,7 @@ class EditTransactionViewModel(
         _uiState.update { it.copy(memo = value) }
     }
 
-    fun save(onSuccess: () -> Unit, onInvalid: () -> Unit) {
+    fun save(cashbackChannel: CashbackChannel?, onSuccess: () -> Unit, onInvalid: () -> Unit) {
         val s = _uiState.value
         val amount = s.amountText.toLongOrNull() ?: 0L
         val categoryId = s.categoryId
@@ -105,6 +108,24 @@ class EditTransactionViewModel(
                         categoryId = categoryId,
                         memo = s.memo,
                     )
+                    if (!s.isIncome && cashbackChannel != null) {
+                        val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
+                        val cashback = amount * rate / 1000L
+                        if (cashback > 0L) {
+                            val incomeCatId = repository.observeCategories().first()
+                                .firstOrNull { it.isIncome }?.id
+                            if (incomeCatId != null) {
+                                val label = if (cashbackChannel == CashbackChannel.ONLINE) "온라인 1.1%" else "오프라인 0.6%"
+                                repository.insertTransaction(
+                                    occurredDate = s.date,
+                                    amountMinor = cashback,
+                                    isIncome = true,
+                                    categoryId = incomeCatId,
+                                    memo = "케이뱅크 캐시백 ($label)",
+                                )
+                            }
+                        }
+                    }
                 } else {
                     repository.updateTransaction(
                         id = transactionId,

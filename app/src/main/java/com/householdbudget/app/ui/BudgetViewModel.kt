@@ -57,10 +57,19 @@ class BudgetViewModel(
             initialValue = emptyList(),
         )
 
+    val kbankCardEnabled: StateFlow<Boolean> =
+        repository.kbankCardEnabled.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
+
     fun setPaydayDom(day: Int) {
-        viewModelScope.launch {
-            repository.setPaydayDom(day)
-        }
+        viewModelScope.launch { repository.setPaydayDom(day) }
+    }
+
+    fun setKbankCardEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setKbankCardEnabled(enabled) }
     }
 
     companion object {

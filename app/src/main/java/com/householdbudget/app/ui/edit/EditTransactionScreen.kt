@@ -18,12 +18,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.border
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Surface
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.FilterChip
@@ -54,9 +54,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.CashbackChannel
 import com.householdbudget.app.ui.EditTransactionViewModel
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.util.formatWon
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -75,7 +77,10 @@ fun EditTransactionScreen(
         )
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val categories by budgetViewModel.categories.collectAsStateWithLifecycle()
+    val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val zone = ZoneId.of("Asia/Seoul")
+    var cashbackChannel by remember { mutableStateOf(CashbackChannel.OFFLINE) }
+    val showCashbackSelector = !ui.isIncome && kbankCardEnabled && transactionId == null
 
     LaunchedEffect(categories, ui.isIncome, ui.categoryId, ui.loadFinished) {
         if (!ui.loadFinished || categories.isEmpty()) return@LaunchedEffect
@@ -126,11 +131,17 @@ fun EditTransactionScreen(
                 .padding(horizontal = ScreenHorizontalPadding, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = MaterialTheme.shapes.large,
+                    ),
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -209,6 +220,43 @@ fun EditTransactionScreen(
                             ),
                     )
 
+                    if (showCashbackSelector) {
+                        Text(
+                            text = stringResource(R.string.edit_cashback_channel),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = cashbackChannel == CashbackChannel.OFFLINE,
+                                onClick = { cashbackChannel = CashbackChannel.OFFLINE },
+                                label = { Text(stringResource(R.string.edit_cashback_offline)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            )
+                            FilterChip(
+                                selected = cashbackChannel == CashbackChannel.ONLINE,
+                                onClick = { cashbackChannel = CashbackChannel.ONLINE },
+                                label = { Text(stringResource(R.string.edit_cashback_online)) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            )
+                        }
+                        val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
+                        val previewAmount = (ui.amountText.toLongOrNull() ?: 0L) * rate / 1000L
+                        if (previewAmount > 0L) {
+                            Text(
+                                text = stringResource(R.string.edit_cashback_preview, previewAmount.formatWon()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
+                    }
+
                     FilledTonalButton(
                         onClick = { showDatePicker = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -230,10 +278,9 @@ fun EditTransactionScreen(
             Button(
                 onClick = {
                     vm.save(
+                        cashbackChannel = if (showCashbackSelector) cashbackChannel else null,
                         onSuccess = onClose,
-                        onInvalid = {
-                            showInvalid = true
-                        },
+                        onInvalid = { showInvalid = true },
                     )
                 },
                 enabled = !ui.isSaving,

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -41,9 +42,17 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[LAST_SEEN_PERIOD_START] = epochDay }
     }
 
+    val kbankCardEnabled: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[KBANK_CARD_ENABLED] ?: false }
+
+    suspend fun setKbankCardEnabled(enabled: Boolean) {
+        dataStore.edit { it[KBANK_CARD_ENABLED] = enabled }
+    }
+
     companion object {
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
         private val LAST_SEEN_PERIOD_START = longPreferencesKey("last_seen_period_start_epoch_day")
+        private val KBANK_CARD_ENABLED = booleanPreferencesKey("kbank_card_enabled")
         private const val DEFAULT_PAYDAY_DOM = 25
     }
 }
