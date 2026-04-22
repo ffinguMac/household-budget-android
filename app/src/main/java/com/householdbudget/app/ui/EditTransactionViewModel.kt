@@ -67,9 +67,8 @@ class EditTransactionViewModel(
     }
 
     fun setAmountText(text: String) {
-        if (text.isEmpty() || text.all { it.isDigit() }) {
-            _uiState.update { it.copy(amountText = text) }
-        }
+        val digits = text.filter { it.isDigit() }
+        _uiState.update { it.copy(amountText = digits) }
     }
 
     fun setIncome(value: Boolean, categories: List<CategoryEntity>) {
