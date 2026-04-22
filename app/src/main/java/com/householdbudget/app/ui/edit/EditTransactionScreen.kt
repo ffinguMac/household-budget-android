@@ -1,40 +1,41 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
 
 package com.householdbudget.app.ui.edit
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.foundation.border
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Surface
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -45,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,9 +60,9 @@ import com.householdbudget.app.ui.CashbackChannel
 import com.householdbudget.app.ui.EditTransactionViewModel
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.util.ThousandSeparatorTransformation
 import com.householdbudget.app.ui.util.formatWon
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 @Composable
@@ -80,7 +82,6 @@ fun EditTransactionScreen(
     val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val zone = ZoneId.of("Asia/Seoul")
     var cashbackChannel by remember { mutableStateOf(CashbackChannel.OFFLINE) }
-    val showCashbackSelector = !ui.isIncome && kbankCardEnabled && transactionId == null
 
     LaunchedEffect(categories, ui.isIncome, ui.categoryId, ui.loadFinished) {
         if (!ui.loadFinished || categories.isEmpty()) return@LaunchedEffect
@@ -95,6 +96,7 @@ fun EditTransactionScreen(
     var showInvalid by remember { mutableStateOf(false) }
 
     val filteredCategories = categories.filter { it.isIncome == ui.isIncome }
+    val showCashbackSection = !ui.isIncome && transactionId == null
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -102,11 +104,8 @@ fun EditTransactionScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        if (transactionId == null) {
-                            stringResource(R.string.edit_title_new)
-                        } else {
-                            stringResource(R.string.edit_title_edit)
-                        },
+                        if (transactionId == null) stringResource(R.string.edit_title_new)
+                        else stringResource(R.string.edit_title_edit),
                         style = MaterialTheme.typography.titleLarge,
                     )
                 },
@@ -115,11 +114,10 @@ fun EditTransactionScreen(
                         Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_back))
                     }
                 },
-                colors =
-                    TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
     ) { padding ->
@@ -129,103 +127,103 @@ fun EditTransactionScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = ScreenHorizontalPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        shape = MaterialTheme.shapes.large,
+            // ── 수입/지출 토글 ──────────────────────────────
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = ui.isIncome,
+                    onClick = { vm.setIncome(true, categories) },
+                    label = { Text(stringResource(R.string.edit_income)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                     ),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                )
+                FilterChip(
+                    selected = !ui.isIncome,
+                    onClick = { vm.setIncome(false, categories) },
+                    label = { Text(stringResource(R.string.edit_expense)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
+                )
+            }
+
+            // ── 금액 ───────────────────────────────────────
+            OutlinedTextField(
+                value = ui.amountText,
+                onValueChange = vm::setAmountText,
+                label = { Text(stringResource(R.string.edit_amount)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = ThousandSeparatorTransformation(),
+                suffix = { Text("원") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+            )
+
+            // ── 카테고리 ────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.edit_category),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    filteredCategories.forEach { c ->
                         FilterChip(
-                            selected = ui.isIncome,
-                            onClick = { vm.setIncome(true, categories) },
-                            label = { Text(stringResource(R.string.edit_income)) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                ),
-                        )
-                        FilterChip(
-                            selected = !ui.isIncome,
-                            onClick = { vm.setIncome(false, categories) },
-                            label = { Text(stringResource(R.string.edit_expense)) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                ),
+                            selected = ui.categoryId == c.id,
+                            onClick = { vm.setCategoryId(c.id) },
+                            label = { Text(c.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
                         )
                     }
+                }
+            }
 
-                    OutlinedTextField(
-                        value = ui.amountText,
-                        onValueChange = vm::setAmountText,
-                        label = { Text(stringResource(R.string.edit_amount)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            ),
-                    )
+            // ── 메모 ────────────────────────────────────────
+            OutlinedTextField(
+                value = ui.memo,
+                onValueChange = vm::setMemo,
+                label = { Text(stringResource(R.string.edit_memo)) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+            )
 
-                    Text(
-                        text = stringResource(R.string.edit_category),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // ── 케이뱅크 캐시백 ─────────────────────────────
+            if (showCashbackSection) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        items(filteredCategories, key = { it.id }) { c ->
-                            FilterChip(
-                                selected = ui.categoryId == c.id,
-                                onClick = { vm.setCategoryId(c.id) },
-                                label = { Text(c.name) },
-                                colors =
-                                    FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor =
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor =
-                                            MaterialTheme.colorScheme.onPrimaryContainer,
-                                    ),
-                            )
-                        }
+                        Text(
+                            text = "케이뱅크 캐시백",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Switch(
+                            checked = kbankCardEnabled,
+                            onCheckedChange = { budgetViewModel.setKbankCardEnabled(it) },
+                        )
                     }
 
-                    OutlinedTextField(
-                        value = ui.memo,
-                        onValueChange = vm::setMemo,
-                        label = { Text(stringResource(R.string.edit_memo)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            ),
-                    )
-
-                    if (showCashbackSelector) {
-                        Text(
-                            text = stringResource(R.string.edit_cashback_channel),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    if (kbankCardEnabled) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = cashbackChannel == CashbackChannel.OFFLINE,
@@ -256,17 +254,20 @@ fun EditTransactionScreen(
                             )
                         }
                     }
-
-                    FilledTonalButton(
-                        onClick = { showDatePicker = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                    ) {
-                        Text("${stringResource(R.string.edit_date)}: ${ui.date}")
-                    }
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
 
+            // ── 날짜 ────────────────────────────────────────
+            FilledTonalButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text("${stringResource(R.string.edit_date)}: ${ui.date}")
+            }
+
+            // ── 에러 ────────────────────────────────────────
             if (showInvalid) {
                 Text(
                     text = stringResource(R.string.edit_invalid),
@@ -275,10 +276,11 @@ fun EditTransactionScreen(
                 )
             }
 
+            // ── 저장 ────────────────────────────────────────
             Button(
                 onClick = {
                     vm.save(
-                        cashbackChannel = if (showCashbackSelector) cashbackChannel else null,
+                        cashbackChannel = if (showCashbackSection && kbankCardEnabled) cashbackChannel else null,
                         onSuccess = onClose,
                         onInvalid = { showInvalid = true },
                     )
@@ -286,11 +288,10 @@ fun EditTransactionScreen(
                 enabled = !ui.isSaving,
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
             ) {
                 Text(stringResource(R.string.edit_save))
             }
@@ -321,15 +322,12 @@ fun EditTransactionScreen(
                     onClick = {
                         val selected = state.selectedDateMillis
                         if (selected != null) {
-                            val picked =
-                                Instant.ofEpochMilli(selected).atZone(zone).toLocalDate()
+                            val picked = Instant.ofEpochMilli(selected).atZone(zone).toLocalDate()
                             vm.setDate(picked)
                         }
                         showDatePicker = false
                     },
-                ) {
-                    Text(stringResource(R.string.edit_save))
-                }
+                ) { Text(stringResource(R.string.edit_save)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
@@ -353,9 +351,7 @@ fun EditTransactionScreen(
                         showDeleteConfirm = false
                         vm.delete(onSuccess = onClose)
                     },
-                ) {
-                    Text(stringResource(R.string.edit_confirm))
-                }
+                ) { Text(stringResource(R.string.edit_confirm)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
