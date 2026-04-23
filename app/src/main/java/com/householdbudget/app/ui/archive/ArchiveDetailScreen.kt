@@ -111,6 +111,7 @@ fun ArchiveDetailScreen(
                         R.string.archive_detail_totals,
                         h.totalIncomeMinor.formatWon(),
                         h.totalExpenseMinor.formatWon(),
+                        h.totalSavingsMinor.formatWon(),
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -127,11 +128,18 @@ fun ArchiveDetailScreen(
         LazyColumn(verticalArrangement = Arrangement.spacedBy(0.dp)) {
             items(txs, key = { it.id }) { row ->
                 val d = LocalDate.ofEpochDay(row.occurredEpochDay)
+                val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(row.kind)
+                val prefix = when (kind) {
+                    com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
+                    com.householdbudget.app.domain.CategoryKind.EXPENSE -> "-"
+                    com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
+                }
+                val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
                 Column(Modifier.padding(vertical = 10.dp)) {
                     Text(
                         text =
-                            "${d.format(dateFmt)} · ${row.categoryName} · " +
-                                (if (row.isIncome) "+" else "-") +
+                            "${d.format(dateFmt)} · $parentPrefix${row.categoryName} · " +
+                                prefix +
                                 row.amountMinor.formatWon() +
                                 if (row.memo.isNotBlank()) "\n${row.memo}" else "",
                         style = MaterialTheme.typography.bodyMedium,

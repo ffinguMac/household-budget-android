@@ -24,5 +24,6 @@ data class ArchivedPeriodEntity(
     @ColumnInfo(name = "end_epoch_day") val endEpochDay: Long,
     @ColumnInfo(name = "total_income_minor") val totalIncomeMinor: Long,
     @ColumnInfo(name = "total_expense_minor") val totalExpenseMinor: Long,
+    @ColumnInfo(name = "total_savings_minor") val totalSavingsMinor: Long = 0L,
     @ColumnInfo(name = "archived_at_epoch_ms") val archivedAtEpochMs: Long,
 )

@@ -63,6 +63,7 @@ fun CalendarScreen(
     val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
     val monthlyIncome = totals.values.sumOf { it.incomeMinor }
     val monthlyExpense = totals.values.sumOf { it.expenseMinor }
+    val monthlySavings = totals.values.sumOf { it.savingsMinor }
 
     val first = ym.atDay(1)
     // Sunday-first: SUN=7 → 7%7=0, MON=1 → 1%7=1, ..., SAT=6 → 6%7=6
@@ -110,62 +111,32 @@ fun CalendarScreen(
             }
         }
 
-        // 월별 수입/지출 통계 2열
+        // 월별 수입/지출/저축 3열 통계
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = ScreenHorizontalPadding),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Surface(
+                CalendarSummaryTile(
                     modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    tonalElevation = 0.dp,
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Text(
-                            text = "월 수입",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = monthlyIncome.formatWon(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                    }
-                }
-                Surface(
+                    title = "월 수입",
+                    amount = monthlyIncome.formatWon(),
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                CalendarSummaryTile(
                     modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    tonalElevation = 0.dp,
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Text(
-                            text = "월 지출",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = monthlyExpense.formatWon(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
+                    title = "월 지출",
+                    amount = monthlyExpense.formatWon(),
+                    color = MaterialTheme.colorScheme.error,
+                )
+                CalendarSummaryTile(
+                    modifier = Modifier.weight(1f),
+                    title = "월 저축",
+                    amount = monthlySavings.formatWon(),
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -216,6 +187,7 @@ fun CalendarScreen(
                                     isSelected = isSelected,
                                     hasIncome = (t?.incomeMinor ?: 0L) > 0L,
                                     hasExpense = (t?.expenseMinor ?: 0L) > 0L,
+                                    hasSavings = (t?.savingsMinor ?: 0L) > 0L,
                                     onClick = {
                                         if (inMonth) {
                                             val tapped = ym.atDay(dayNum).toEpochDay()
@@ -254,6 +226,7 @@ private fun CalendarCell(
     isSelected: Boolean,
     hasIncome: Boolean,
     hasExpense: Boolean,
+    hasSavings: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -282,7 +255,7 @@ private fun CalendarCell(
             },
             modifier = Modifier.align(Alignment.TopStart),
         )
-        if (inMonth && (hasIncome || hasExpense)) {
+        if (inMonth && (hasIncome || hasExpense || hasSavings)) {
             Row(
                 modifier = Modifier.align(Alignment.BottomStart),
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -301,6 +274,14 @@ private fun CalendarCell(
                             .size(6.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.error),
+                    )
+                }
+                if (hasSavings) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
                     )
                 }
             }
@@ -369,6 +350,29 @@ private fun DayDetailSection(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 txs.forEach { row ->
+                    val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(row.kind)
+                    val amountColor = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondary
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primary
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.error
+                    }
+                    val avatarBg = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    val avatarText = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.onSecondaryContainer
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onPrimaryContainer
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    val amountPrefix = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> "−"
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
+                    }
+                    val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
+
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
@@ -386,18 +390,14 @@ private fun DayDetailSection(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(CircleShape)
-                                    .background(
-                                        if (row.isIncome) MaterialTheme.colorScheme.secondaryContainer
-                                        else MaterialTheme.colorScheme.surfaceVariant
-                                    ),
+                                    .background(avatarBg),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     text = row.categoryName.take(1),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (row.isIncome) MaterialTheme.colorScheme.onSecondaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = avatarText,
                                 )
                             }
                             Column(
@@ -405,7 +405,7 @@ private fun DayDetailSection(
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
                                 Text(
-                                    text = row.categoryName,
+                                    text = "$parentPrefix${row.categoryName}",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -423,17 +423,51 @@ private fun DayDetailSection(
                                 }
                             }
                             Text(
-                                text = (if (row.isIncome) "+" else "−") + row.amountMinor.formatWon(),
+                                text = amountPrefix + row.amountMinor.formatWon(),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (row.isIncome) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.error,
+                                color = amountColor,
                             )
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun CalendarSummaryTile(
+    modifier: Modifier,
+    title: String,
+    amount: String,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = amount,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

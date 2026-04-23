@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
-import com.householdbudget.app.data.local.entity.RecurringRuleEntity
+import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.domain.CategoryKind
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -16,7 +18,8 @@ data class RecurringEditorUiState(
     val name: String = "",
     val dayOfMonth: Int = 1,
     val amountText: String = "",
-    val isIncome: Boolean = false,
+    val kind: CategoryKind = CategoryKind.EXPENSE,
+    val parentId: Long? = null,
     val categoryId: Long? = null,
     val memo: String = "",
     val enabled: Boolean = true,
@@ -37,12 +40,14 @@ class RecurringEditorViewModel(
             viewModelScope.launch {
                 val row = repository.getRecurringRule(ruleId)
                 if (row != null) {
+                    val cat = repository.observeCategories().first().firstOrNull { it.id == row.categoryId }
                     _ui.value =
                         RecurringEditorUiState(
                             name = row.name,
                             dayOfMonth = row.dayOfMonth,
                             amountText = row.amountMinor.toString(),
-                            isIncome = row.isIncome,
+                            kind = CategoryKind.fromStorage(row.kind),
+                            parentId = cat?.parentId,
                             categoryId = row.categoryId,
                             memo = row.memo,
                             enabled = row.enabled,
@@ -72,8 +77,15 @@ class RecurringEditorViewModel(
         }
     }
 
-    fun setIncome(value: Boolean) {
-        _ui.update { it.copy(isIncome = value, categoryId = null) }
+    fun setKind(value: CategoryKind) {
+        _ui.update { s ->
+            if (s.kind == value) s
+            else s.copy(kind = value, parentId = null, categoryId = null)
+        }
+    }
+
+    fun setParent(parentId: Long, firstLeaf: CategoryEntity?) {
+        _ui.update { it.copy(parentId = parentId, categoryId = firstLeaf?.id) }
     }
 
     fun setCategoryId(id: Long) {
@@ -104,7 +116,6 @@ class RecurringEditorViewModel(
                         name = s.name,
                         dayOfMonth = s.dayOfMonth,
                         amountMinor = amount,
-                        isIncome = s.isIncome,
                         categoryId = cat,
                         memo = s.memo,
                         enabled = s.enabled,
@@ -120,7 +131,6 @@ class RecurringEditorViewModel(
                             name = s.name.trim(),
                             dayOfMonth = s.dayOfMonth,
                             amountMinor = amount,
-                            isIncome = s.isIncome,
                             categoryId = cat,
                             memo = s.memo.trim(),
                             enabled = s.enabled,

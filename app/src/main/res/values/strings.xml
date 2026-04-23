@@ -10,7 +10,8 @@
     <string name="home_title">이번 회계월</string>
     <string name="home_income">수입</string>
     <string name="home_expense">지출</string>
-    <string name="home_net">순액</string>
+    <string name="home_savings">저축</string>
+    <string name="home_net">순잉여</string>
     <string name="home_recent">최근 거래</string>
     <string name="ledger_empty">이번 회계월에 등록된 거래가 없습니다.</string>
     <string name="settings_payday_title">월급일</string>
@@ -20,6 +21,8 @@
     <string name="settings_save">저장</string>
     <string name="settings_saved">저장했습니다.</string>
     <string name="settings_open_recurring">자동 이체 · 반복 내역</string>
+    <string name="settings_open_categories">카테고리 관리</string>
+    <string name="settings_open_categories_subtitle">대분류·소분류 직접 편집</string>
     <string name="calendar_day_empty">이 날 등록된 거래가 없습니다.</string>
     <string name="calendar_day_close">닫기</string>
     <string name="recurring_title">반복 내역</string>
@@ -39,9 +42,10 @@
     <string name="archive_empty">아직 보관된 회계월이 없습니다. 다음 회계월로 넘어가면 이전 달이 자동 저장됩니다.</string>
     <string name="archive_row_income">수입 %s</string>
     <string name="archive_row_expense">지출 %s</string>
+    <string name="archive_row_savings">저축 %s</string>
     <string name="archive_saved_at">보관 시각 %s</string>
     <string name="archive_missing">보관 항목을 찾을 수 없습니다.</string>
-    <string name="archive_detail_totals">수입 %1$s · 지출 %2$s</string>
+    <string name="archive_detail_totals">수입 %1$s · 지출 %2$s · 저축 %3$s</string>
     <string name="archive_detail_transactions">당시 거래 내역</string>
     <string name="edit_title_new">거래 추가</string>
     <string name="edit_title_edit">거래 수정</string>
@@ -49,7 +53,11 @@
     <string name="edit_memo">메모</string>
     <string name="edit_income">수입</string>
     <string name="edit_expense">지출</string>
+    <string name="edit_savings">저축</string>
     <string name="edit_category">카테고리</string>
+    <string name="edit_category_parent">대분류</string>
+    <string name="edit_category_child">소분류</string>
+    <string name="edit_category_pick_parent_first">대분류를 먼저 선택하세요</string>
     <string name="edit_date">날짜</string>
     <string name="edit_pick_date">날짜 선택</string>
     <string name="edit_save">저장</string>
@@ -67,4 +75,28 @@
     <string name="edit_cashback_online">온라인 (1.1%)</string>
     <string name="edit_cashback_offline">오프라인 (0.6%)</string>
     <string name="edit_cashback_preview">캐시백 예상: +%s</string>
+
+    <!-- 카테고리 관리 -->
+    <string name="category_management_title">카테고리 관리</string>
+    <string name="category_tab_income">수입</string>
+    <string name="category_tab_expense">지출</string>
+    <string name="category_tab_savings">저축</string>
+    <string name="category_add_parent">대분류 추가</string>
+    <string name="category_add_child">소분류 추가</string>
+    <string name="category_rename">이름 변경</string>
+    <string name="category_delete">삭제</string>
+    <string name="category_default_leaf_name">기본</string>
+    <string name="category_name_label">이름</string>
+    <string name="category_name_hint">예: 식비, 카페, 투자</string>
+    <string name="category_delete_confirm_title">정말 삭제할까요?</string>
+    <string name="category_delete_confirm_simple">카테고리를 삭제합니다.</string>
+    <string name="category_delete_with_refs">이 카테고리에 거래 %1$d건 · 반복 규칙 %2$d건이 연결되어 있습니다. 함께 삭제됩니다.</string>
+    <string name="category_kind_mismatch">대분류와 소분류의 종류가 달라요.</string>
+    <string name="category_duplicate_name">같은 위치에 동일한 이름이 이미 있어요.</string>
+    <string name="category_empty_name">이름을 입력해 주세요.</string>
+    <string name="category_empty_for_kind">아직 이 분류에 카테고리가 없습니다. 아래 + 버튼으로 추가하세요.</string>
+    <string name="category_section_parents">대분류</string>
+    <string name="category_section_children">소분류</string>
+    <string name="category_save">저장</string>
+    <string name="category_cancel">취소</string>
 </resources>

@@ -14,6 +14,7 @@ import com.householdbudget.app.data.local.model.DayTotalRow
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.preferences.UserPreferencesRepository
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
 import java.time.YearMonth
@@ -23,6 +24,24 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+
+const val DEFAULT_LEAF_NAME = "기본"
+
+/** 카테고리 삭제 결과. */
+sealed interface CategoryDeletionResult {
+    data object Success : CategoryDeletionResult
+    /** 카테고리(또는 후손)에 거래/반복규칙이 [transactionCount]건 있음. force=true로 다시 호출하면 모두 삭제. */
+    data class HasReferences(val transactionCount: Int, val recurringCount: Int) :
+        CategoryDeletionResult
+}
+
+/** 카테고리 검증 오류. */
+sealed interface CategoryValidationError {
+    data object DuplicateName : CategoryValidationError
+    data object KindMismatch : CategoryValidationError
+    data object EmptyName : CategoryValidationError
+    data object NotFound : CategoryValidationError
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BudgetRepository(
@@ -51,12 +70,14 @@ class BudgetRepository(
 
     suspend fun getArchivedPeriod(id: Long): ArchivedPeriodEntity? = archivedPeriodDao.getById(id)
 
-    fun observeTransactionsInRange(startEpochDay: Long, endExclusiveEpochDay: Long): Flow<List<TransactionWithCategoryRow>> =
+    fun observeTransactionsInRange(
+        startEpochDay: Long,
+        endExclusiveEpochDay: Long,
+    ): Flow<List<TransactionWithCategoryRow>> =
         transactionDao.observeBetween(startEpochDay, endExclusiveEpochDay)
 
     /**
      * 월급일 기준 **이전 회계월**들을 스냅샷으로 저장한다.
-     * 현재 보고 있는 회계월 시작일이 바뀌었을 때만, 아직 없는 과거 구간을 최대 48개까지 채운다.
      */
     suspend fun tryArchiveCompletedPeriods() {
         val dom = userPreferencesRepository.getPaydayDomSnapshot()
@@ -88,6 +109,7 @@ class BudgetRepository(
                     endEpochDay = endEx,
                     totalIncomeMinor = agg.incomeMinor,
                     totalExpenseMinor = agg.expenseMinor,
+                    totalSavingsMinor = agg.savingsMinor,
                     archivedAtEpochMs = System.currentTimeMillis(),
                 ),
             )
@@ -136,17 +158,19 @@ class BudgetRepository(
     suspend fun insertTransaction(
         occurredDate: LocalDate,
         amountMinor: Long,
-        isIncome: Boolean,
         categoryId: Long,
         memo: String,
     ): Long {
         require(amountMinor > 0)
+        val leaf =
+            categoryDao.getById(categoryId)
+                ?: error("Category not found: $categoryId")
         val entity =
             TransactionEntity(
                 occurredEpochDay = occurredDate.toEpochDay(),
                 amountMinor = amountMinor,
-                isIncome = isIncome,
-                categoryId = categoryId,
+                kind = leaf.kind,
+                categoryId = leaf.id,
                 memo = memo.trim(),
             )
         return transactionDao.insert(entity)
@@ -156,19 +180,18 @@ class BudgetRepository(
         id: Long,
         occurredDate: LocalDate,
         amountMinor: Long,
-        isIncome: Boolean,
         categoryId: Long,
         memo: String,
     ) {
         require(amountMinor > 0)
-        val existing =
-            transactionDao.getById(id) ?: error("Transaction not found: $id")
+        val existing = transactionDao.getById(id) ?: error("Transaction not found: $id")
+        val leaf = categoryDao.getById(categoryId) ?: error("Category not found: $categoryId")
         val updated =
             existing.copy(
                 occurredEpochDay = occurredDate.toEpochDay(),
                 amountMinor = amountMinor,
-                isIncome = isIncome,
-                categoryId = categoryId,
+                kind = leaf.kind,
+                categoryId = leaf.id,
                 memo = memo.trim(),
             )
         transactionDao.update(updated)
@@ -187,20 +210,20 @@ class BudgetRepository(
         name: String,
         dayOfMonth: Int,
         amountMinor: Long,
-        isIncome: Boolean,
         categoryId: Long,
         memo: String,
         enabled: Boolean,
     ): Long {
         require(dayOfMonth in 1..31)
         require(amountMinor > 0)
+        val leaf = categoryDao.getById(categoryId) ?: error("Category not found: $categoryId")
         val entity =
             RecurringRuleEntity(
                 name = name.trim(),
                 dayOfMonth = dayOfMonth,
                 amountMinor = amountMinor,
-                isIncome = isIncome,
-                categoryId = categoryId,
+                kind = leaf.kind,
+                categoryId = leaf.id,
                 memo = memo.trim(),
                 enabled = enabled,
                 lastAppliedYearMonth = null,
@@ -211,7 +234,11 @@ class BudgetRepository(
     suspend fun updateRecurringRule(entity: RecurringRuleEntity) {
         require(entity.dayOfMonth in 1..31)
         require(entity.amountMinor > 0)
-        recurringRuleDao.update(entity)
+        val leaf =
+            categoryDao.getById(entity.categoryId)
+                ?: error("Category not found: ${entity.categoryId}")
+        // 카테고리의 kind와 동기화.
+        recurringRuleDao.update(entity.copy(kind = leaf.kind))
     }
 
     suspend fun deleteRecurringRule(id: Long) {
@@ -238,12 +265,221 @@ class BudgetRepository(
                     TransactionEntity(
                         occurredEpochDay = target.toEpochDay(),
                         amountMinor = rule.amountMinor,
-                        isIncome = rule.isIncome,
+                        kind = rule.kind,
                         categoryId = rule.categoryId,
                         memo = memo,
                     ),
                 )
                 recurringRuleDao.update(rule.copy(lastAppliedYearMonth = ymStr))
+            }
+        }
+    }
+
+    // ── 카테고리 관리 ──────────────────────────────────────────────────────
+
+    /**
+     * 새 대분류와 그 아래 "기본" 소분류를 한 번에 생성. 같은 kind 내에서 이름이 중복되면 에러.
+     */
+    suspend fun addParentCategory(
+        name: String,
+        kind: CategoryKind,
+    ): Result<Long> = database.withTransaction {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return@withTransaction Result.failure(
+            ValidationException(CategoryValidationError.EmptyName),
+        )
+        if (categoryDao.findTopLevelByName(kind.storage, trimmed) != null) {
+            return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.DuplicateName),
+            )
+        }
+        val nextSort = (categoryDao.maxTopLevelSortOrder(kind.storage) ?: -1) + 1
+        val parentId =
+            categoryDao.insert(
+                CategoryEntity(
+                    name = trimmed,
+                    kind = kind.storage,
+                    parentId = null,
+                    sortOrder = nextSort,
+                ),
+            )
+        // 기본 leaf 자동 생성.
+        categoryDao.insert(
+            CategoryEntity(
+                name = DEFAULT_LEAF_NAME,
+                kind = kind.storage,
+                parentId = parentId,
+                sortOrder = 0,
+            ),
+        )
+        Result.success(parentId)
+    }
+
+    /**
+     * 대분류 아래 새 소분류를 추가. 대분류에 거래 0건의 자동 "기본" leaf만 있으면 그것을 제거.
+     */
+    suspend fun addLeafCategory(
+        parentId: Long,
+        name: String,
+    ): Result<Long> = database.withTransaction {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return@withTransaction Result.failure(
+            ValidationException(CategoryValidationError.EmptyName),
+        )
+        val parent =
+            categoryDao.getById(parentId)
+                ?: return@withTransaction Result.failure(
+                    ValidationException(CategoryValidationError.NotFound),
+                )
+        if (parent.parentId != null) {
+            // 소분류 밑에는 추가 불가 (계층은 2단계만).
+            return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.NotFound),
+            )
+        }
+        if (categoryDao.findChildByName(parentId, trimmed) != null) {
+            return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.DuplicateName),
+            )
+        }
+
+        // "기본" leaf만 있고 거래 0건이면 자동 제거 (빈 placeholder 정리).
+        val children = categoryDao.getChildren(parentId)
+        if (children.size == 1 && children[0].name == DEFAULT_LEAF_NAME) {
+            val onlyChild = children[0]
+            val tx = categoryDao.countTransactionsForLeaf(onlyChild.id)
+            val rr = categoryDao.countRecurringRulesForLeaf(onlyChild.id)
+            if (tx == 0 && rr == 0) {
+                categoryDao.delete(onlyChild)
+            }
+        }
+
+        val nextSort = (categoryDao.maxChildSortOrder(parentId) ?: -1) + 1
+        val newId =
+            categoryDao.insert(
+                CategoryEntity(
+                    name = trimmed,
+                    kind = parent.kind,
+                    parentId = parentId,
+                    sortOrder = nextSort,
+                ),
+            )
+        Result.success(newId)
+    }
+
+    suspend fun renameCategory(id: Long, newName: String): Result<Unit> =
+        database.withTransaction {
+            val trimmed = newName.trim()
+            if (trimmed.isEmpty()) return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.EmptyName),
+            )
+            val cat =
+                categoryDao.getById(id)
+                    ?: return@withTransaction Result.failure(
+                        ValidationException(CategoryValidationError.NotFound),
+                    )
+            // 동일 형제(같은 parent) 내 이름 중복 검사.
+            if (cat.parentId == null) {
+                val dup = categoryDao.findTopLevelByName(cat.kind, trimmed)
+                if (dup != null && dup.id != id) {
+                    return@withTransaction Result.failure(
+                        ValidationException(CategoryValidationError.DuplicateName),
+                    )
+                }
+            } else {
+                val dup = categoryDao.findChildByName(cat.parentId, trimmed)
+                if (dup != null && dup.id != id) {
+                    return@withTransaction Result.failure(
+                        ValidationException(CategoryValidationError.DuplicateName),
+                    )
+                }
+            }
+            categoryDao.update(cat.copy(name = trimmed))
+            Result.success(Unit)
+        }
+
+    /**
+     * 카테고리 삭제. force=false일 때 거래/반복규칙 참조가 있으면 [CategoryDeletionResult.HasReferences] 반환.
+     * 대분류는 후손 leaf의 참조까지 모두 검사.
+     */
+    suspend fun deleteCategory(id: Long, force: Boolean): CategoryDeletionResult =
+        database.withTransaction {
+            val cat = categoryDao.getById(id) ?: return@withTransaction CategoryDeletionResult.Success
+            val leafIds: List<Long> =
+                if (cat.parentId == null) {
+                    categoryDao.getChildren(cat.id).map { it.id }
+                } else {
+                    listOf(cat.id)
+                }
+            var txCount = 0
+            var rrCount = 0
+            for (lid in leafIds) {
+                txCount += categoryDao.countTransactionsForLeaf(lid)
+                rrCount += categoryDao.countRecurringRulesForLeaf(lid)
+            }
+            if ((txCount > 0 || rrCount > 0) && !force) {
+                return@withTransaction CategoryDeletionResult.HasReferences(txCount, rrCount)
+            }
+            // 거래/규칙을 먼저 정리(FK RESTRICT 우회).
+            for (lid in leafIds) {
+                transactionDao.deleteByCategoryId(lid)
+                recurringRuleDao.deleteByCategoryId(lid)
+            }
+            // 대분류 삭제 시 자식 leaf는 ON DELETE CASCADE로 함께 사라짐.
+            categoryDao.delete(cat)
+            CategoryDeletionResult.Success
+        }
+
+    /** 같은 kind의 다른 대분류로 leaf를 이동. */
+    suspend fun moveLeaf(leafId: Long, newParentId: Long): Result<Unit> =
+        database.withTransaction {
+            val leaf =
+                categoryDao.getById(leafId)
+                    ?: return@withTransaction Result.failure(
+                        ValidationException(CategoryValidationError.NotFound),
+                    )
+            if (leaf.parentId == null) return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.NotFound),
+            )
+            val newParent =
+                categoryDao.getById(newParentId)
+                    ?: return@withTransaction Result.failure(
+                        ValidationException(CategoryValidationError.NotFound),
+                    )
+            if (newParent.parentId != null) return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.NotFound),
+            )
+            if (newParent.kind != leaf.kind) return@withTransaction Result.failure(
+                ValidationException(CategoryValidationError.KindMismatch),
+            )
+            if (categoryDao.findChildByName(newParentId, leaf.name) != null) {
+                return@withTransaction Result.failure(
+                    ValidationException(CategoryValidationError.DuplicateName),
+                )
+            }
+            val nextSort = (categoryDao.maxChildSortOrder(newParentId) ?: -1) + 1
+            categoryDao.update(leaf.copy(parentId = newParentId, sortOrder = nextSort))
+            Result.success(Unit)
+        }
+
+    suspend fun reorderTopLevel(kind: CategoryKind, orderedIds: List<Long>) {
+        database.withTransaction {
+            orderedIds.forEachIndexed { idx, id ->
+                val cat = categoryDao.getById(id) ?: return@forEachIndexed
+                if (cat.parentId == null && cat.kind == kind.storage) {
+                    categoryDao.update(cat.copy(sortOrder = idx))
+                }
+            }
+        }
+    }
+
+    suspend fun reorderChildren(parentId: Long, orderedIds: List<Long>) {
+        database.withTransaction {
+            orderedIds.forEachIndexed { idx, id ->
+                val cat = categoryDao.getById(id) ?: return@forEachIndexed
+                if (cat.parentId == parentId) {
+                    categoryDao.update(cat.copy(sortOrder = idx))
+                }
             }
         }
     }
@@ -265,16 +501,25 @@ class BudgetRepository(
     }
 }
 
+private class ValidationException(val error: CategoryValidationError) : Exception(error.toString())
+
+fun Result<*>.validationError(): CategoryValidationError? =
+    (exceptionOrNull() as? ValidationException)?.error
+
 data class HomeSummary(
     val period: BudgetPeriod,
     val transactions: List<TransactionWithCategoryRow>,
 ) {
     val totalIncomeMinor: Long
-        get() = transactions.filter { it.isIncome }.sumOf { it.amountMinor }
+        get() = transactions.filter { it.kind == CategoryKind.INCOME.storage }.sumOf { it.amountMinor }
 
     val totalExpenseMinor: Long
-        get() = transactions.filter { !it.isIncome }.sumOf { it.amountMinor }
+        get() = transactions.filter { it.kind == CategoryKind.EXPENSE.storage }.sumOf { it.amountMinor }
 
+    val totalSavingsMinor: Long
+        get() = transactions.filter { it.kind == CategoryKind.SAVINGS.storage }.sumOf { it.amountMinor }
+
+    /** 순잉여 = 수입 − 지출 − 저축. */
     val netMinor: Long
-        get() = totalIncomeMinor - totalExpenseMinor
+        get() = totalIncomeMinor - totalExpenseMinor - totalSavingsMinor
 }

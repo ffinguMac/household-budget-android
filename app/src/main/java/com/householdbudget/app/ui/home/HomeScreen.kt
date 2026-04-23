@@ -16,10 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -135,118 +131,31 @@ fun HomeScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // ── 수입 / 지출 카드 ─────────────────────────────────────────────────
+        // ── 수입 / 지출 / 저축 3분할 카드 ────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ScreenHorizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // 수입 카드
-            Surface(
+            HomeSummaryCard(
                 modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
-            ) {
-                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                    Box(
-                        modifier = Modifier
-                            .width(4.dp)
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f))
-                    )
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                )
-                            }
-                            Text(
-                                text = stringResource(R.string.home_income),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                        Text(
-                            text = summary.totalIncomeMinor.formatWon(),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-            }
-
-            // 지출 카드
-            Surface(
+                accent = MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f),
+                label = stringResource(R.string.home_income),
+                amount = summary.totalIncomeMinor.formatWon(),
+            )
+            HomeSummaryCard(
                 modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
-            ) {
-                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                    Box(
-                        modifier = Modifier
-                            .width(4.dp)
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.35f))
-                    )
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .background(MaterialTheme.colorScheme.errorContainer),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.TrendingDown,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                )
-                            }
-                            Text(
-                                text = stringResource(R.string.home_expense),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                        Text(
-                            text = summary.totalExpenseMinor.formatWon(),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-            }
+                accent = MaterialTheme.colorScheme.error.copy(alpha = 0.45f),
+                label = stringResource(R.string.home_expense),
+                amount = summary.totalExpenseMinor.formatWon(),
+            )
+            HomeSummaryCard(
+                modifier = Modifier.weight(1f),
+                accent = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+                label = stringResource(R.string.home_savings),
+                amount = summary.totalSavingsMinor.formatWon(),
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -287,15 +196,28 @@ fun HomeScreen(
                     ) {
                         recent.forEach { row ->
                             val d = LocalDate.ofEpochDay(row.occurredEpochDay)
-                            val amountColor =
-                                if (row.isIncome) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.onSurface
-                            val avatarBg =
-                                if (row.isIncome) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            val avatarTextColor =
-                                if (row.isIncome) MaterialTheme.colorScheme.onSecondaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(row.kind)
+                            val amountColor = when (kind) {
+                                com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondary
+                                com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primary
+                                com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurface
+                            }
+                            val avatarBg = when (kind) {
+                                com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                            val avatarTextColor = when (kind) {
+                                com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.onSecondaryContainer
+                                com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onPrimaryContainer
+                                com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            val amountPrefix = when (kind) {
+                                com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
+                                com.householdbudget.app.domain.CategoryKind.EXPENSE -> "−"
+                                com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
+                            }
+                            val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
 
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
@@ -328,7 +250,7 @@ fun HomeScreen(
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                     ) {
                                         Text(
-                                            text = row.categoryName,
+                                            text = "$parentPrefix${row.categoryName}",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
@@ -347,7 +269,7 @@ fun HomeScreen(
                                         )
                                     }
                                     Text(
-                                        text = (if (row.isIncome) "+" else "−") + row.amountMinor.formatWon(),
+                                        text = amountPrefix + row.amountMinor.formatWon(),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = amountColor,
@@ -361,5 +283,48 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun HomeSummaryCard(
+    modifier: Modifier,
+    accent: androidx.compose.ui.graphics.Color,
+    label: String,
+    amount: String,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(accent)
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = amount,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }

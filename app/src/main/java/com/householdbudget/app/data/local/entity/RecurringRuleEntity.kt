@@ -24,7 +24,7 @@ data class RecurringRuleEntity(
     val name: String,
     @ColumnInfo(name = "day_of_month") val dayOfMonth: Int,
     @ColumnInfo(name = "amount_minor") val amountMinor: Long,
-    @ColumnInfo(name = "is_income") val isIncome: Boolean,
+    val kind: String,
     @ColumnInfo(name = "category_id") val categoryId: Long,
     val memo: String = "",
     val enabled: Boolean = true,

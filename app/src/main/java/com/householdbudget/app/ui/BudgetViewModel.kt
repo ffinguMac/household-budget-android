@@ -8,11 +8,13 @@ import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.HomeSummary
+import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -56,6 +58,34 @@ class BudgetViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
+
+    /** kind별 대분류(parent) 목록. */
+    val parentsByKind: StateFlow<Map<CategoryKind, List<CategoryEntity>>> =
+        repository.observeCategories()
+            .map { all ->
+                all.filter { it.parentId == null }
+                    .groupBy { CategoryKind.fromStorage(it.kind) }
+                    .mapValues { (_, v) -> v.sortedWith(compareBy({ it.sortOrder }, { it.id })) }
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyMap(),
+            )
+
+    /** parent id별 소분류(leaf) 목록. */
+    val childrenByParent: StateFlow<Map<Long, List<CategoryEntity>>> =
+        repository.observeCategories()
+            .map { all ->
+                all.filter { it.parentId != null }
+                    .groupBy { it.parentId!! }
+                    .mapValues { (_, v) -> v.sortedWith(compareBy({ it.sortOrder }, { it.id })) }
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyMap(),
+            )
 
     val kbankCardEnabled: StateFlow<Boolean> =
         repository.kbankCardEnabled.stateIn(
