@@ -21,13 +21,15 @@ import androidx.room.PrimaryKey
         [
             Index(value = ["occurred_epoch_day"]),
             Index(value = ["category_id"]),
+            Index(value = ["kind"]),
         ],
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "occurred_epoch_day") val occurredEpochDay: Long,
     @ColumnInfo(name = "amount_minor") val amountMinor: Long,
-    @ColumnInfo(name = "is_income") val isIncome: Boolean,
+    /** Mirrors the leaf category's kind. Kept in sync by the repository. */
+    val kind: String,
     @ColumnInfo(name = "category_id") val categoryId: Long,
     val memo: String = "",
 )

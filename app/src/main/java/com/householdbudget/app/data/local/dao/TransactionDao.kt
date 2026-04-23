@@ -26,17 +26,23 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
+    @Query("DELETE FROM transactions WHERE category_id = :leafId")
+    suspend fun deleteByCategoryId(leafId: Long)
+
     @Query(
         """
         SELECT t.id AS id,
                t.occurred_epoch_day AS occurredEpochDay,
                t.amount_minor AS amountMinor,
-               t.is_income AS isIncome,
+               t.kind AS kind,
                t.category_id AS categoryId,
                c.name AS categoryName,
+               c.parent_id AS parentCategoryId,
+               p.name AS parentCategoryName,
                t.memo AS memo
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
+        LEFT JOIN categories p ON p.id = c.parent_id
         WHERE t.occurred_epoch_day >= :startEx
           AND t.occurred_epoch_day < :endEx
         ORDER BY t.occurred_epoch_day DESC, t.id DESC
@@ -49,12 +55,15 @@ interface TransactionDao {
         SELECT t.id AS id,
                t.occurred_epoch_day AS occurredEpochDay,
                t.amount_minor AS amountMinor,
-               t.is_income AS isIncome,
+               t.kind AS kind,
                t.category_id AS categoryId,
                c.name AS categoryName,
+               c.parent_id AS parentCategoryId,
+               p.name AS parentCategoryName,
                t.memo AS memo
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
+        LEFT JOIN categories p ON p.id = c.parent_id
         WHERE t.id = :id
         LIMIT 1
         """,
@@ -64,8 +73,9 @@ interface TransactionDao {
     @Query(
         """
         SELECT occurred_epoch_day AS dayEpoch,
-               COALESCE(SUM(CASE WHEN is_income = 1 THEN amount_minor ELSE 0 END), 0) AS incomeMinor,
-               COALESCE(SUM(CASE WHEN is_income = 0 THEN amount_minor ELSE 0 END), 0) AS expenseMinor
+               COALESCE(SUM(CASE WHEN kind = 'INCOME' THEN amount_minor ELSE 0 END), 0) AS incomeMinor,
+               COALESCE(SUM(CASE WHEN kind = 'EXPENSE' THEN amount_minor ELSE 0 END), 0) AS expenseMinor,
+               COALESCE(SUM(CASE WHEN kind = 'SAVINGS' THEN amount_minor ELSE 0 END), 0) AS savingsMinor
         FROM transactions
         WHERE occurred_epoch_day >= :minEx AND occurred_epoch_day <= :maxEx
         GROUP BY occurred_epoch_day
@@ -76,8 +86,9 @@ interface TransactionDao {
     @Query(
         """
         SELECT
-            COALESCE(SUM(CASE WHEN is_income = 1 THEN amount_minor ELSE 0 END), 0) AS incomeMinor,
-            COALESCE(SUM(CASE WHEN is_income = 0 THEN amount_minor ELSE 0 END), 0) AS expenseMinor
+            COALESCE(SUM(CASE WHEN kind = 'INCOME' THEN amount_minor ELSE 0 END), 0) AS incomeMinor,
+            COALESCE(SUM(CASE WHEN kind = 'EXPENSE' THEN amount_minor ELSE 0 END), 0) AS expenseMinor,
+            COALESCE(SUM(CASE WHEN kind = 'SAVINGS' THEN amount_minor ELSE 0 END), 0) AS savingsMinor
         FROM transactions
         WHERE occurred_epoch_day >= :startEx AND occurred_epoch_day < :endEx
         """,

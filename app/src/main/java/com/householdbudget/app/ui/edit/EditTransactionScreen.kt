@@ -2,7 +2,7 @@
 
 package com.householdbudget.app.ui.edit
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,12 +18,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.foundation.border
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Surface
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.FilterChip
@@ -35,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -53,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.CashbackChannel
 import com.householdbudget.app.ui.EditTransactionViewModel
@@ -76,25 +76,40 @@ fun EditTransactionScreen(
             key = "${transactionId ?: "new"}",
         )
     val ui by vm.uiState.collectAsStateWithLifecycle()
-    val categories by budgetViewModel.categories.collectAsStateWithLifecycle()
+    val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
+    val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
     val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val zone = ZoneId.of("Asia/Seoul")
     var cashbackChannel by remember { mutableStateOf(CashbackChannel.OFFLINE) }
-    val showCashbackSelector = !ui.isIncome && kbankCardEnabled && transactionId == null
+    val showCashbackSelector = ui.kind == CategoryKind.EXPENSE && kbankCardEnabled && transactionId == null
 
-    LaunchedEffect(categories, ui.isIncome, ui.categoryId, ui.loadFinished) {
-        if (!ui.loadFinished || categories.isEmpty()) return@LaunchedEffect
-        if (ui.categoryId == null || categories.none { it.id == ui.categoryId }) {
-            val pick = categories.firstOrNull { it.isIncome == ui.isIncome } ?: categories.first()
-            vm.setCategoryId(pick.id)
+    val parents = parentsByKind[ui.kind].orEmpty()
+    val leaves = ui.parentId?.let { childrenByParent[it] }.orEmpty()
+
+    // 최초 로드 또는 kind 변경 시 대분류/소분류 자동 선택.
+    LaunchedEffect(parents, leaves, ui.parentId, ui.categoryId, ui.loadFinished) {
+        if (!ui.loadFinished) return@LaunchedEffect
+        val currentParentId = ui.parentId
+        val pickedParent =
+            if (currentParentId != null && parents.any { it.id == currentParentId }) currentParentId
+            else parents.firstOrNull()?.id
+        if (pickedParent == null) return@LaunchedEffect
+        val leavesForPicked = childrenByParent[pickedParent].orEmpty()
+        val currentLeafId = ui.categoryId
+        val pickedLeaf =
+            if (currentLeafId != null && leavesForPicked.any { it.id == currentLeafId }) {
+                leavesForPicked.first { it.id == currentLeafId }
+            } else {
+                leavesForPicked.firstOrNull()
+            }
+        if (pickedParent != currentParentId || pickedLeaf?.id != currentLeafId) {
+            vm.setParent(pickedParent, pickedLeaf)
         }
     }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showInvalid by remember { mutableStateOf(false) }
-
-    val filteredCategories = categories.filter { it.isIncome == ui.isIncome }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -144,26 +159,22 @@ fun EditTransactionScreen(
                 tonalElevation = 0.dp,
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // ── 종류 선택 (수입 / 지출 / 저축) ──
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = ui.isIncome,
-                            onClick = { vm.setIncome(true, categories) },
-                            label = { Text(stringResource(R.string.edit_income)) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                ),
+                        KindChip(
+                            selected = ui.kind == CategoryKind.INCOME,
+                            label = stringResource(R.string.edit_income),
+                            onClick = { vm.setKind(CategoryKind.INCOME) },
                         )
-                        FilterChip(
-                            selected = !ui.isIncome,
-                            onClick = { vm.setIncome(false, categories) },
-                            label = { Text(stringResource(R.string.edit_expense)) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                ),
+                        KindChip(
+                            selected = ui.kind == CategoryKind.EXPENSE,
+                            label = stringResource(R.string.edit_expense),
+                            onClick = { vm.setKind(CategoryKind.EXPENSE) },
+                        )
+                        KindChip(
+                            selected = ui.kind == CategoryKind.SAVINGS,
+                            label = stringResource(R.string.edit_savings),
+                            onClick = { vm.setKind(CategoryKind.SAVINGS) },
                         )
                     }
 
@@ -182,8 +193,9 @@ fun EditTransactionScreen(
                             ),
                     )
 
+                    // ── 대분류 ──
                     Text(
-                        text = stringResource(R.string.edit_category),
+                        text = stringResource(R.string.edit_category_parent),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -191,19 +203,56 @@ fun EditTransactionScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        items(filteredCategories, key = { it.id }) { c ->
+                        items(parents, key = { it.id }) { parent ->
                             FilterChip(
-                                selected = ui.categoryId == c.id,
-                                onClick = { vm.setCategoryId(c.id) },
-                                label = { Text(c.name) },
+                                selected = ui.parentId == parent.id,
+                                onClick = {
+                                    val first = childrenByParent[parent.id]?.firstOrNull()
+                                    vm.setParent(parent.id, first)
+                                },
+                                label = { Text(parent.name) },
                                 colors =
                                     FilterChipDefaults.filterChipColors(
                                         selectedContainerColor =
-                                            MaterialTheme.colorScheme.primaryContainer,
+                                            MaterialTheme.colorScheme.secondaryContainer,
                                         selectedLabelColor =
-                                            MaterialTheme.colorScheme.onPrimaryContainer,
+                                            MaterialTheme.colorScheme.onSecondaryContainer,
                                     ),
                             )
+                        }
+                    }
+
+                    // ── 소분류 ──
+                    Text(
+                        text = stringResource(R.string.edit_category_child),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (ui.parentId == null || leaves.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.edit_category_pick_parent_first),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            items(leaves, key = { it.id }) { leaf ->
+                                FilterChip(
+                                    selected = ui.categoryId == leaf.id,
+                                    onClick = { vm.setCategoryId(leaf.id) },
+                                    label = { Text(leaf.name) },
+                                    colors =
+                                        FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor =
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                            selectedLabelColor =
+                                                MaterialTheme.colorScheme.onPrimaryContainer,
+                                        ),
+                                )
+                            }
                         }
                     }
 
@@ -364,4 +413,22 @@ fun EditTransactionScreen(
             },
         )
     }
+}
+
+@Composable
+private fun KindChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        colors =
+            FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+    )
 }

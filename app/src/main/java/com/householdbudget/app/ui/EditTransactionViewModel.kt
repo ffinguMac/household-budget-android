@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.domain.CategoryKind
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,8 @@ enum class CashbackChannel { ONLINE, OFFLINE }
 data class EditTransactionUiState(
     val date: LocalDate = LocalDate.now(ZoneId.of("Asia/Seoul")),
     val amountText: String = "",
-    val isIncome: Boolean = false,
+    val kind: CategoryKind = CategoryKind.EXPENSE,
+    val parentId: Long? = null,
     val categoryId: Long? = null,
     val memo: String = "",
     val isSaving: Boolean = false,
@@ -32,8 +34,6 @@ class EditTransactionViewModel(
     private val repository: BudgetRepository,
     private val transactionId: Long?,
 ) : ViewModel() {
-
-    private val zoneId = ZoneId.of("Asia/Seoul")
 
     private val _uiState = MutableStateFlow(EditTransactionUiState())
     val uiState: StateFlow<EditTransactionUiState> = _uiState.asStateFlow()
@@ -47,7 +47,8 @@ class EditTransactionViewModel(
                         EditTransactionUiState(
                             date = LocalDate.ofEpochDay(row.occurredEpochDay),
                             amountText = row.amountMinor.toString(),
-                            isIncome = row.isIncome,
+                            kind = CategoryKind.fromStorage(row.kind),
+                            parentId = row.parentCategoryId,
                             categoryId = row.categoryId,
                             memo = row.memo,
                             loadFinished = true,
@@ -72,13 +73,15 @@ class EditTransactionViewModel(
         }
     }
 
-    fun setIncome(value: Boolean, categories: List<CategoryEntity>) {
+    fun setKind(value: CategoryKind) {
         _uiState.update { s ->
-            if (s.isIncome == value) return@update s
-            val nextCategory =
-                categories.firstOrNull { it.isIncome == value }?.id ?: s.categoryId
-            s.copy(isIncome = value, categoryId = nextCategory)
+            if (s.kind == value) s
+            else s.copy(kind = value, parentId = null, categoryId = null)
         }
+    }
+
+    fun setParent(parentId: Long, firstLeaf: CategoryEntity?) {
+        _uiState.update { it.copy(parentId = parentId, categoryId = firstLeaf?.id) }
     }
 
     fun setCategoryId(id: Long) {
@@ -104,23 +107,26 @@ class EditTransactionViewModel(
                     repository.insertTransaction(
                         occurredDate = s.date,
                         amountMinor = amount,
-                        isIncome = s.isIncome,
                         categoryId = categoryId,
                         memo = s.memo,
                     )
-                    if (!s.isIncome && cashbackChannel != null) {
+                    if (s.kind == CategoryKind.EXPENSE && cashbackChannel != null) {
                         val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
                         val cashback = amount * rate / 1000L
                         if (cashback > 0L) {
-                            val incomeCatId = repository.observeCategories().first()
-                                .firstOrNull { it.isIncome }?.id
-                            if (incomeCatId != null) {
-                                val label = if (cashbackChannel == CashbackChannel.ONLINE) "온라인 1.1%" else "오프라인 0.6%"
+                            val incomeLeafId =
+                                repository.observeCategories().first()
+                                    .firstOrNull {
+                                        it.kind == CategoryKind.INCOME.storage && it.parentId != null
+                                    }?.id
+                            if (incomeLeafId != null) {
+                                val label =
+                                    if (cashbackChannel == CashbackChannel.ONLINE) "온라인 1.1%"
+                                    else "오프라인 0.6%"
                                 repository.insertTransaction(
                                     occurredDate = s.date,
                                     amountMinor = cashback,
-                                    isIncome = true,
-                                    categoryId = incomeCatId,
+                                    categoryId = incomeLeafId,
                                     memo = "케이뱅크 캐시백 ($label)",
                                 )
                             }
@@ -131,7 +137,6 @@ class EditTransactionViewModel(
                         id = transactionId,
                         occurredDate = s.date,
                         amountMinor = amount,
-                        isIncome = s.isIncome,
                         categoryId = categoryId,
                         memo = s.memo,
                     )

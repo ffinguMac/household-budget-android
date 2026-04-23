@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -47,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -66,18 +69,32 @@ fun RecurringRuleEditorScreen(
             key = "${ruleId ?: "new"}",
         )
     val ui by vm.uiState.collectAsStateWithLifecycle()
-    val categories by budgetViewModel.categories.collectAsStateWithLifecycle()
+    val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
+    val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
     var invalid by remember { mutableStateOf(false) }
 
-    LaunchedEffect(categories, ui.isIncome, ui.categoryId, ui.loadFinished) {
-        if (!ui.loadFinished || categories.isEmpty()) return@LaunchedEffect
-        if (ui.categoryId == null || categories.none { it.id == ui.categoryId }) {
-            val pick = categories.firstOrNull { it.isIncome == ui.isIncome } ?: categories.first()
-            vm.setCategoryId(pick.id)
+    val parents = parentsByKind[ui.kind].orEmpty()
+    val leaves = ui.parentId?.let { childrenByParent[it] }.orEmpty()
+
+    LaunchedEffect(parents, leaves, ui.parentId, ui.categoryId, ui.loadFinished) {
+        if (!ui.loadFinished) return@LaunchedEffect
+        val currentParentId = ui.parentId
+        val pickedParent =
+            if (currentParentId != null && parents.any { it.id == currentParentId }) currentParentId
+            else parents.firstOrNull()?.id
+        if (pickedParent == null) return@LaunchedEffect
+        val leavesForPicked = childrenByParent[pickedParent].orEmpty()
+        val currentLeafId = ui.categoryId
+        val pickedLeaf =
+            if (currentLeafId != null && leavesForPicked.any { it.id == currentLeafId }) {
+                leavesForPicked.first { it.id == currentLeafId }
+            } else {
+                leavesForPicked.firstOrNull()
+            }
+        if (pickedParent != currentParentId || pickedLeaf?.id != currentLeafId) {
+            vm.setParent(pickedParent, pickedLeaf)
         }
     }
-
-    val filtered = categories.filter { it.isIncome == ui.isIncome }
 
     Column(
         modifier
@@ -168,47 +185,75 @@ fun RecurringRuleEditorScreen(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = ui.isIncome,
-                        onClick = { vm.setIncome(true) },
-                        label = { Text(stringResource(R.string.edit_income)) },
-                        colors =
-                            FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
+                    KindChip(
+                        selected = ui.kind == CategoryKind.INCOME,
+                        label = stringResource(R.string.edit_income),
+                        onClick = { vm.setKind(CategoryKind.INCOME) },
                     )
-                    FilterChip(
-                        selected = !ui.isIncome,
-                        onClick = { vm.setIncome(false) },
-                        label = { Text(stringResource(R.string.edit_expense)) },
-                        colors =
-                            FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
+                    KindChip(
+                        selected = ui.kind == CategoryKind.EXPENSE,
+                        label = stringResource(R.string.edit_expense),
+                        onClick = { vm.setKind(CategoryKind.EXPENSE) },
+                    )
+                    KindChip(
+                        selected = ui.kind == CategoryKind.SAVINGS,
+                        label = stringResource(R.string.edit_savings),
+                        onClick = { vm.setKind(CategoryKind.SAVINGS) },
                     )
                 }
 
-                Text(stringResource(R.string.edit_category), style = MaterialTheme.typography.labelLarge)
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(160.dp),
+                Text(
+                    stringResource(R.string.edit_category_parent),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    gridItems(filtered, key = { it.id }) { c ->
+                    items(parents, key = { it.id }) { parent ->
                         FilterChip(
-                            selected = ui.categoryId == c.id,
-                            onClick = { vm.setCategoryId(c.id) },
-                            label = { Text(c.name) },
+                            selected = ui.parentId == parent.id,
+                            onClick = {
+                                val first = childrenByParent[parent.id]?.firstOrNull()
+                                vm.setParent(parent.id, first)
+                            },
+                            label = { Text(parent.name) },
                             colors =
                                 FilterChipDefaults.filterChipColors(
                                     selectedContainerColor =
                                         MaterialTheme.colorScheme.secondaryContainer,
                                 ),
                         )
+                    }
+                }
+
+                Text(
+                    stringResource(R.string.edit_category_child),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                if (ui.parentId == null || leaves.isEmpty()) {
+                    Text(
+                        stringResource(R.string.edit_category_pick_parent_first),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        items(leaves, key = { it.id }) { leaf ->
+                            FilterChip(
+                                selected = ui.categoryId == leaf.id,
+                                onClick = { vm.setCategoryId(leaf.id) },
+                                label = { Text(leaf.name) },
+                                colors =
+                                    FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor =
+                                            MaterialTheme.colorScheme.primaryContainer,
+                                    ),
+                            )
+                        }
                     }
                 }
 
@@ -284,4 +329,21 @@ fun RecurringRuleEditorScreen(
             }
         }
     }
+}
+
+@Composable
+private fun KindChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        colors =
+            FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            ),
+    )
 }

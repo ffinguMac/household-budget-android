@@ -110,11 +110,17 @@ fun RecurringRulesListScreen(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(rule.name, style = MaterialTheme.typography.titleSmall)
+                                val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(rule.kind)
+                                val prefix = when (kind) {
+                                    com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
+                                    com.householdbudget.app.domain.CategoryKind.EXPENSE -> "-"
+                                    com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
+                                }
                                 Text(
                                     text =
                                         stringResource(R.string.recurring_line_summary, rule.dayOfMonth) +
                                             " · " +
-                                            (if (rule.isIncome) "+" else "-") +
+                                            prefix +
                                             rule.amountMinor.formatWon(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,

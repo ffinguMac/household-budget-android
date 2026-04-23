@@ -81,59 +81,29 @@ fun LedgerScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(12.dp))
-                // 수입 / 지출 요약 카드 2열
+                // 수입 / 지출 / 저축 요약 카드 3열
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Surface(
+                    LedgerSummaryTile(
                         modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        tonalElevation = 0.dp,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp),
-                        ) {
-                            Text(
-                                text = "총 수입",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = "+${summary.totalIncomeMinor.formatWon()}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
-                        }
-                    }
-                    Surface(
+                        title = "총 수입",
+                        amount = "+${summary.totalIncomeMinor.formatWon()}",
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                    LedgerSummaryTile(
                         modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        tonalElevation = 0.dp,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp),
-                        ) {
-                            Text(
-                                text = "총 지출",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = "−${summary.totalExpenseMinor.formatWon()}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
+                        title = "총 지출",
+                        amount = "−${summary.totalExpenseMinor.formatWon()}",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    LedgerSummaryTile(
+                        modifier = Modifier.weight(1f),
+                        title = "총 저축",
+                        amount = "↓${summary.totalSavingsMinor.formatWon()}",
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }
@@ -161,8 +131,9 @@ fun LedgerScreen(
                 val date = LocalDate.ofEpochDay(epochDay)
                 val isToday = date == today
                 val dateLabel = if (isToday) "오늘" else date.format(dateFmt)
-                val dayIncome = dayRows.filter { it.isIncome }.sumOf { it.amountMinor }
-                val dayExpense = dayRows.filter { !it.isIncome }.sumOf { it.amountMinor }
+                val dayIncome = dayRows.filter { it.kind == com.householdbudget.app.domain.CategoryKind.INCOME.storage }.sumOf { it.amountMinor }
+                val dayExpense = dayRows.filter { it.kind == com.householdbudget.app.domain.CategoryKind.EXPENSE.storage }.sumOf { it.amountMinor }
+                val daySavings = dayRows.filter { it.kind == com.householdbudget.app.domain.CategoryKind.SAVINGS.storage }.sumOf { it.amountMinor }
 
                 item(key = "header_$epochDay") {
                     Row(
@@ -197,6 +168,14 @@ fun LedgerScreen(
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
+                        if (daySavings > 0) {
+                            Text(
+                                text = "↓${daySavings.formatWon()}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
@@ -205,13 +184,28 @@ fun LedgerScreen(
                 }
 
                 items(dayRows, key = { "tx_${it.id}" }) { row ->
-                    val isIncome = row.isIncome
-                    val amountColor = if (isIncome) MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.error
-                    val avatarBg = if (isIncome)
-                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
+                    val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(row.kind)
+                    val amountColor = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondary
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primary
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.error
+                    }
+                    val avatarBg = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    val avatarTextColor = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.onSecondaryContainer
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onPrimaryContainer
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    val amountPrefix = when (kind) {
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
+                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> "−"
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
+                    }
+                    val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
 
                     Surface(
                         modifier = Modifier
@@ -239,8 +233,7 @@ fun LedgerScreen(
                                 Text(
                                     text = row.categoryName.take(1),
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = if (isIncome) MaterialTheme.colorScheme.onSecondaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = avatarTextColor,
                                 )
                             }
                             Column(
@@ -248,7 +241,7 @@ fun LedgerScreen(
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
                                 Text(
-                                    text = row.categoryName,
+                                    text = "$parentPrefix${row.categoryName}",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -266,7 +259,7 @@ fun LedgerScreen(
                                 }
                             }
                             Text(
-                                text = (if (isIncome) "+" else "−") + row.amountMinor.formatWon(),
+                                text = amountPrefix + row.amountMinor.formatWon(),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = amountColor,
@@ -275,6 +268,41 @@ fun LedgerScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LedgerSummaryTile(
+    modifier: Modifier,
+    title: String,
+    amount: String,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = amount,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

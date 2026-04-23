@@ -17,6 +17,9 @@ interface RecurringRuleDao {
     @Query("SELECT * FROM recurring_rules WHERE enabled = 1")
     suspend fun listEnabled(): List<RecurringRuleEntity>
 
+    @Query("SELECT * FROM recurring_rules WHERE category_id = :categoryId")
+    suspend fun listByCategoryId(categoryId: Long): List<RecurringRuleEntity>
+
     @Query("SELECT * FROM recurring_rules WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): RecurringRuleEntity?
 
@@ -28,4 +31,7 @@ interface RecurringRuleDao {
 
     @Delete
     suspend fun delete(entity: RecurringRuleEntity)
+
+    @Query("DELETE FROM recurring_rules WHERE category_id = :categoryId")
+    suspend fun deleteByCategoryId(categoryId: Long)
 }

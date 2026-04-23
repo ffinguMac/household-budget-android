@@ -38,10 +38,12 @@ import com.householdbudget.app.ui.ledger.LedgerScreen
 import com.householdbudget.app.ui.recurring.RecurringRuleEditorScreen
 import com.householdbudget.app.ui.recurring.RecurringRulesListScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
+import com.householdbudget.app.ui.settings.categories.CategoryManagementScreen
 
 private const val SETTINGS_MAIN = "main"
 private const val SETTINGS_RECURRING_LIST = "recurring_list"
 private const val SETTINGS_RECURRING_EDIT_PREFIX = "recurring_edit_"
+private const val SETTINGS_CATEGORIES = "categories"
 
 private const val NO_ARCHIVE_DETAIL = -1L
 
@@ -177,6 +179,13 @@ fun MainTabScaffold(
                         SettingsScreen(
                             budgetViewModel = budgetViewModel,
                             onOpenRecurringRules = { settingsPane = SETTINGS_RECURRING_LIST },
+                            onOpenCategoryManagement = { settingsPane = SETTINGS_CATEGORIES },
+                            modifier = modifier,
+                        )
+                    settingsPane == SETTINGS_CATEGORIES ->
+                        CategoryManagementScreen(
+                            repository = repository,
+                            onBack = { settingsPane = SETTINGS_MAIN },
                             modifier = modifier,
                         )
                     settingsPane == SETTINGS_RECURRING_LIST ->
@@ -217,6 +226,7 @@ fun MainTabScaffold(
                         SettingsScreen(
                             budgetViewModel = budgetViewModel,
                             onOpenRecurringRules = { settingsPane = SETTINGS_RECURRING_LIST },
+                            onOpenCategoryManagement = { settingsPane = SETTINGS_CATEGORIES },
                             modifier = modifier,
                         )
                 }
