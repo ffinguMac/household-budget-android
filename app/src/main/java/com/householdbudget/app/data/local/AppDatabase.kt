@@ -27,7 +27,7 @@ import kotlinx.coroutines.runBlocking
             ArchivedPeriodEntity::class,
         ],
     version = 4,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
@@ -266,6 +266,9 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        /** 테스트 및 DB 빌더에서 공용으로 쓰는 마이그레이션 리스트. */
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+
         fun getInstance(context: Context): AppDatabase {
             return instance
                 ?: synchronized(this) {
@@ -275,7 +278,7 @@ abstract class AppDatabase : RoomDatabase() {
                                 AppDatabase::class.java,
                                 "household_budget.db",
                             )
-                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                            .addMigrations(*MIGRATIONS)
                             .build()
                             .also { db ->
                                 instance = db

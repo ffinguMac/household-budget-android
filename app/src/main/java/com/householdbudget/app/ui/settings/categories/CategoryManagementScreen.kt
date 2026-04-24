@@ -514,4 +514,6 @@ private fun validationTitle(err: CategoryValidationError): String =
         CategoryValidationError.KindMismatch -> stringResource(R.string.category_kind_mismatch)
         CategoryValidationError.EmptyName -> stringResource(R.string.category_empty_name)
         CategoryValidationError.NotFound -> stringResource(R.string.archive_missing)
+        CategoryValidationError.LastParentOfKind ->
+            stringResource(R.string.category_last_parent_of_kind)
     }

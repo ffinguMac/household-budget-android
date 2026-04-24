@@ -77,11 +77,11 @@ interface TransactionDao {
                COALESCE(SUM(CASE WHEN kind = 'EXPENSE' THEN amount_minor ELSE 0 END), 0) AS expenseMinor,
                COALESCE(SUM(CASE WHEN kind = 'SAVINGS' THEN amount_minor ELSE 0 END), 0) AS savingsMinor
         FROM transactions
-        WHERE occurred_epoch_day >= :minEx AND occurred_epoch_day <= :maxEx
+        WHERE occurred_epoch_day >= :startEx AND occurred_epoch_day < :endEx
         GROUP BY occurred_epoch_day
         """,
     )
-    fun observeDayTotalsBetween(minEx: Long, maxEx: Long): Flow<List<DayTotalRow>>
+    fun observeDayTotalsBetween(startEx: Long, endEx: Long): Flow<List<DayTotalRow>>
 
     @Query(
         """

@@ -140,6 +140,9 @@ class CategoryManagementViewModel(
                                 ),
                         )
                 }
+                is CategoryDeletionResult.NotAllowed -> {
+                    _ui.value = _ui.value.copy(error = result.reason)
+                }
             }
         }
     }

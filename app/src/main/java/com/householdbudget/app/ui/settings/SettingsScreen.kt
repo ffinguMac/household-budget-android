@@ -233,6 +233,11 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 14.dp),
                         )
+
+                        if (kbankCardEnabled) {
+                            CashbackCategoryRow(budgetViewModel = budgetViewModel)
+                            Spacer(Modifier.height(4.dp))
+                        }
                     }
                 }
             }
@@ -375,5 +380,80 @@ fun SettingsScreen(
         }
 
         item { Spacer(Modifier.height(80.dp)) }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun CashbackCategoryRow(
+    budgetViewModel: BudgetViewModel,
+) {
+    val categories by budgetViewModel.categories.collectAsStateWithLifecycle()
+    val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
+    val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
+    val selectedId by budgetViewModel.cashbackCategoryId.collectAsStateWithLifecycle()
+
+    val incomeParents = parentsByKind[com.householdbudget.app.domain.CategoryKind.INCOME].orEmpty()
+    val incomeLeaves = incomeParents.flatMap { p -> childrenByParent[p.id].orEmpty() }
+
+    val selectedLeaf = incomeLeaves.firstOrNull { it.id == selectedId }
+    val selectedLabel =
+        selectedLeaf?.let { leaf ->
+            val parentName = categories.firstOrNull { it.id == leaf.parentId }?.name
+            if (parentName != null) "$parentName · ${leaf.name}" else leaf.name
+        } ?: stringResource(R.string.cashback_category_auto)
+
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+        Text(
+            text = stringResource(R.string.cashback_category_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(6.dp))
+        androidx.compose.material3.ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = selectedLabel,
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                trailingIcon = {
+                    androidx.compose.material3.ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                shape = MaterialTheme.shapes.medium,
+            )
+            androidx.compose.material3.ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(stringResource(R.string.cashback_category_auto)) },
+                    onClick = {
+                        budgetViewModel.setCashbackCategoryId(null)
+                        expanded = false
+                    },
+                )
+                incomeParents.forEach { parent ->
+                    val leaves = childrenByParent[parent.id].orEmpty()
+                    leaves.forEach { leaf ->
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("${parent.name} · ${leaf.name}") },
+                            onClick = {
+                                budgetViewModel.setCashbackCategoryId(leaf.id)
+                                expanded = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 }

@@ -114,9 +114,21 @@ class EditTransactionViewModel(
                         val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
                         val cashback = amount * rate / 1000L
                         if (cashback > 0L) {
+                            val categories = repository.observeCategories().first()
+                            // 1순위: 사용자가 설정에서 지정한 카테고리 (여전히 존재하고 수입 leaf일 때).
+                            val preferredId = repository.cashbackCategoryId.first()
+                            val preferredLeaf =
+                                preferredId?.let { id ->
+                                    categories.firstOrNull {
+                                        it.id == id &&
+                                            it.parentId != null &&
+                                            it.kind == CategoryKind.INCOME.storage
+                                    }
+                                }
+                            // 2순위: 첫 번째 수입 leaf (fallback).
                             val incomeLeafId =
-                                repository.observeCategories().first()
-                                    .firstOrNull {
+                                preferredLeaf?.id
+                                    ?: categories.firstOrNull {
                                         it.kind == CategoryKind.INCOME.storage && it.parentId != null
                                     }?.id
                             if (incomeLeafId != null) {

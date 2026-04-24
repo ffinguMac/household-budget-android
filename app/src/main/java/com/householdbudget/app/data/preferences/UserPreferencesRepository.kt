@@ -49,10 +49,22 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[KBANK_CARD_ENABLED] = enabled }
     }
 
+    /** 케이뱅크 캐시백을 귀속시킬 수입 카테고리(leaf) id. null이면 자동 선택. */
+    val cashbackCategoryId: Flow<Long?> =
+        dataStore.data.map { prefs -> prefs[CASHBACK_CATEGORY_ID] }
+
+    suspend fun setCashbackCategoryId(id: Long?) {
+        dataStore.edit {
+            if (id == null) it.remove(CASHBACK_CATEGORY_ID)
+            else it[CASHBACK_CATEGORY_ID] = id
+        }
+    }
+
     companion object {
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
         private val LAST_SEEN_PERIOD_START = longPreferencesKey("last_seen_period_start_epoch_day")
         private val KBANK_CARD_ENABLED = booleanPreferencesKey("kbank_card_enabled")
+        private val CASHBACK_CATEGORY_ID = longPreferencesKey("cashback_category_id")
         private const val DEFAULT_PAYDAY_DOM = 25
     }
 }

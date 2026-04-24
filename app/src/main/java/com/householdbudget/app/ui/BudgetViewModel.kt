@@ -94,12 +94,23 @@ class BudgetViewModel(
             initialValue = false,
         )
 
+    val cashbackCategoryId: StateFlow<Long?> =
+        repository.cashbackCategoryId.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null,
+        )
+
     fun setPaydayDom(day: Int) {
         viewModelScope.launch { repository.setPaydayDom(day) }
     }
 
     fun setKbankCardEnabled(enabled: Boolean) {
         viewModelScope.launch { repository.setKbankCardEnabled(enabled) }
+    }
+
+    fun setCashbackCategoryId(id: Long?) {
+        viewModelScope.launch { repository.setCashbackCategoryId(id) }
     }
 
     companion object {

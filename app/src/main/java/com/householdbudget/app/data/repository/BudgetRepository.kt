@@ -33,6 +33,8 @@ sealed interface CategoryDeletionResult {
     /** 카테고리(또는 후손)에 거래/반복규칙이 [transactionCount]건 있음. force=true로 다시 호출하면 모두 삭제. */
     data class HasReferences(val transactionCount: Int, val recurringCount: Int) :
         CategoryDeletionResult
+    /** 정책상 삭제 불가 (예: 마지막 대분류). */
+    data class NotAllowed(val reason: CategoryValidationError) : CategoryDeletionResult
 }
 
 /** 카테고리 검증 오류. */
@@ -41,6 +43,9 @@ sealed interface CategoryValidationError {
     data object KindMismatch : CategoryValidationError
     data object EmptyName : CategoryValidationError
     data object NotFound : CategoryValidationError
+
+    /** 같은 kind의 마지막 남은 대분류를 삭제하려 함. 0개가 되면 해당 kind로 거래 등록 불가. */
+    data object LastParentOfKind : CategoryValidationError
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -56,6 +61,7 @@ class BudgetRepository(
 ) {
     val paydayDom: Flow<Int> = userPreferencesRepository.paydayDom
     val kbankCardEnabled: Flow<Boolean> = userPreferencesRepository.kbankCardEnabled
+    val cashbackCategoryId: Flow<Long?> = userPreferencesRepository.cashbackCategoryId
 
     suspend fun setPaydayDom(day: Int) {
         userPreferencesRepository.setPaydayDom(day)
@@ -64,6 +70,10 @@ class BudgetRepository(
 
     suspend fun setKbankCardEnabled(enabled: Boolean) {
         userPreferencesRepository.setKbankCardEnabled(enabled)
+    }
+
+    suspend fun setCashbackCategoryId(id: Long?) {
+        userPreferencesRepository.setCashbackCategoryId(id)
     }
 
     fun observeArchivedPeriods(): Flow<List<ArchivedPeriodEntity>> = archivedPeriodDao.observeAll()
@@ -144,9 +154,9 @@ class BudgetRepository(
         }
 
     fun observeDayTotalsInMonth(yearMonth: YearMonth): Flow<List<DayTotalRow>> {
-        val minEx = yearMonth.atDay(1).toEpochDay()
-        val maxEx = yearMonth.atEndOfMonth().toEpochDay()
-        return transactionDao.observeDayTotalsBetween(minEx, maxEx)
+        val startEx = yearMonth.atDay(1).toEpochDay()
+        val endEx = yearMonth.plusMonths(1).atDay(1).toEpochDay()
+        return transactionDao.observeDayTotalsBetween(startEx, endEx)
     }
 
     fun observeTransactionsOnDay(epochDay: Long): Flow<List<TransactionWithCategoryRow>> =
@@ -400,11 +410,22 @@ class BudgetRepository(
 
     /**
      * 카테고리 삭제. force=false일 때 거래/반복규칙 참조가 있으면 [CategoryDeletionResult.HasReferences] 반환.
-     * 대분류는 후손 leaf의 참조까지 모두 검사.
+     * 대분류는 후손 leaf의 참조까지 모두 검사. 같은 kind의 유일한 대분류는 삭제 불가.
      */
     suspend fun deleteCategory(id: Long, force: Boolean): CategoryDeletionResult =
         database.withTransaction {
             val cat = categoryDao.getById(id) ?: return@withTransaction CategoryDeletionResult.Success
+
+            // 마지막 대분류 삭제 차단 — 0개가 되면 해당 kind의 거래 등록 불가.
+            if (cat.parentId == null) {
+                val siblings = categoryDao.countTopLevelByKind(cat.kind)
+                if (siblings <= 1) {
+                    return@withTransaction CategoryDeletionResult.NotAllowed(
+                        CategoryValidationError.LastParentOfKind,
+                    )
+                }
+            }
+
             val leafIds: List<Long> =
                 if (cat.parentId == null) {
                     categoryDao.getChildren(cat.id).map { it.id }
@@ -430,7 +451,7 @@ class BudgetRepository(
             CategoryDeletionResult.Success
         }
 
-    /** 같은 kind의 다른 대분류로 leaf를 이동. */
+    /** 같은 kind의 다른 대분류로 leaf를 이동. 관련 반복규칙의 kind도 동기화. */
     suspend fun moveLeaf(leafId: Long, newParentId: Long): Result<Unit> =
         database.withTransaction {
             val leaf =
@@ -459,6 +480,14 @@ class BudgetRepository(
             }
             val nextSort = (categoryDao.maxChildSortOrder(newParentId) ?: -1) + 1
             categoryDao.update(leaf.copy(parentId = newParentId, sortOrder = nextSort))
+
+            // 방어적 동기화: 지금은 새 parent.kind == 기존 leaf.kind이지만,
+            // 향후 parent kind 변경 플로우가 들어와도 정기규칙이 뒤처지지 않도록 갱신.
+            recurringRuleDao.listByCategoryId(leafId).forEach { rr ->
+                if (rr.kind != newParent.kind) {
+                    recurringRuleDao.update(rr.copy(kind = newParent.kind))
+                }
+            }
             Result.success(Unit)
         }
 

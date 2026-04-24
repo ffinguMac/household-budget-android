@@ -75,6 +75,8 @@
     <string name="edit_cashback_online">온라인 (1.1%)</string>
     <string name="edit_cashback_offline">오프라인 (0.6%)</string>
     <string name="edit_cashback_preview">캐시백 예상: +%s</string>
+    <string name="cashback_category_label">캐시백 귀속 카테고리</string>
+    <string name="cashback_category_auto">자동 (첫 수입 카테고리)</string>
 
     <!-- 카테고리 관리 -->
     <string name="category_management_title">카테고리 관리</string>
@@ -94,6 +96,7 @@
     <string name="category_kind_mismatch">대분류와 소분류의 종류가 달라요.</string>
     <string name="category_duplicate_name">같은 위치에 동일한 이름이 이미 있어요.</string>
     <string name="category_empty_name">이름을 입력해 주세요.</string>
+    <string name="category_last_parent_of_kind">마지막 남은 대분류는 삭제할 수 없어요. 먼저 다른 대분류를 하나 추가하세요.</string>
     <string name="category_empty_for_kind">아직 이 분류에 카테고리가 없습니다. 아래 + 버튼으로 추가하세요.</string>
     <string name="category_section_parents">대분류</string>
     <string name="category_section_children">소분류</string>

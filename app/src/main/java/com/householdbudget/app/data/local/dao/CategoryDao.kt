@@ -38,6 +38,9 @@ interface CategoryDao {
     )
     fun observeTopLevelByKind(kind: String): Flow<List<CategoryEntity>>
 
+    @Query("SELECT COUNT(*) FROM categories WHERE parent_id IS NULL AND kind = :kind")
+    suspend fun countTopLevelByKind(kind: String): Int
+
     @Query(
         "SELECT * FROM categories WHERE parent_id = :parentId " +
             "ORDER BY sort_order ASC, id ASC",
