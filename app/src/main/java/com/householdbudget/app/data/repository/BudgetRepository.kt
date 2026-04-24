@@ -3,10 +3,12 @@ package com.householdbudget.app.data.repository
 import androidx.room.withTransaction
 import com.householdbudget.app.data.local.AppDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
+import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.CategoryDao
 import com.householdbudget.app.data.local.dao.RecurringRuleDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
+import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
@@ -22,6 +24,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 
@@ -55,6 +58,7 @@ class BudgetRepository(
     private val categoryDao: CategoryDao,
     private val recurringRuleDao: RecurringRuleDao,
     private val archivedPeriodDao: ArchivedPeriodDao,
+    private val categoryBudgetDao: CategoryBudgetDao,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val periodResolver: PeriodResolver = PeriodResolver(),
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
@@ -85,6 +89,30 @@ class BudgetRepository(
         endExclusiveEpochDay: Long,
     ): Flow<List<TransactionWithCategoryRow>> =
         transactionDao.observeBetween(startEpochDay, endExclusiveEpochDay)
+
+    /** Ledger 화면의 필터/검색/정렬을 위한 wrapper. */
+    fun observeFilteredTransactions(
+        startEx: Long,
+        endEx: Long,
+        kind: String?,
+        parentId: Long?,
+        leafId: Long?,
+        query: String?,
+        minAmount: Long,
+        maxAmount: Long,
+        orderBy: String,
+    ): Flow<List<TransactionWithCategoryRow>> =
+        transactionDao.observeFiltered(
+            startEx = startEx,
+            endEx = endEx,
+            kind = kind,
+            parentId = parentId,
+            leafId = leafId,
+            query = query,
+            minAmount = minAmount,
+            maxAmount = maxAmount,
+            orderBy = orderBy,
+        )
 
     /**
      * 월급일 기준 **이전 회계월**들을 스냅샷으로 저장한다.
@@ -513,6 +541,116 @@ class BudgetRepository(
         }
     }
 
+    // ── 통계 ──────────────────────────────────────────────────────────────
+
+    /**
+     * 이번 회계월의 **대분류별 지출 합계**. (EXPENSE만; 저축·수입 제외)
+     */
+    fun observeMonthlyExpenseByParent(): Flow<List<ParentSpend>> =
+        userPreferencesRepository.paydayDom.flatMapLatest { dom ->
+            val today = LocalDate.now(zoneId)
+            val period = periodResolver.periodContaining(today, dom)
+            combine(
+                transactionDao.observeBetween(
+                    period.startInclusive.toEpochDay(),
+                    period.endExclusive.toEpochDay(),
+                ),
+                categoryDao.observeAll(),
+            ) { txs, cats ->
+                val parentById = cats.filter { it.parentId == null }.associateBy { it.id }
+                txs.filter { it.kind == CategoryKind.EXPENSE.storage }
+                    .groupBy { it.parentCategoryId ?: -1L }
+                    .map { (pid, list) ->
+                        val parent = parentById[pid]
+                        ParentSpend(
+                            parentId = pid,
+                            parentName = parent?.name ?: "기타",
+                            amountMinor = list.sumOf { it.amountMinor },
+                        )
+                    }
+                    .sortedByDescending { it.amountMinor }
+            }
+        }
+
+    /**
+     * 최근 [months]개월간(이번 달 포함) **지출·저축 월별 합계**.
+     * 달력(calendar)월 기준 — 회계월이 아님에 유의.
+     */
+    suspend fun recentMonthlyTotals(months: Int): List<MonthlyTotal> {
+        require(months > 0)
+        val today = LocalDate.now(zoneId)
+        val result = mutableListOf<MonthlyTotal>()
+        for (offset in (months - 1) downTo 0) {
+            val ym = YearMonth.from(today).minusMonths(offset.toLong())
+            val startEx = ym.atDay(1).toEpochDay()
+            val endEx = ym.plusMonths(1).atDay(1).toEpochDay()
+            val agg = transactionDao.aggregateBetween(startEx, endEx)
+            result.add(
+                MonthlyTotal(
+                    yearMonth = ym,
+                    expenseMinor = agg.expenseMinor,
+                    savingsMinor = agg.savingsMinor,
+                    incomeMinor = agg.incomeMinor,
+                ),
+            )
+        }
+        return result
+    }
+
+    // ── 카테고리 예산 ──────────────────────────────────────────────────────
+
+    fun observeBudgets(): Flow<Map<Long, CategoryBudgetEntity>> =
+        categoryBudgetDao.observeAll().map { list -> list.associateBy { it.categoryId } }
+
+    suspend fun setBudget(categoryId: Long, monthlyAmountMinor: Long, enabled: Boolean = true) {
+        require(monthlyAmountMinor > 0)
+        categoryBudgetDao.upsert(
+            CategoryBudgetEntity(
+                categoryId = categoryId,
+                monthlyAmountMinor = monthlyAmountMinor,
+                enabled = enabled,
+            ),
+        )
+    }
+
+    suspend fun clearBudget(categoryId: Long) {
+        categoryBudgetDao.deleteByCategoryId(categoryId)
+    }
+
+    /**
+     * 이번 회계월 기준으로 예산이 설정된 카테고리들의 진행률.
+     * 설정된 예산이 없거나 enabled=false면 빈 리스트.
+     */
+    fun observeBudgetProgress(): Flow<List<BudgetProgress>> =
+        userPreferencesRepository.paydayDom.flatMapLatest { dom ->
+            val today = LocalDate.now(zoneId)
+            val period = periodResolver.periodContaining(today, dom)
+            combine(
+                transactionDao.observeBetween(
+                    period.startInclusive.toEpochDay(),
+                    period.endExclusive.toEpochDay(),
+                ),
+                categoryBudgetDao.observeAll(),
+                categoryDao.observeAll(),
+            ) { transactions, budgets, categories ->
+                val categoryById = categories.associateBy { it.id }
+                budgets.filter { it.enabled }.mapNotNull { budget ->
+                    val leaf = categoryById[budget.categoryId] ?: return@mapNotNull null
+                    val spent = transactions
+                        .filter { it.categoryId == leaf.id }
+                        .sumOf { it.amountMinor }
+                    BudgetProgress(
+                        categoryId = leaf.id,
+                        categoryName = leaf.name,
+                        parentName = leaf.parentId?.let { pid -> categoryById[pid]?.name },
+                        kind = leaf.kind,
+                        monthlyAmountMinor = budget.monthlyAmountMinor,
+                        spentMinor = spent,
+                    )
+                }.sortedByDescending { it.percent }
+            }
+        }
+
     private fun buildAutoMemo(rule: RecurringRuleEntity): String {
         val base = "[자동] ${rule.name}"
         return if (rule.memo.isBlank()) base else "$base · ${rule.memo.trim()}"
@@ -534,6 +672,45 @@ private class ValidationException(val error: CategoryValidationError) : Exceptio
 
 fun Result<*>.validationError(): CategoryValidationError? =
     (exceptionOrNull() as? ValidationException)?.error
+
+/** 대분류별 지출 집계 (차트용). */
+data class ParentSpend(
+    val parentId: Long,
+    val parentName: String,
+    val amountMinor: Long,
+)
+
+/** 한 월의 수입/지출/저축 합계 (달력월 기준). */
+data class MonthlyTotal(
+    val yearMonth: java.time.YearMonth,
+    val incomeMinor: Long,
+    val expenseMinor: Long,
+    val savingsMinor: Long,
+)
+
+/**
+ * 한 카테고리에 대한 이번 회계월 예산 진행 상태.
+ */
+data class BudgetProgress(
+    val categoryId: Long,
+    val categoryName: String,
+    val parentName: String?,
+    val kind: String,
+    val monthlyAmountMinor: Long,
+    val spentMinor: Long,
+) {
+    /** 0..∞ (100을 넘을 수 있음). */
+    val percent: Int
+        get() =
+            if (monthlyAmountMinor <= 0L) 0
+            else ((spentMinor * 100) / monthlyAmountMinor).toInt()
+
+    val remainingMinor: Long
+        get() = monthlyAmountMinor - spentMinor
+
+    val exceeded: Boolean
+        get() = spentMinor > monthlyAmountMinor
+}
 
 data class HomeSummary(
     val period: BudgetPeriod,

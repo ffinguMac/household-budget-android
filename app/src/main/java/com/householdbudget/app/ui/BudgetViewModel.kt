@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
+import com.householdbudget.app.data.repository.BudgetProgress
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.CategoryKind
@@ -100,6 +101,21 @@ class BudgetViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = null,
         )
+
+    val budgetProgress: StateFlow<List<BudgetProgress>> =
+        repository.observeBudgetProgress().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
+
+    fun setBudget(categoryId: Long, monthlyAmountMinor: Long) {
+        viewModelScope.launch { repository.setBudget(categoryId, monthlyAmountMinor) }
+    }
+
+    fun clearBudget(categoryId: Long) {
+        viewModelScope.launch { repository.clearBudget(categoryId) }
+    }
 
     fun setPaydayDom(day: Int) {
         viewModelScope.launch { repository.setPaydayDom(day) }

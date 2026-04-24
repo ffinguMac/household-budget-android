@@ -39,11 +39,13 @@ import com.householdbudget.app.ui.recurring.RecurringRuleEditorScreen
 import com.householdbudget.app.ui.recurring.RecurringRulesListScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
 import com.householdbudget.app.ui.settings.categories.CategoryManagementScreen
+import com.householdbudget.app.ui.stats.StatsScreen
 
 private const val SETTINGS_MAIN = "main"
 private const val SETTINGS_RECURRING_LIST = "recurring_list"
 private const val SETTINGS_RECURRING_EDIT_PREFIX = "recurring_edit_"
 private const val SETTINGS_CATEGORIES = "categories"
+private const val SETTINGS_STATS = "stats"
 
 private const val NO_ARCHIVE_DETAIL = -1L
 
@@ -146,12 +148,18 @@ fun MainTabScaffold(
         val modifier = Modifier.padding(padding)
         when (selected) {
             0 -> HomeScreen(budgetViewModel = budgetViewModel, modifier = modifier)
-            1 ->
+            1 -> {
+                val ledgerVm: com.householdbudget.app.ui.ledger.LedgerViewModel =
+                    androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = com.householdbudget.app.ui.ledger.LedgerViewModelFactory(repository),
+                    )
                 LedgerScreen(
                     budgetViewModel = budgetViewModel,
+                    ledgerViewModel = ledgerVm,
                     onTransactionClick = onNavigateEdit,
                     modifier = modifier,
                 )
+            }
             2 ->
                 CalendarScreen(
                     viewModel = calendarViewModel,
@@ -180,10 +188,17 @@ fun MainTabScaffold(
                             budgetViewModel = budgetViewModel,
                             onOpenRecurringRules = { settingsPane = SETTINGS_RECURRING_LIST },
                             onOpenCategoryManagement = { settingsPane = SETTINGS_CATEGORIES },
+                            onOpenStats = { settingsPane = SETTINGS_STATS },
                             modifier = modifier,
                         )
                     settingsPane == SETTINGS_CATEGORIES ->
                         CategoryManagementScreen(
+                            repository = repository,
+                            onBack = { settingsPane = SETTINGS_MAIN },
+                            modifier = modifier,
+                        )
+                    settingsPane == SETTINGS_STATS ->
+                        StatsScreen(
                             repository = repository,
                             onBack = { settingsPane = SETTINGS_MAIN },
                             modifier = modifier,
@@ -227,6 +242,7 @@ fun MainTabScaffold(
                             budgetViewModel = budgetViewModel,
                             onOpenRecurringRules = { settingsPane = SETTINGS_RECURRING_LIST },
                             onOpenCategoryManagement = { settingsPane = SETTINGS_CATEGORIES },
+                            onOpenStats = { settingsPane = SETTINGS_STATS },
                             modifier = modifier,
                         )
                 }

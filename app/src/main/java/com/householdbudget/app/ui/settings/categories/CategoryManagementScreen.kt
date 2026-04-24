@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -70,6 +71,7 @@ fun CategoryManagementScreen(
         viewModel(factory = CategoryManagementViewModelFactory(repository))
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val groups by vm.groups.collectAsStateWithLifecycle()
+    val budgets by vm.budgets.collectAsStateWithLifecycle()
 
     val filtered = remember(ui.selectedKind, groups) {
         groups.filter { it.parent.kind == ui.selectedKind.storage }
@@ -79,6 +81,7 @@ fun CategoryManagementScreen(
     var addChildForParent by remember { mutableStateOf<CategoryEntity?>(null) }
     var renaming by remember { mutableStateOf<CategoryEntity?>(null) }
     var confirmDelete by remember { mutableStateOf<CategoryEntity?>(null) }
+    var editingBudgetFor by remember { mutableStateOf<CategoryEntity?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -176,12 +179,14 @@ fun CategoryManagementScreen(
                         ParentRow(
                             group = group,
                             isExpanded = group.parent.id in ui.expanded,
+                            budgets = budgets,
                             onToggle = { vm.toggleExpanded(group.parent.id) },
                             onRename = { renaming = group.parent },
                             onDelete = { confirmDelete = group.parent },
                             onAddChild = { addChildForParent = group.parent },
                             onRenameChild = { leaf -> renaming = leaf },
                             onDeleteChild = { leaf -> confirmDelete = leaf },
+                            onEditBudget = { leaf -> editingBudgetFor = leaf },
                             onMoveChildUp = { leaf ->
                                 val ids = group.children.map { it.id }.toMutableList()
                                 val idx = ids.indexOf(leaf.id)
@@ -314,7 +319,26 @@ fun CategoryManagementScreen(
             },
         )
     }
+
+    editingBudgetFor?.let { leaf ->
+        BudgetEditDialog(
+            leafName = leaf.parentName(groups) + leaf.name,
+            initialAmount = budgets[leaf.id]?.monthlyAmountMinor ?: 0L,
+            onDismiss = { editingBudgetFor = null },
+            onSave = { amount ->
+                vm.setBudget(leaf.id, amount)
+                editingBudgetFor = null
+            },
+            onClear = {
+                vm.clearBudget(leaf.id)
+                editingBudgetFor = null
+            },
+        )
+    }
 }
+
+private fun CategoryEntity.parentName(groups: List<ParentGroup>): String =
+    groups.firstOrNull { it.parent.id == parentId }?.parent?.name?.let { "$it · " }.orEmpty()
 
 @Composable
 private fun KindTab(
@@ -338,12 +362,14 @@ private fun KindTab(
 private fun ParentRow(
     group: ParentGroup,
     isExpanded: Boolean,
+    budgets: Map<Long, com.householdbudget.app.data.local.entity.CategoryBudgetEntity>,
     onToggle: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onAddChild: () -> Unit,
     onRenameChild: (CategoryEntity) -> Unit,
     onDeleteChild: (CategoryEntity) -> Unit,
+    onEditBudget: (CategoryEntity) -> Unit,
     onMoveChildUp: (CategoryEntity) -> Unit,
     onMoveChildDown: (CategoryEntity) -> Unit,
     onMoveParentUp: () -> Unit,
@@ -404,6 +430,7 @@ private fun ParentRow(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                 Column(modifier = Modifier.padding(start = 24.dp, end = 8.dp)) {
                     group.children.forEach { leaf ->
+                        val budget = budgets[leaf.id]
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -417,12 +444,32 @@ private fun ParentRow(
                                 modifier = Modifier.size(18.dp),
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = leaf.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f),
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = leaf.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                if (budget != null) {
+                                    Text(
+                                        text = stringResource(
+                                            R.string.budget_badge,
+                                            com.householdbudget.app.ui.util.formatWon(budget.monthlyAmountMinor),
+                                        ),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { onEditBudget(leaf) }) {
+                                Icon(
+                                    imageVector = Icons.Filled.AccountBalanceWallet,
+                                    contentDescription = stringResource(R.string.budget_set),
+                                    tint = if (budget != null) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             IconButton(onClick = { onMoveChildUp(leaf) }) {
                                 Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
                             }
@@ -517,3 +564,64 @@ private fun validationTitle(err: CategoryValidationError): String =
         CategoryValidationError.LastParentOfKind ->
             stringResource(R.string.category_last_parent_of_kind)
     }
+
+@Composable
+private fun BudgetEditDialog(
+    leafName: String,
+    initialAmount: Long,
+    onDismiss: () -> Unit,
+    onSave: (Long) -> Unit,
+    onClear: () -> Unit,
+) {
+    var text by remember {
+        mutableStateOf(if (initialAmount > 0) initialAmount.toString() else "")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("$leafName · ${stringResource(R.string.budget_set)}") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { v ->
+                    if (v.isEmpty() || v.all { it.isDigit() }) text = v
+                },
+                label = { Text(stringResource(R.string.budget_monthly_amount)) },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amount = text.toLongOrNull() ?: 0L
+                    if (amount > 0) onSave(amount)
+                },
+                enabled = (text.toLongOrNull() ?: 0L) > 0L,
+            ) {
+                Text(stringResource(R.string.category_save))
+            }
+        },
+        dismissButton = {
+            Row {
+                if (initialAmount > 0) {
+                    TextButton(onClick = onClear) {
+                        Text(
+                            stringResource(R.string.budget_remove),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.category_cancel))
+                }
+            }
+        },
+    )
+}

@@ -17,6 +17,7 @@ class AppContainer(context: Context) {
             categoryDao = database.categoryDao(),
             recurringRuleDao = database.recurringRuleDao(),
             archivedPeriodDao = database.archivedPeriodDao(),
+            categoryBudgetDao = database.categoryBudgetDao(),
             userPreferencesRepository = userPreferencesRepository,
         )
 }

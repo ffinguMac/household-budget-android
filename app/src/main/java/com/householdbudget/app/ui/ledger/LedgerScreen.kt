@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,10 +45,12 @@ import java.util.Locale
 @Composable
 fun LedgerScreen(
     budgetViewModel: BudgetViewModel,
+    ledgerViewModel: LedgerViewModel,
     onTransactionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val rows by budgetViewModel.transactions.collectAsStateWithLifecycle()
+    val rows by ledgerViewModel.results.collectAsStateWithLifecycle()
+    val filter by ledgerViewModel.filter.collectAsStateWithLifecycle()
     val summary by budgetViewModel.homeSummary.collectAsStateWithLifecycle()
     val dateFmt = DateTimeFormatter.ofPattern("M월 d일 (E)").withLocale(Locale.KOREA)
     val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
@@ -106,6 +110,114 @@ fun LedgerScreen(
                     )
                 }
             }
+        }
+
+        // ── 검색 + 필터 ────────────────────────────────────────────────────
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ScreenHorizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = filter.query,
+                    onValueChange = ledgerViewModel::setQuery,
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    trailingIcon = {
+                        if (filter.isActive) {
+                            androidx.compose.material3.TextButton(onClick = ledgerViewModel::clear) {
+                                Text(stringResource(R.string.filter_clear))
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                )
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.kind == null,
+                            onClick = { ledgerViewModel.setKind(null) },
+                            label = { Text(stringResource(R.string.filter_kind_all)) },
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.kind == com.householdbudget.app.domain.CategoryKind.INCOME,
+                            onClick = { ledgerViewModel.setKind(com.householdbudget.app.domain.CategoryKind.INCOME) },
+                            label = { Text(stringResource(R.string.kind_income)) },
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.kind == com.householdbudget.app.domain.CategoryKind.EXPENSE,
+                            onClick = { ledgerViewModel.setKind(com.householdbudget.app.domain.CategoryKind.EXPENSE) },
+                            label = { Text(stringResource(R.string.kind_expense)) },
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.kind == com.householdbudget.app.domain.CategoryKind.SAVINGS,
+                            onClick = { ledgerViewModel.setKind(com.householdbudget.app.domain.CategoryKind.SAVINGS) },
+                            label = { Text(stringResource(R.string.kind_savings)) },
+                        )
+                    }
+                }
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.sortBy == LedgerSortBy.DATE_DESC,
+                            onClick = { ledgerViewModel.setSort(LedgerSortBy.DATE_DESC) },
+                            label = { Text(stringResource(R.string.filter_sort_date_desc)) },
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.sortBy == LedgerSortBy.DATE_ASC,
+                            onClick = { ledgerViewModel.setSort(LedgerSortBy.DATE_ASC) },
+                            label = { Text(stringResource(R.string.filter_sort_date_asc)) },
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.sortBy == LedgerSortBy.AMOUNT_DESC,
+                            onClick = { ledgerViewModel.setSort(LedgerSortBy.AMOUNT_DESC) },
+                            label = { Text(stringResource(R.string.filter_sort_amount_desc)) },
+                        )
+                    }
+                    item {
+                        androidx.compose.material3.FilterChip(
+                            selected = filter.sortBy == LedgerSortBy.AMOUNT_ASC,
+                            onClick = { ledgerViewModel.setSort(LedgerSortBy.AMOUNT_ASC) },
+                            label = { Text(stringResource(R.string.filter_sort_amount_asc)) },
+                        )
+                    }
+                }
+
+                if (filter.isActive) {
+                    Text(
+                        text = stringResource(R.string.filter_result_count, rows.size),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
         }
 
         if (rows.isEmpty()) {

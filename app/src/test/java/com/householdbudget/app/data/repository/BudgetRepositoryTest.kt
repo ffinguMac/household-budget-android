@@ -44,6 +44,7 @@ class BudgetRepositoryTest {
                 categoryDao = db.categoryDao(),
                 recurringRuleDao = db.recurringRuleDao(),
                 archivedPeriodDao = db.archivedPeriodDao(),
+                categoryBudgetDao = db.categoryBudgetDao(),
                 userPreferencesRepository = prefs,
             )
     }

@@ -160,6 +160,42 @@ fun HomeScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        // ── 예산 진행률 (설정된 카테고리가 있을 때만 노출) ───────────────────
+        val progress by budgetViewModel.budgetProgress.collectAsStateWithLifecycle()
+        if (progress.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ScreenHorizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.home_budget_section),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    tonalElevation = 0.dp,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        progress.take(5).forEach { bp ->
+                            BudgetProgressRow(bp)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+
         // ── 최근 거래 ────────────────────────────────────────────────────────
         Column(
             modifier = Modifier
@@ -283,6 +319,48 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun BudgetProgressRow(bp: com.householdbudget.app.data.repository.BudgetProgress) {
+    val fraction = (bp.spentMinor.toFloat() / bp.monthlyAmountMinor.toFloat()).coerceIn(0f, 1f)
+    val barColor = when {
+        bp.exceeded -> MaterialTheme.colorScheme.error
+        bp.percent >= 80 -> androidx.compose.ui.graphics.Color(0xFFFFA000)
+        else -> MaterialTheme.colorScheme.primary
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = bp.parentName?.let { "$it · ${bp.categoryName}" } ?: bp.categoryName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${bp.spentMinor.formatWon()} / ${bp.monthlyAmountMinor.formatWon()}",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (bp.exceeded) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        androidx.compose.material3.LinearProgressIndicator(
+            progress = { fraction },
+            color = barColor,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(MaterialTheme.shapes.small),
+        )
     }
 }
 

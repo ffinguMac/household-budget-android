@@ -7,10 +7,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
+import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.CategoryDao
 import com.householdbudget.app.data.local.dao.RecurringRuleDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
+import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
@@ -25,8 +27,9 @@ import kotlinx.coroutines.runBlocking
             TransactionEntity::class,
             RecurringRuleEntity::class,
             ArchivedPeriodEntity::class,
+            CategoryBudgetEntity::class,
         ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +40,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recurringRuleDao(): RecurringRuleDao
 
     abstract fun archivedPeriodDao(): ArchivedPeriodDao
+
+    abstract fun categoryBudgetDao(): CategoryBudgetDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -266,8 +271,27 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        /** v4 → v5: 카테고리별 월간 예산 테이블 추가. */
+        private val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `category_budgets` (
+                          `category_id` INTEGER PRIMARY KEY NOT NULL,
+                          `monthly_amount_minor` INTEGER NOT NULL,
+                          `enabled` INTEGER NOT NULL,
+                          FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                        )
+                        """.trimIndent(),
+                    )
+                }
+            }
+
         /** 테스트 및 DB 빌더에서 공용으로 쓰는 마이그레이션 리스트. */
-        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        val MIGRATIONS: Array<Migration> =
+            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
         fun getInstance(context: Context): AppDatabase {
             return instance

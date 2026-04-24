@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
+import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.CategoryDeletionResult
@@ -45,6 +46,21 @@ class CategoryManagementViewModel(
 
     private val _ui = MutableStateFlow(CategoryManagementUi())
     val uiState: StateFlow<CategoryManagementUi> = _ui.asStateFlow()
+
+    val budgets: StateFlow<Map<Long, CategoryBudgetEntity>> =
+        repository.observeBudgets().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyMap(),
+        )
+
+    fun setBudget(categoryId: Long, monthlyAmountMinor: Long) {
+        viewModelScope.launch { repository.setBudget(categoryId, monthlyAmountMinor) }
+    }
+
+    fun clearBudget(categoryId: Long) {
+        viewModelScope.launch { repository.clearBudget(categoryId) }
+    }
 
     /** 현재 선택된 kind의 대분류 + 각 대분류의 자식들. */
     val groups: StateFlow<List<ParentGroup>> =

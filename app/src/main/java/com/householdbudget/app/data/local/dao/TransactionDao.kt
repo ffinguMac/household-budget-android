@@ -94,4 +94,54 @@ interface TransactionDao {
         """,
     )
     suspend fun aggregateBetween(startEx: Long, endEx: Long): PeriodAggregateRow
+
+    /**
+     * Ledger 화면용 필터 쿼리. null 파라미터는 해당 조건을 무시한다.
+     *
+     * @param orderBy "DATE_DESC" | "DATE_ASC" | "AMOUNT_DESC" | "AMOUNT_ASC" — Kotlin에서 전달받는 단순 열거.
+     */
+    @Query(
+        """
+        SELECT t.id AS id,
+               t.occurred_epoch_day AS occurredEpochDay,
+               t.amount_minor AS amountMinor,
+               t.kind AS kind,
+               t.category_id AS categoryId,
+               c.name AS categoryName,
+               c.parent_id AS parentCategoryId,
+               p.name AS parentCategoryName,
+               t.memo AS memo
+        FROM transactions t
+        INNER JOIN categories c ON c.id = t.category_id
+        LEFT JOIN categories p ON p.id = c.parent_id
+        WHERE t.occurred_epoch_day >= :startEx
+          AND t.occurred_epoch_day < :endEx
+          AND (:kind IS NULL OR t.kind = :kind)
+          AND (:parentId IS NULL OR c.parent_id = :parentId)
+          AND (:leafId IS NULL OR t.category_id = :leafId)
+          AND (:query IS NULL
+               OR c.name LIKE '%' || :query || '%'
+               OR t.memo LIKE '%' || :query || '%'
+               OR IFNULL(p.name, '') LIKE '%' || :query || '%')
+          AND t.amount_minor >= :minAmount
+          AND t.amount_minor <= :maxAmount
+        ORDER BY
+            CASE WHEN :orderBy = 'DATE_DESC' THEN t.occurred_epoch_day END DESC,
+            CASE WHEN :orderBy = 'DATE_ASC' THEN t.occurred_epoch_day END ASC,
+            CASE WHEN :orderBy = 'AMOUNT_DESC' THEN t.amount_minor END DESC,
+            CASE WHEN :orderBy = 'AMOUNT_ASC' THEN t.amount_minor END ASC,
+            t.id DESC
+        """,
+    )
+    fun observeFiltered(
+        startEx: Long,
+        endEx: Long,
+        kind: String?,
+        parentId: Long?,
+        leafId: Long?,
+        query: String?,
+        minAmount: Long,
+        maxAmount: Long,
+        orderBy: String,
+    ): Flow<List<TransactionWithCategoryRow>>
 }
