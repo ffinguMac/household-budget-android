@@ -3,18 +3,17 @@ package com.householdbudget.app.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Autorenew
@@ -23,8 +22,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -148,29 +145,48 @@ fun SettingsScreen(
                             }
                         }
 
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(7),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(240.dp),
                         ) {
-                            items((1..31).toList()) { day ->
-                                FilterChip(
-                                    selected = payday == day,
-                                    onClick = {
-                                        budgetViewModel.setPaydayDom(day)
-                                        showSavedFeedback = true
-                                    },
-                                    label = { Text(text = day.toString()) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                        labelColor = MaterialTheme.colorScheme.onSurface,
-                                    ),
-                                )
+                            (1..31).toList().chunked(7).forEach { rowDays ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    rowDays.forEach { day ->
+                                        val isSelected = payday == day
+                                        Surface(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .aspectRatio(1f)
+                                                .clickable {
+                                                    budgetViewModel.setPaydayDom(day)
+                                                    showSavedFeedback = true
+                                                },
+                                            shape = MaterialTheme.shapes.medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+                                                else MaterialTheme.colorScheme.surfaceContainer,
+                                            tonalElevation = 0.dp,
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = day.toString(),
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer
+                                                        else MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    repeat(7 - rowDays.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
                             }
                         }
 
