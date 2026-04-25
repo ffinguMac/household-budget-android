@@ -1,5 +1,7 @@
 package com.householdbudget.app.ui
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
@@ -13,8 +15,10 @@ import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -129,9 +133,44 @@ class BudgetViewModel(
         viewModelScope.launch { repository.setCashbackCategoryId(id) }
     }
 
+    // ── 백업 / 복원 ───────────────────────────────────────────────────────────
+
+    private val _backupStatus = MutableStateFlow<BackupStatus>(BackupStatus.Idle)
+    val backupStatus: StateFlow<BackupStatus> = _backupStatus.asStateFlow()
+
+    fun exportBackup(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _backupStatus.value = BackupStatus.Working
+            runCatching { repository.exportBackup(context, uri) }
+                .onSuccess { _backupStatus.value = BackupStatus.ExportDone }
+                .onFailure { _backupStatus.value = BackupStatus.Error(it.message ?: "오류") }
+        }
+    }
+
+    fun importBackup(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _backupStatus.value = BackupStatus.Working
+            runCatching { repository.importBackup(context, uri) }
+                .onSuccess { _backupStatus.value = BackupStatus.ImportDone }
+                .onFailure { _backupStatus.value = BackupStatus.Error(it.message ?: "오류") }
+        }
+    }
+
+    fun clearBackupStatus() {
+        _backupStatus.value = BackupStatus.Idle
+    }
+
     companion object {
         private const val DEFAULT_PAYDAY = 25
     }
+}
+
+sealed class BackupStatus {
+    data object Idle : BackupStatus()
+    data object Working : BackupStatus()
+    data object ExportDone : BackupStatus()
+    data object ImportDone : BackupStatus()
+    data class Error(val message: String) : BackupStatus()
 }
 
 class BudgetViewModelFactory(

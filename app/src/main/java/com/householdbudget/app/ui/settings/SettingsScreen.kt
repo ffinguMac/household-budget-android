@@ -1,5 +1,7 @@
 package com.householdbudget.app.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,13 +24,21 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,14 +47,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
+import com.householdbudget.app.ui.BackupStatus
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun SettingsScreen(
@@ -54,9 +68,23 @@ fun SettingsScreen(
     onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val payday by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
     val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
+    val backupStatus by budgetViewModel.backupStatus.collectAsStateWithLifecycle()
     var showSavedFeedback by remember { mutableStateOf(false) }
+    var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) budgetViewModel.exportBackup(context, uri)
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) pendingImportUri = uri
+    }
 
     LaunchedEffect(showSavedFeedback) {
         if (showSavedFeedback) {
@@ -464,7 +492,135 @@ fun SettingsScreen(
             }
         }
 
+        item { Spacer(Modifier.height(16.dp)) }
+
+        // ── 백업 / 복원 섹션 ─────────────────────────────────────────────────
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ScreenHorizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "데이터 백업 / 복원",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    tonalElevation = 0.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = "모든 거래·카테고리·예산 설정을 JSON 파일로 저장하고 복원합니다.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Button(
+                                onClick = {
+                                    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                                    exportLauncher.launch("가계부_백업_$date.json")
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                                enabled = backupStatus !is BackupStatus.Working,
+                            ) {
+                                Icon(
+                                    Icons.Filled.Save,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.size(6.dp))
+                                Text("내보내기", style = MaterialTheme.typography.labelLarge)
+                            }
+                            OutlinedButton(
+                                onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                                modifier = Modifier.weight(1f),
+                                enabled = backupStatus !is BackupStatus.Working,
+                            ) {
+                                Icon(
+                                    Icons.Filled.Restore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.size(6.dp))
+                                Text("복원", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                        when (val s = backupStatus) {
+                            is BackupStatus.Working -> Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                Text("처리 중...", style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            is BackupStatus.ExportDone -> Text(
+                                "✅ 내보내기 완료",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            is BackupStatus.ImportDone -> Text(
+                                "✅ 복원 완료 — 앱을 재시작하면 반영됩니다.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            is BackupStatus.Error -> Text(
+                                "❌ 오류: ${s.message}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            else -> {}
+                        }
+                    }
+                }
+            }
+        }
+
         item { Spacer(Modifier.height(80.dp)) }
+    }
+
+    // ── 복원 확인 다이얼로그 ─────────────────────────────────────────────────
+    pendingImportUri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { pendingImportUri = null },
+            title = { Text("데이터 복원") },
+            text = { Text("현재 모든 데이터가 백업 파일로 교체됩니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    budgetViewModel.importBackup(context, uri)
+                    pendingImportUri = null
+                }) { Text("복원", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImportUri = null }) { Text("취소") }
+            },
+        )
+    }
+
+    // 완료 메시지 자동 초기화
+    LaunchedEffect(backupStatus) {
+        if (backupStatus is BackupStatus.ExportDone || backupStatus is BackupStatus.ImportDone) {
+            delay(4_000)
+            budgetViewModel.clearBackupStatus()
+        }
     }
 }
 

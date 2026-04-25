@@ -77,4 +77,17 @@ interface CategoryDao {
         "SELECT * FROM categories WHERE parent_id IS NULL AND kind = :kind AND name = :name LIMIT 1",
     )
     suspend fun findTopLevelByName(kind: String, name: String): CategoryEntity?
+
+    // ── 백업 / 복원 ───────────────────────────────────────────────────────────
+    @Query("SELECT * FROM categories ORDER BY sort_order ASC, id ASC")
+    suspend fun getAll(): List<CategoryEntity>
+
+    @Query("DELETE FROM categories WHERE parent_id IS NOT NULL")
+    suspend fun deleteAllLeaves()
+
+    @Query("DELETE FROM categories WHERE parent_id IS NULL")
+    suspend fun deleteAllParents()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplace(categories: List<CategoryEntity>)
 }

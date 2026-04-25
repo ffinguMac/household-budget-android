@@ -150,4 +150,14 @@ interface TransactionDao {
         maxAmount: Long,
         orderBy: String,
     ): Flow<List<TransactionWithCategoryRow>>
+
+    // ── 백업 / 복원 ───────────────────────────────────────────────────────────
+    @Query("SELECT * FROM transactions ORDER BY id ASC")
+    suspend fun getAll(): List<TransactionEntity>
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplace(transactions: List<TransactionEntity>)
 }

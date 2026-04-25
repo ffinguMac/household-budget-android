@@ -34,4 +34,14 @@ interface RecurringRuleDao {
 
     @Query("DELETE FROM recurring_rules WHERE category_id = :categoryId")
     suspend fun deleteByCategoryId(categoryId: Long)
+
+    // ── 백업 / 복원 ───────────────────────────────────────────────────────────
+    @Query("SELECT * FROM recurring_rules ORDER BY id ASC")
+    suspend fun getAll(): List<RecurringRuleEntity>
+
+    @Query("DELETE FROM recurring_rules")
+    suspend fun deleteAll()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllReplace(rules: List<RecurringRuleEntity>)
 }

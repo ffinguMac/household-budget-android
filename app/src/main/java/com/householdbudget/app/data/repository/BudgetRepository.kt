@@ -1,5 +1,7 @@
 package com.householdbudget.app.data.repository
 
+import android.content.Context
+import android.net.Uri
 import androidx.room.withTransaction
 import com.householdbudget.app.data.local.AppDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
@@ -22,11 +24,16 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 const val DEFAULT_LEAF_NAME = "기본"
 
@@ -667,6 +674,164 @@ class BudgetRepository(
             }
         }
 
+    // ── 백업 / 복원 ───────────────────────────────────────────────────────────
+
+    suspend fun exportBackup(context: Context, uri: Uri) = withContext(Dispatchers.IO) {
+        val json = buildBackupJson()
+        context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(json) }
+            ?: error("출력 스트림을 열 수 없습니다.")
+    }
+
+    suspend fun importBackup(context: Context, uri: Uri) = withContext(Dispatchers.IO) {
+        val json = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            ?: error("입력 스트림을 열 수 없습니다.")
+        restoreFromJson(json)
+    }
+
+    private suspend fun buildBackupJson(): String {
+        val cats     = categoryDao.getAll()
+        val txs      = transactionDao.getAll()
+        val rrs      = recurringRuleDao.getAll()
+        val budgets  = categoryBudgetDao.getAll()
+        val payday   = userPreferencesRepository.paydayDom.first()
+        val kbank    = userPreferencesRepository.kbankCardEnabled.first()
+        val cbCatId  = userPreferencesRepository.cashbackCategoryId.first()
+
+        return JSONObject().apply {
+            put("version", BACKUP_VERSION)
+            put("exportedAt", System.currentTimeMillis())
+            put("categories", JSONArray().also { arr ->
+                cats.forEach { c ->
+                    arr.put(JSONObject().apply {
+                        put("id", c.id)
+                        put("name", c.name)
+                        put("kind", c.kind)
+                        put("parentId", c.parentId ?: JSONObject.NULL)
+                        put("sortOrder", c.sortOrder)
+                        put("icon", c.icon ?: JSONObject.NULL)
+                    })
+                }
+            })
+            put("transactions", JSONArray().also { arr ->
+                txs.forEach { t ->
+                    arr.put(JSONObject().apply {
+                        put("id", t.id)
+                        put("occurredEpochDay", t.occurredEpochDay)
+                        put("amountMinor", t.amountMinor)
+                        put("kind", t.kind)
+                        put("categoryId", t.categoryId)
+                        put("memo", t.memo)
+                    })
+                }
+            })
+            put("recurringRules", JSONArray().also { arr ->
+                rrs.forEach { r ->
+                    arr.put(JSONObject().apply {
+                        put("id", r.id)
+                        put("name", r.name)
+                        put("dayOfMonth", r.dayOfMonth)
+                        put("amountMinor", r.amountMinor)
+                        put("kind", r.kind)
+                        put("categoryId", r.categoryId)
+                        put("memo", r.memo)
+                        put("enabled", r.enabled)
+                        put("lastAppliedYearMonth", r.lastAppliedYearMonth ?: JSONObject.NULL)
+                    })
+                }
+            })
+            put("categoryBudgets", JSONArray().also { arr ->
+                budgets.forEach { b ->
+                    arr.put(JSONObject().apply {
+                        put("categoryId", b.categoryId)
+                        put("monthlyAmountMinor", b.monthlyAmountMinor)
+                        put("enabled", b.enabled)
+                    })
+                }
+            })
+            put("preferences", JSONObject().apply {
+                put("paydayDom", payday)
+                put("kbankEnabled", kbank)
+                put("cashbackCategoryId", cbCatId ?: JSONObject.NULL)
+            })
+        }.toString(2)
+    }
+
+    private suspend fun restoreFromJson(json: String) {
+        val root = JSONObject(json)
+
+        val cats = (0 until root.getJSONArray("categories").length()).map { i ->
+            root.getJSONArray("categories").getJSONObject(i).run {
+                CategoryEntity(
+                    id = getLong("id"),
+                    name = getString("name"),
+                    kind = getString("kind"),
+                    parentId = if (isNull("parentId")) null else getLong("parentId"),
+                    sortOrder = getInt("sortOrder"),
+                    icon = if (isNull("icon")) null else optString("icon").ifEmpty { null },
+                )
+            }
+        }
+        val txs = (0 until root.getJSONArray("transactions").length()).map { i ->
+            root.getJSONArray("transactions").getJSONObject(i).run {
+                TransactionEntity(
+                    id = getLong("id"),
+                    occurredEpochDay = getLong("occurredEpochDay"),
+                    amountMinor = getLong("amountMinor"),
+                    kind = getString("kind"),
+                    categoryId = getLong("categoryId"),
+                    memo = optString("memo", ""),
+                )
+            }
+        }
+        val rrs = (0 until root.getJSONArray("recurringRules").length()).map { i ->
+            root.getJSONArray("recurringRules").getJSONObject(i).run {
+                RecurringRuleEntity(
+                    id = getLong("id"),
+                    name = getString("name"),
+                    dayOfMonth = getInt("dayOfMonth"),
+                    amountMinor = getLong("amountMinor"),
+                    kind = getString("kind"),
+                    categoryId = getLong("categoryId"),
+                    memo = optString("memo", ""),
+                    enabled = getBoolean("enabled"),
+                    lastAppliedYearMonth = if (isNull("lastAppliedYearMonth")) null else optString("lastAppliedYearMonth"),
+                )
+            }
+        }
+        val budgets = (0 until root.getJSONArray("categoryBudgets").length()).map { i ->
+            root.getJSONArray("categoryBudgets").getJSONObject(i).run {
+                CategoryBudgetEntity(
+                    categoryId = getLong("categoryId"),
+                    monthlyAmountMinor = getLong("monthlyAmountMinor"),
+                    enabled = getBoolean("enabled"),
+                )
+            }
+        }
+
+        database.withTransaction {
+            // FK 안전한 삭제 순서
+            categoryBudgetDao.deleteAll()
+            recurringRuleDao.deleteAll()
+            transactionDao.deleteAll()
+            categoryDao.deleteAllLeaves()
+            categoryDao.deleteAllParents()
+            // 부모 먼저, 자식 나중에 삽입
+            categoryDao.insertAllReplace(cats.filter { it.parentId == null }.sortedBy { it.id })
+            categoryDao.insertAllReplace(cats.filter { it.parentId != null }.sortedBy { it.id })
+            transactionDao.insertAllReplace(txs)
+            recurringRuleDao.insertAllReplace(rrs)
+            categoryBudgetDao.insertAllReplace(budgets)
+        }
+
+        // 설정 복원 (DataStore는 트랜잭션 밖에서)
+        root.optJSONObject("preferences")?.let { p ->
+            if (p.has("paydayDom")) userPreferencesRepository.setPaydayDom(p.getInt("paydayDom"))
+            if (p.has("kbankEnabled")) userPreferencesRepository.setKbankCardEnabled(p.getBoolean("kbankEnabled"))
+            val cbId = if (p.isNull("cashbackCategoryId")) null else p.optLong("cashbackCategoryId").takeIf { it != 0L }
+            userPreferencesRepository.setCashbackCategoryId(cbId)
+        }
+    }
+
     private fun buildAutoMemo(rule: RecurringRuleEntity): String {
         val base = "[자동] ${rule.name}"
         return if (rule.memo.isBlank()) base else "$base · ${rule.memo.trim()}"
@@ -681,6 +846,7 @@ class BudgetRepository(
     companion object {
         private val YM_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM")
         private const val ARCHIVE_MAX_STEPS = 48
+        private const val BACKUP_VERSION = 1
     }
 }
 
