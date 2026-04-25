@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -32,7 +31,10 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -111,7 +113,7 @@ fun CategoryManagementScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
         ) {
-            // 헤더
+            // ── 헤더 ─────────────────────────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -120,11 +122,10 @@ fun CategoryManagementScreen(
             ) {
                 IconButton(
                     onClick = onBack,
-                    colors =
-                        IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.recurring_back))
                 }
@@ -137,7 +138,7 @@ fun CategoryManagementScreen(
                 )
             }
 
-            // Kind 탭
+            // ── 종류 탭 ──────────────────────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -237,7 +238,7 @@ fun CategoryManagementScreen(
         }
     }
 
-    // ── Dialogs ───────────────────────────────────────────────────────────
+    // ── 다이얼로그 ────────────────────────────────────────────────────────────
     ui.error?.let { err ->
         AlertDialog(
             onDismissRequest = { vm.clearError() },
@@ -364,22 +365,19 @@ private fun CategoryEntity.parentName(groups: List<ParentGroup>): String =
     groups.firstOrNull { it.parent.id == parentId }?.parent?.name?.let { "$it · " }.orEmpty()
 
 @Composable
-private fun KindTab(
-    selected: Boolean,
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun KindTab(selected: Boolean, label: String, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label) },
-        colors =
-            FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
     )
 }
+
+// ── ParentRow ─────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ParentRow(
@@ -399,6 +397,8 @@ private fun ParentRow(
     onMoveParentUp: () -> Unit,
     onMoveParentDown: () -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -406,145 +406,128 @@ private fun ParentRow(
         tonalElevation = 0.dp,
     ) {
         Column {
+            // ── 헤더 행 ──────────────────────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onToggle)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(start = 16.dp, end = 4.dp, top = 14.dp, bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                CategoryAvatar(
+                    icon = group.parent.icon,
+                    fallbackText = group.parent.name.take(1),
+                    size = 44.dp,
+                    onClick = { onEditIcon(group.parent) },
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = group.parent.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "소분류 ${group.children.size}개",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Icon(
                     imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp),
                 )
-                Spacer(Modifier.width(4.dp))
-                CategoryAvatar(
-                    icon = group.parent.icon,
-                    fallbackText = group.parent.name.take(1),
-                    size = 32.dp,
-                    onClick = { onEditIcon(group.parent) },
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = group.parent.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = "${group.children.size}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(8.dp))
-                IconButton(onClick = onMoveParentUp) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
-                }
-                IconButton(onClick = onMoveParentDown) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
-                }
-                IconButton(onClick = onRename) {
-                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.category_rename))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = stringResource(R.string.category_delete),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.category_rename)) },
+                            leadingIcon = { Icon(Icons.Filled.Edit, null) },
+                            onClick = { menuExpanded = false; onRename() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("순서 올리기") },
+                            leadingIcon = { Icon(Icons.Filled.KeyboardArrowUp, null) },
+                            onClick = { menuExpanded = false; onMoveParentUp() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("순서 내리기") },
+                            leadingIcon = { Icon(Icons.Filled.KeyboardArrowDown, null) },
+                            onClick = { menuExpanded = false; onMoveParentDown() },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(R.string.category_delete),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error)
+                            },
+                            onClick = { menuExpanded = false; onDelete() },
+                        )
+                    }
                 }
             }
 
+            // ── 펼쳐진 소분류 목록 ────────────────────────────────────────────
             if (isExpanded) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                Column(modifier = Modifier.padding(start = 24.dp, end = 8.dp)) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     group.children.forEach { leaf ->
-                        val budget = budgets[leaf.id]
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            CategoryAvatar(
-                                icon = leaf.icon,
-                                fallbackText = leaf.name.take(1),
-                                size = 28.dp,
-                                onClick = { onEditIcon(leaf) },
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = leaf.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                if (budget != null) {
-                                    Text(
-                                        text = stringResource(
-                                            R.string.budget_badge,
-                                            budget.monthlyAmountMinor.formatWon(),
-                                        ),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { onEditBudget(leaf) }) {
-                                Icon(
-                                    imageVector = Icons.Filled.AccountBalanceWallet,
-                                    contentDescription = stringResource(R.string.budget_set),
-                                    tint = if (budget != null) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            IconButton(onClick = { onMoveChildUp(leaf) }) {
-                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
-                            }
-                            IconButton(onClick = { onMoveChildDown(leaf) }) {
-                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
-                            }
-                            IconButton(onClick = { onRenameChild(leaf) }) {
-                                Icon(Icons.Filled.Edit, contentDescription = null)
-                            }
-                            IconButton(onClick = { onDeleteChild(leaf) }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                        }
+                        ChildRow(
+                            leaf = leaf,
+                            budget = budgets[leaf.id],
+                            onEditIcon = onEditIcon,
+                            onEditBudget = onEditBudget,
+                            onRenameChild = onRenameChild,
+                            onDeleteChild = onDeleteChild,
+                            onMoveChildUp = onMoveChildUp,
+                            onMoveChildDown = onMoveChildDown,
+                        )
                     }
+                    // 소분류 추가 버튼
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(onClick = onAddChild)
-                            .padding(vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 4.dp).size(18.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
                         Text(
                             text = stringResource(R.string.category_add_child),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -552,6 +535,152 @@ private fun ParentRow(
         }
     }
 }
+
+// ── ChildRow ──────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ChildRow(
+    leaf: CategoryEntity,
+    budget: com.householdbudget.app.data.local.entity.CategoryBudgetEntity?,
+    onEditIcon: (CategoryEntity) -> Unit,
+    onEditBudget: (CategoryEntity) -> Unit,
+    onRenameChild: (CategoryEntity) -> Unit,
+    onDeleteChild: (CategoryEntity) -> Unit,
+    onMoveChildUp: (CategoryEntity) -> Unit,
+    onMoveChildDown: (CategoryEntity) -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        CategoryAvatar(
+            icon = leaf.icon,
+            fallbackText = leaf.name.take(1),
+            size = 36.dp,
+            onClick = { onEditIcon(leaf) },
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = leaf.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (budget != null) {
+                Text(
+                    text = stringResource(R.string.budget_badge, budget.monthlyAmountMinor.formatWon()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        Box {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(
+                    Icons.Filled.MoreVert,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.budget_set)) },
+                    leadingIcon = { Icon(Icons.Filled.AccountBalanceWallet, null) },
+                    onClick = { menuExpanded = false; onEditBudget(leaf) },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.category_rename)) },
+                    leadingIcon = { Icon(Icons.Filled.Edit, null) },
+                    onClick = { menuExpanded = false; onRenameChild(leaf) },
+                )
+                DropdownMenuItem(
+                    text = { Text("순서 올리기") },
+                    leadingIcon = { Icon(Icons.Filled.KeyboardArrowUp, null) },
+                    onClick = { menuExpanded = false; onMoveChildUp(leaf) },
+                )
+                DropdownMenuItem(
+                    text = { Text("순서 내리기") },
+                    leadingIcon = { Icon(Icons.Filled.KeyboardArrowDown, null) },
+                    onClick = { menuExpanded = false; onMoveChildDown(leaf) },
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.category_delete),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error)
+                    },
+                    onClick = { menuExpanded = false; onDeleteChild(leaf) },
+                )
+            }
+        }
+    }
+}
+
+// ── CategoryAvatar ────────────────────────────────────────────────────────────
+
+@Composable
+private fun CategoryAvatar(
+    icon: String?,
+    fallbackText: String,
+    size: Dp,
+    onClick: (() -> Unit)? = null,
+) {
+    Box(modifier = Modifier.size(size)) {
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .let { if (onClick != null) it.clickable(onClick = onClick) else it },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!icon.isNullOrBlank()) {
+                Text(text = icon, style = MaterialTheme.typography.titleMedium)
+            } else {
+                Text(
+                    text = fallbackText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        // 탭 가능함을 알리는 편집 뱃지
+        if (onClick != null) {
+            Box(
+                modifier = Modifier
+                    .size((size.value * 0.38f).dp)
+                    .align(Alignment.BottomEnd)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size((size.value * 0.2f).dp),
+                )
+            }
+        }
+    }
+}
+
+// ── 다이얼로그들 ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun NamePromptDialog(
@@ -571,11 +700,10 @@ private fun NamePromptDialog(
                 label = { Text(stringResource(R.string.category_name_label)) },
                 placeholder = { Text(stringResource(R.string.category_name_hint)) },
                 singleLine = true,
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
             )
         },
         confirmButton = {
@@ -585,9 +713,7 @@ private fun NamePromptDialog(
             ) { Text(stringResource(R.string.category_save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.category_cancel))
-            }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.category_cancel)) }
         },
     )
 }
@@ -599,42 +725,8 @@ private fun validationTitle(err: CategoryValidationError): String =
         CategoryValidationError.KindMismatch -> stringResource(R.string.category_kind_mismatch)
         CategoryValidationError.EmptyName -> stringResource(R.string.category_empty_name)
         CategoryValidationError.NotFound -> stringResource(R.string.archive_missing)
-        CategoryValidationError.LastParentOfKind ->
-            stringResource(R.string.category_last_parent_of_kind)
+        CategoryValidationError.LastParentOfKind -> stringResource(R.string.category_last_parent_of_kind)
     }
-
-@Composable
-private fun CategoryAvatar(
-    icon: String?,
-    fallbackText: String,
-    size: Dp,
-    onClick: (() -> Unit)? = null,
-) {
-    val bg = MaterialTheme.colorScheme.surfaceContainerHigh
-    val modifier = Modifier
-        .size(size)
-        .clip(CircleShape)
-        .background(bg)
-        .let { if (onClick != null) it.clickable(onClick = onClick) else it }
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        if (!icon.isNullOrBlank()) {
-            Text(
-                text = icon,
-                style = MaterialTheme.typography.titleMedium,
-            )
-        } else {
-            Text(
-                text = fallbackText,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 private val EMOJI_PALETTE = listOf(
     "🍴", "🍚", "☕", "🍪", "🍺", "🍰", "🍜", "🍔",
@@ -692,11 +784,10 @@ private fun IconPickerDialog(
                     onValueChange = { if (it.length <= 4) custom = it },
                     label = { Text(stringResource(R.string.icon_custom)) },
                     singleLine = true,
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -705,24 +796,16 @@ private fun IconPickerDialog(
             Row {
                 if (!currentIcon.isNullOrBlank()) {
                     TextButton(onClick = { onPick(null) }) {
-                        Text(
-                            stringResource(R.string.icon_clear),
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        Text(stringResource(R.string.icon_clear), color = MaterialTheme.colorScheme.error)
                     }
                 }
                 TextButton(
-                    onClick = {
-                        val value = custom.trim().ifEmpty { null }
-                        onPick(value)
-                    },
+                    onClick = { onPick(custom.trim().ifEmpty { null }) },
                 ) { Text(stringResource(R.string.category_save)) }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.category_cancel))
-            }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.category_cancel)) }
         },
     )
 }
@@ -744,19 +827,14 @@ private fun BudgetEditDialog(
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = { v ->
-                    if (v.isEmpty() || v.all { it.isDigit() }) text = v
-                },
+                onValueChange = { v -> if (v.isEmpty() || v.all { it.isDigit() }) text = v },
                 label = { Text(stringResource(R.string.budget_monthly_amount)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
             )
         },
         confirmButton = {
@@ -766,23 +844,16 @@ private fun BudgetEditDialog(
                     if (amount > 0) onSave(amount)
                 },
                 enabled = (text.toLongOrNull() ?: 0L) > 0L,
-            ) {
-                Text(stringResource(R.string.category_save))
-            }
+            ) { Text(stringResource(R.string.category_save)) }
         },
         dismissButton = {
             Row {
                 if (initialAmount > 0) {
                     TextButton(onClick = onClear) {
-                        Text(
-                            stringResource(R.string.budget_remove),
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        Text(stringResource(R.string.budget_remove), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.category_cancel))
-                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.category_cancel)) }
             }
         },
     )
