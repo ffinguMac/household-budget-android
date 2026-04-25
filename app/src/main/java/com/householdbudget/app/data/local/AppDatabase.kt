@@ -44,7 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryBudgetDao(): CategoryBudgetDao
 
     companion object {
-        @Volatile private var instance: AppDatabase? = null
+        @Volatile private var instances = HashMap<String, AppDatabase>()
 
         private val MIGRATION_1_2 =
             object : Migration(1, 2) {
@@ -327,19 +327,19 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATIONS: Array<Migration> =
             arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
-        fun getInstance(context: Context): AppDatabase {
-            return instance
+        fun getInstance(context: Context, dbName: String = "household_budget.db"): AppDatabase {
+            return instances[dbName]
                 ?: synchronized(this) {
-                    instance
+                    instances[dbName]
                         ?: Room.databaseBuilder(
                                 context.applicationContext,
                                 AppDatabase::class.java,
-                                "household_budget.db",
+                                dbName,
                             )
                             .addMigrations(*MIGRATIONS)
                             .build()
                             .also { db ->
-                                instance = db
+                                instances[dbName] = db
                                 runBlocking(Dispatchers.IO) {
                                     seedCategoriesIfEmpty(db.categoryDao())
                                 }

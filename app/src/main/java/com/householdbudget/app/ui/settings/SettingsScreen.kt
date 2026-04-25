@@ -1,5 +1,6 @@
 package com.householdbudget.app.ui.settings
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -16,9 +17,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.InsertChart
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +36,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -44,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,11 +61,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
+import com.householdbudget.app.data.preferences.Profile
+import com.householdbudget.app.data.preferences.ProfileManager
 import com.householdbudget.app.ui.BackupStatus
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -69,11 +82,26 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val activity = context as? ComponentActivity
+    val app = context.applicationContext as? BudgetApplication
+    val scope = rememberCoroutineScope()
+
     val payday by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
     val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val backupStatus by budgetViewModel.backupStatus.collectAsStateWithLifecycle()
     var showSavedFeedback by remember { mutableStateOf(false) }
     var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    // ── 프로필 상태 ───────────────────────────────────────────────────────────
+    val profiles by (app?.profileManager?.profiles
+        ?: kotlinx.coroutines.flow.flowOf(emptyList<Profile>())).collectAsStateWithLifecycle(emptyList())
+    val currentProfileId by (app?.profileManager?.currentProfileId
+        ?: kotlinx.coroutines.flow.flowOf(ProfileManager.DEFAULT_PROFILE_ID)).collectAsStateWithLifecycle(ProfileManager.DEFAULT_PROFILE_ID)
+
+    var showProfileDialog by remember { mutableStateOf(false) }
+    var showAddProfileDialog by remember { mutableStateOf(false) }
+    var newProfileName by remember { mutableStateOf("") }
+    var deleteConfirmProfileId by remember { mutableStateOf<Long?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -123,6 +151,72 @@ fun SettingsScreen(
                 )
             }
         }
+
+        // ── 프로필 섹션 ──────────────────────────────────────────────────────
+        item {
+            val currentProfile = profiles.firstOrNull { it.id == currentProfileId }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ScreenHorizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_profile_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showProfileDialog = true },
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    tonalElevation = 0.dp,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.padding(8.dp).size(20.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = currentProfile?.name ?: "기본",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_profile_subtitle, profiles.size),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(16.dp)) }
 
         // ── 급여일 섹션 ──────────────────────────────────────────────────────
         item {
@@ -595,6 +689,148 @@ fun SettingsScreen(
         }
 
         item { Spacer(Modifier.height(80.dp)) }
+    }
+
+    // ── 프로필 관리 다이얼로그 ───────────────────────────────────────────────
+    if (showProfileDialog) {
+        AlertDialog(
+            onDismissRequest = { showProfileDialog = false },
+            title = { Text(stringResource(R.string.settings_profile_manage)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    profiles.forEachIndexed { index, profile ->
+                        if (index > 0) HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = profile.id != currentProfileId) {
+                                    scope.launch {
+                                        app?.profileManager?.setCurrentProfile(profile.id)
+                                        app?.reinitializeForProfile(profile.id)
+                                        showProfileDialog = false
+                                        activity?.recreate()
+                                    }
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = if (profile.id == currentProfileId) Icons.Filled.Check
+                                    else Icons.Filled.AccountCircle,
+                                contentDescription = null,
+                                tint = if (profile.id == currentProfileId) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = profile.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (profile.id == currentProfileId) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f),
+                                color = if (profile.id == currentProfileId) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (profile.id != ProfileManager.DEFAULT_PROFILE_ID && profile.id != currentProfileId) {
+                                IconButton(
+                                    onClick = { deleteConfirmProfileId = profile.id },
+                                    modifier = Modifier.size(32.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = stringResource(R.string.settings_profile_delete),
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    TextButton(
+                        onClick = {
+                            newProfileName = ""
+                            showAddProfileDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.settings_profile_add))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showProfileDialog = false }) {
+                    Text(stringResource(R.string.settings_profile_close))
+                }
+            },
+        )
+    }
+
+    // ── 프로필 추가 다이얼로그 ────────────────────────────────────────────────
+    if (showAddProfileDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddProfileDialog = false },
+            title = { Text(stringResource(R.string.settings_profile_add)) },
+            text = {
+                OutlinedTextField(
+                    value = newProfileName,
+                    onValueChange = { newProfileName = it },
+                    label = { Text(stringResource(R.string.settings_profile_name_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = newProfileName.trim()
+                        if (name.isNotEmpty()) {
+                            scope.launch {
+                                app?.profileManager?.addProfile(name)
+                                showAddProfileDialog = false
+                                newProfileName = ""
+                            }
+                        }
+                    },
+                    enabled = newProfileName.trim().isNotEmpty(),
+                ) { Text(stringResource(R.string.settings_profile_add_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddProfileDialog = false }) {
+                    Text(stringResource(R.string.settings_profile_cancel))
+                }
+            },
+        )
+    }
+
+    // ── 프로필 삭제 확인 다이얼로그 ──────────────────────────────────────────
+    deleteConfirmProfileId?.let { targetId ->
+        val targetName = profiles.firstOrNull { it.id == targetId }?.name ?: ""
+        AlertDialog(
+            onDismissRequest = { deleteConfirmProfileId = null },
+            title = { Text(stringResource(R.string.settings_profile_delete)) },
+            text = { Text(stringResource(R.string.settings_profile_delete_confirm, targetName)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        app?.profileManager?.deleteProfile(targetId)
+                        deleteConfirmProfileId = null
+                    }
+                }) { Text(stringResource(R.string.settings_profile_delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteConfirmProfileId = null }) {
+                    Text(stringResource(R.string.settings_profile_cancel))
+                }
+            },
+        )
     }
 
     // ── 복원 확인 다이얼로그 ─────────────────────────────────────────────────
