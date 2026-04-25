@@ -68,6 +68,7 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.CategoryValidationError
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.util.formatWon
 
 @Composable
 fun CategoryManagementScreen(
@@ -491,7 +492,7 @@ private fun ParentRow(
                                     Text(
                                         text = stringResource(
                                             R.string.budget_badge,
-                                            com.householdbudget.app.ui.util.formatWon(budget.monthlyAmountMinor),
+                                            budget.monthlyAmountMinor.formatWon(),
                                         ),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
