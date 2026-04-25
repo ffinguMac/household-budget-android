@@ -394,7 +394,11 @@ private fun DayDetailSection(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = row.categoryName.take(1),
+                                    text = com.householdbudget.app.ui.util.resolveCategoryDisplay(
+                                        leafIcon = row.categoryIcon,
+                                        parentIcon = row.parentCategoryIcon,
+                                        leafName = row.categoryName,
+                                    ),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = avatarText,

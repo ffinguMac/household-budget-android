@@ -15,7 +15,9 @@ data class TransactionWithCategoryRow(
     val kind: String,
     val categoryId: Long,
     val categoryName: String,
+    val categoryIcon: String?,
     val parentCategoryId: Long?,
     val parentCategoryName: String?,
+    val parentCategoryIcon: String?,
     val memo: String,
 )

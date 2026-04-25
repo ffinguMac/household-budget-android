@@ -405,6 +405,18 @@ class BudgetRepository(
         Result.success(newId)
     }
 
+    suspend fun setCategoryIcon(id: Long, icon: String?): Result<Unit> =
+        database.withTransaction {
+            val cat =
+                categoryDao.getById(id)
+                    ?: return@withTransaction Result.failure(
+                        ValidationException(CategoryValidationError.NotFound),
+                    )
+            val normalized = icon?.trim()?.ifEmpty { null }
+            categoryDao.update(cat.copy(icon = normalized))
+            Result.success(Unit)
+        }
+
     suspend fun renameCategory(id: Long, newName: String): Result<Unit> =
         database.withTransaction {
             val trimmed = newName.trim()
@@ -565,6 +577,7 @@ class BudgetRepository(
                         ParentSpend(
                             parentId = pid,
                             parentName = parent?.name ?: "기타",
+                            parentIcon = parent?.icon,
                             amountMinor = list.sumOf { it.amountMinor },
                         )
                     }
@@ -636,13 +649,16 @@ class BudgetRepository(
                 val categoryById = categories.associateBy { it.id }
                 budgets.filter { it.enabled }.mapNotNull { budget ->
                     val leaf = categoryById[budget.categoryId] ?: return@mapNotNull null
+                    val parent = leaf.parentId?.let { pid -> categoryById[pid] }
                     val spent = transactions
                         .filter { it.categoryId == leaf.id }
                         .sumOf { it.amountMinor }
                     BudgetProgress(
                         categoryId = leaf.id,
                         categoryName = leaf.name,
-                        parentName = leaf.parentId?.let { pid -> categoryById[pid]?.name },
+                        categoryIcon = leaf.icon,
+                        parentName = parent?.name,
+                        parentIcon = parent?.icon,
                         kind = leaf.kind,
                         monthlyAmountMinor = budget.monthlyAmountMinor,
                         spentMinor = spent,
@@ -677,6 +693,7 @@ fun Result<*>.validationError(): CategoryValidationError? =
 data class ParentSpend(
     val parentId: Long,
     val parentName: String,
+    val parentIcon: String?,
     val amountMinor: Long,
 )
 
@@ -694,7 +711,9 @@ data class MonthlyTotal(
 data class BudgetProgress(
     val categoryId: Long,
     val categoryName: String,
+    val categoryIcon: String?,
     val parentName: String?,
+    val parentIcon: String?,
     val kind: String,
     val monthlyAmountMinor: Long,
     val spentMinor: Long,

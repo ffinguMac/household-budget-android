@@ -49,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ fun CategoryManagementScreen(
     var renaming by remember { mutableStateOf<CategoryEntity?>(null) }
     var confirmDelete by remember { mutableStateOf<CategoryEntity?>(null) }
     var editingBudgetFor by remember { mutableStateOf<CategoryEntity?>(null) }
+    var editingIconFor by remember { mutableStateOf<CategoryEntity?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -187,6 +189,7 @@ fun CategoryManagementScreen(
                             onRenameChild = { leaf -> renaming = leaf },
                             onDeleteChild = { leaf -> confirmDelete = leaf },
                             onEditBudget = { leaf -> editingBudgetFor = leaf },
+                            onEditIcon = { cat -> editingIconFor = cat },
                             onMoveChildUp = { leaf ->
                                 val ids = group.children.map { it.id }.toMutableList()
                                 val idx = ids.indexOf(leaf.id)
@@ -320,6 +323,18 @@ fun CategoryManagementScreen(
         )
     }
 
+    editingIconFor?.let { target ->
+        IconPickerDialog(
+            categoryName = target.name,
+            currentIcon = target.icon,
+            onDismiss = { editingIconFor = null },
+            onPick = { icon ->
+                vm.setIcon(target.id, icon)
+                editingIconFor = null
+            },
+        )
+    }
+
     editingBudgetFor?.let { leaf ->
         BudgetEditDialog(
             leafName = leaf.parentName(groups) + leaf.name,
@@ -370,6 +385,7 @@ private fun ParentRow(
     onRenameChild: (CategoryEntity) -> Unit,
     onDeleteChild: (CategoryEntity) -> Unit,
     onEditBudget: (CategoryEntity) -> Unit,
+    onEditIcon: (CategoryEntity) -> Unit,
     onMoveChildUp: (CategoryEntity) -> Unit,
     onMoveChildDown: (CategoryEntity) -> Unit,
     onMoveParentUp: () -> Unit,
@@ -393,6 +409,13 @@ private fun ParentRow(
                     imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(4.dp))
+                CategoryAvatar(
+                    icon = group.parent.icon,
+                    fallbackText = group.parent.name.take(1),
+                    size = 32.dp,
+                    onClick = { onEditIcon(group.parent) },
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -442,6 +465,13 @@ private fun ParentRow(
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            CategoryAvatar(
+                                icon = leaf.icon,
+                                fallbackText = leaf.name.take(1),
+                                size = 28.dp,
+                                onClick = { onEditIcon(leaf) },
                             )
                             Spacer(Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -564,6 +594,130 @@ private fun validationTitle(err: CategoryValidationError): String =
         CategoryValidationError.LastParentOfKind ->
             stringResource(R.string.category_last_parent_of_kind)
     }
+
+@Composable
+private fun CategoryAvatar(
+    icon: String?,
+    fallbackText: String,
+    size: androidx.compose.ui.unit.Dp,
+    onClick: (() -> Unit)? = null,
+) {
+    val bg = MaterialTheme.colorScheme.surfaceContainerHigh
+    val modifier = Modifier
+        .size(size)
+        .clip(androidx.compose.foundation.shape.CircleShape)
+        .background(bg)
+        .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!icon.isNullOrBlank()) {
+            Text(
+                text = icon,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        } else {
+            Text(
+                text = fallbackText,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private val EMOJI_PALETTE = listOf(
+    "🍴", "🍚", "☕", "🍪", "🍺", "🍰", "🍜", "🍔",
+    "🚌", "🚗", "🚇", "✈️", "⛽", "🅿️",
+    "🏠", "💡", "💧", "🔌", "📱", "💻",
+    "🛒", "👕", "👟", "💄", "🎁",
+    "🎬", "🎮", "🎵", "📚", "🏋️",
+    "💊", "🏥", "🦷",
+    "💰", "💵", "💳", "💸",
+    "🏦", "📈", "📊", "🛡️", "🎯",
+    "🐶", "🎓", "🧸", "📌",
+)
+
+@Composable
+private fun IconPickerDialog(
+    categoryName: String,
+    currentIcon: String?,
+    onDismiss: () -> Unit,
+    onPick: (String?) -> Unit,
+) {
+    var custom by remember { mutableStateOf(currentIcon.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("$categoryName · ${stringResource(R.string.icon_pick_title)}") },
+        text = {
+            Column {
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(6),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    androidx.compose.foundation.lazy.grid.items(EMOJI_PALETTE) { emoji ->
+                        val selected = emoji == currentIcon
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                )
+                                .clickable { onPick(emoji) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(text = emoji, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = custom,
+                    onValueChange = { if (it.length <= 4) custom = it },
+                    label = { Text(stringResource(R.string.icon_custom)) },
+                    singleLine = true,
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Row {
+                if (!currentIcon.isNullOrBlank()) {
+                    TextButton(onClick = { onPick(null) }) {
+                        Text(
+                            stringResource(R.string.icon_clear),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = {
+                        val value = custom.trim().ifEmpty { null }
+                        onPick(value)
+                    },
+                ) { Text(stringResource(R.string.category_save)) }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.category_cancel))
+            }
+        },
+    )
+}
 
 @Composable
 private fun BudgetEditDialog(

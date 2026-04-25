@@ -29,7 +29,7 @@ import kotlinx.coroutines.runBlocking
             ArchivedPeriodEntity::class,
             CategoryBudgetEntity::class,
         ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -289,9 +289,43 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        /** v5 → v6: 카테고리에 icon(이모지) 컬럼 추가. 기본 카테고리들에 이모지 부여. */
+        private val MIGRATION_5_6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `categories` ADD COLUMN `icon` TEXT")
+                    // 기존 기본 카테고리 이름에 매칭되는 이모지 업데이트.
+                    val mapping = mapOf(
+                        "월급" to "💰",        // 💰
+                        "기타 수입" to "💵",    // 💵
+                        "식비" to "🍴",        // 🍴
+                        "식사" to "🍚",        // 🍚
+                        "카페" to "☕",              // ☕
+                        "간식" to "🍪",        // 🍪
+                        "교통" to "🚌",        // 🚌
+                        "통신" to "📱",        // 📱
+                        "쇼핑" to "🛒",        // 🛒
+                        "문화/여가" to "🎬",    // 🎬
+                        "의료" to "💊",        // 💊
+                        "기타" to "📌",        // 📌
+                        "저축" to "🏦",        // 🏦
+                        "투자" to "📈",        // 📈
+                        "연금저축" to "🛡️", // 🛡️
+                        "청약" to "🏠",        // 🏠
+                        "기본" to "📌",        // 📌 (placeholder leaf)
+                    )
+                    for ((name, emoji) in mapping) {
+                        db.execSQL(
+                            "UPDATE `categories` SET icon = ? WHERE name = ? AND icon IS NULL",
+                            arrayOf<Any>(emoji, name),
+                        )
+                    }
+                }
+            }
+
         /** 테스트 및 DB 빌더에서 공용으로 쓰는 마이그레이션 리스트. */
         val MIGRATIONS: Array<Migration> =
-            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
         fun getInstance(context: Context): AppDatabase {
             return instance
@@ -316,20 +350,32 @@ abstract class AppDatabase : RoomDatabase() {
         private suspend fun seedCategoriesIfEmpty(categoryDao: CategoryDao) {
             if (categoryDao.count() > 0) return
 
-            // 대분류 → 소분류 정의. 소분류 비어있으면 자동으로 "기본" 1개 생성.
-            data class Seed(val kind: CategoryKind, val parent: String, val children: List<String>)
+            // 대분류 → 소분류 정의. 이모지 아이콘까지 시드.
+            data class Child(val name: String, val icon: String)
+            data class Seed(
+                val kind: CategoryKind,
+                val parent: String,
+                val parentIcon: String,
+                val children: List<Child>,
+            )
             val seeds =
                 listOf(
-                    Seed(CategoryKind.INCOME, "월급", listOf("기본")),
-                    Seed(CategoryKind.INCOME, "기타 수입", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "식비", listOf("식사", "카페", "간식")),
-                    Seed(CategoryKind.EXPENSE, "교통", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "통신", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "쇼핑", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "문화/여가", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "의료", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "기타", listOf("기본")),
-                    Seed(CategoryKind.SAVINGS, "저축", listOf("투자", "연금저축", "청약")),
+                    Seed(CategoryKind.INCOME, "월급", "💰", listOf(Child("기본", "💰"))),
+                    Seed(CategoryKind.INCOME, "기타 수입", "💵", listOf(Child("기본", "💵"))),
+                    Seed(
+                        CategoryKind.EXPENSE, "식비", "🍴",
+                        listOf(Child("식사", "🍚"), Child("카페", "☕"), Child("간식", "🍪")),
+                    ),
+                    Seed(CategoryKind.EXPENSE, "교통", "🚌", listOf(Child("기본", "🚌"))),
+                    Seed(CategoryKind.EXPENSE, "통신", "📱", listOf(Child("기본", "📱"))),
+                    Seed(CategoryKind.EXPENSE, "쇼핑", "🛒", listOf(Child("기본", "🛒"))),
+                    Seed(CategoryKind.EXPENSE, "문화/여가", "🎬", listOf(Child("기본", "🎬"))),
+                    Seed(CategoryKind.EXPENSE, "의료", "💊", listOf(Child("기본", "💊"))),
+                    Seed(CategoryKind.EXPENSE, "기타", "📌", listOf(Child("기본", "📌"))),
+                    Seed(
+                        CategoryKind.SAVINGS, "저축", "🏦",
+                        listOf(Child("투자", "📈"), Child("연금저축", "🛡️"), Child("청약", "🏠")),
+                    ),
                 )
 
             var parentSort = 0
@@ -341,15 +387,17 @@ abstract class AppDatabase : RoomDatabase() {
                             kind = seed.kind.storage,
                             parentId = null,
                             sortOrder = parentSort++,
+                            icon = seed.parentIcon,
                         ),
                     )
-                seed.children.forEachIndexed { idx, childName ->
+                seed.children.forEachIndexed { idx, child ->
                     categoryDao.insert(
                         CategoryEntity(
-                            name = childName,
+                            name = child.name,
                             kind = seed.kind.storage,
                             parentId = parentId,
                             sortOrder = idx,
+                            icon = child.icon,
                         ),
                     )
                 }

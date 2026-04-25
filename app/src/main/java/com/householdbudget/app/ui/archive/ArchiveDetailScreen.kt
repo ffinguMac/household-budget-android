@@ -135,10 +135,15 @@ fun ArchiveDetailScreen(
                     com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
                 }
                 val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
+                val icon = com.householdbudget.app.ui.util.resolveCategoryDisplay(
+                    leafIcon = row.categoryIcon,
+                    parentIcon = row.parentCategoryIcon,
+                    leafName = row.categoryName,
+                )
                 Column(Modifier.padding(vertical = 10.dp)) {
                     Text(
                         text =
-                            "${d.format(dateFmt)} · $parentPrefix${row.categoryName} · " +
+                            "${d.format(dateFmt)} · $icon $parentPrefix${row.categoryName} · " +
                                 prefix +
                                 row.amountMinor.formatWon() +
                                 if (row.memo.isNotBlank()) "\n${row.memo}" else "",

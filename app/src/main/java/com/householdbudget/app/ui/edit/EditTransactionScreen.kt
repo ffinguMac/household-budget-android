@@ -204,13 +204,16 @@ fun EditTransactionScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         items(parents, key = { it.id }) { parent ->
+                            val label =
+                                if (!parent.icon.isNullOrBlank()) "${parent.icon} ${parent.name}"
+                                else parent.name
                             FilterChip(
                                 selected = ui.parentId == parent.id,
                                 onClick = {
                                     val first = childrenByParent[parent.id]?.firstOrNull()
                                     vm.setParent(parent.id, first)
                                 },
-                                label = { Text(parent.name) },
+                                label = { Text(label) },
                                 colors =
                                     FilterChipDefaults.filterChipColors(
                                         selectedContainerColor =
@@ -240,10 +243,13 @@ fun EditTransactionScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             items(leaves, key = { it.id }) { leaf ->
+                                val label =
+                                    if (!leaf.icon.isNullOrBlank()) "${leaf.icon} ${leaf.name}"
+                                    else leaf.name
                                 FilterChip(
                                     selected = ui.categoryId == leaf.id,
                                     onClick = { vm.setCategoryId(leaf.id) },
-                                    label = { Text(leaf.name) },
+                                    label = { Text(label) },
                                     colors =
                                         FilterChipDefaults.filterChipColors(
                                             selectedContainerColor =

@@ -135,6 +135,10 @@ class CategoryManagementViewModel(
         }
     }
 
+    fun setIcon(id: Long, icon: String?) {
+        viewModelScope.launch { repository.setCategoryIcon(id, icon) }
+    }
+
     /**
      * 1차 시도. 참조가 있으면 확인 다이얼로그 상태를 세팅.
      */

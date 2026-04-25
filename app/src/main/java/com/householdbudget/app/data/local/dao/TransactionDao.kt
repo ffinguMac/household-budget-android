@@ -37,8 +37,10 @@ interface TransactionDao {
                t.kind AS kind,
                t.category_id AS categoryId,
                c.name AS categoryName,
+               c.icon AS categoryIcon,
                c.parent_id AS parentCategoryId,
                p.name AS parentCategoryName,
+               p.icon AS parentCategoryIcon,
                t.memo AS memo
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
@@ -58,8 +60,10 @@ interface TransactionDao {
                t.kind AS kind,
                t.category_id AS categoryId,
                c.name AS categoryName,
+               c.icon AS categoryIcon,
                c.parent_id AS parentCategoryId,
                p.name AS parentCategoryName,
+               p.icon AS parentCategoryIcon,
                t.memo AS memo
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
@@ -108,8 +112,10 @@ interface TransactionDao {
                t.kind AS kind,
                t.category_id AS categoryId,
                c.name AS categoryName,
+               c.icon AS categoryIcon,
                c.parent_id AS parentCategoryId,
                p.name AS parentCategoryName,
+               p.icon AS parentCategoryIcon,
                t.memo AS memo
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id

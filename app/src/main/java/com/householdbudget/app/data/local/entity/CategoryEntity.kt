@@ -31,4 +31,6 @@ data class CategoryEntity(
     /** null = 대분류 (top-level). non-null = 소분류 (leaf) under the given parent. */
     @ColumnInfo(name = "parent_id") val parentId: Long? = null,
     @ColumnInfo(name = "sort_order") val sortOrder: Int,
+    /** 이모지 또는 짧은 문자열 아이콘 (예: "🍴"). null/빈값이면 이름 첫 글자 폴백. */
+    val icon: String? = null,
 )

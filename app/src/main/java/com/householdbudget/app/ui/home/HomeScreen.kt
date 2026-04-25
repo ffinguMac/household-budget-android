@@ -276,7 +276,11 @@ fun HomeScreen(
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Text(
-                                            text = row.categoryName.take(1),
+                                            text = com.householdbudget.app.ui.util.resolveCategoryDisplay(
+                                                leafIcon = row.categoryIcon,
+                                                parentIcon = row.parentCategoryIcon,
+                                                leafName = row.categoryName,
+                                            ),
                                             style = MaterialTheme.typography.titleMedium,
                                             color = avatarTextColor,
                                         )
@@ -330,13 +334,18 @@ private fun BudgetProgressRow(bp: com.householdbudget.app.data.repository.Budget
         bp.percent >= 80 -> androidx.compose.ui.graphics.Color(0xFFFFA000)
         else -> MaterialTheme.colorScheme.primary
     }
+    val icon = com.householdbudget.app.ui.util.resolveCategoryDisplay(
+        leafIcon = bp.categoryIcon,
+        parentIcon = bp.parentIcon,
+        leafName = bp.categoryName,
+    )
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = bp.parentName?.let { "$it · ${bp.categoryName}" } ?: bp.categoryName,
+                text = "$icon  " + (bp.parentName?.let { "$it · ${bp.categoryName}" } ?: bp.categoryName),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,

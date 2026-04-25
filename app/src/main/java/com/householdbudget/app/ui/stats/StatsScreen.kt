@@ -210,8 +210,11 @@ private fun LegendList(data: List<ParentSpend>, total: Long) {
                         .background(palette[index % palette.size]),
                 )
                 Spacer(Modifier.size(8.dp))
+                val label =
+                    if (!p.parentIcon.isNullOrBlank()) "${p.parentIcon} ${p.parentName}"
+                    else p.parentName
                 Text(
-                    text = p.parentName,
+                    text = label,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
