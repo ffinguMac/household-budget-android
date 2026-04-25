@@ -18,10 +18,17 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.InsertChart
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -411,7 +418,7 @@ fun SettingsScreen(
                             tonalElevation = 0.dp,
                         ) {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Filled.InsertChart,
+                                imageVector = Icons.Filled.InsertChart,
                                 contentDescription = null,
                                 modifier = Modifier
                                     .padding(8.dp)
@@ -446,7 +453,7 @@ fun SettingsScreen(
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CashbackCategoryRow(
     budgetViewModel: BudgetViewModel,
@@ -476,28 +483,28 @@ private fun CashbackCategoryRow(
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.height(6.dp))
-        androidx.compose.material3.ExposedDropdownMenuBox(
+        ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = !expanded },
         ) {
-            androidx.compose.material3.OutlinedTextField(
+            OutlinedTextField(
                 value = selectedLabel,
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,
                 trailingIcon = {
-                    androidx.compose.material3.ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(),
                 shape = MaterialTheme.shapes.medium,
             )
-            androidx.compose.material3.ExposedDropdownMenu(
+            ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
             ) {
-                androidx.compose.material3.DropdownMenuItem(
+                DropdownMenuItem(
                     text = { Text(stringResource(R.string.cashback_category_auto)) },
                     onClick = {
                         budgetViewModel.setCashbackCategoryId(null)
@@ -507,7 +514,7 @@ private fun CashbackCategoryRow(
                 incomeParents.forEach { parent ->
                     val leaves = childrenByParent[parent.id].orEmpty()
                     leaves.forEach { leaf ->
-                        androidx.compose.material3.DropdownMenuItem(
+                        DropdownMenuItem(
                             text = { Text("${parent.name} · ${leaf.name}") },
                             onClick = {
                                 budgetViewModel.setCashbackCategoryId(leaf.id)

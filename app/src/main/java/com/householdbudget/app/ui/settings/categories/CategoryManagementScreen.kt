@@ -15,7 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -50,6 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -599,13 +606,13 @@ private fun validationTitle(err: CategoryValidationError): String =
 private fun CategoryAvatar(
     icon: String?,
     fallbackText: String,
-    size: androidx.compose.ui.unit.Dp,
+    size: Dp,
     onClick: (() -> Unit)? = null,
 ) {
     val bg = MaterialTheme.colorScheme.surfaceContainerHigh
     val modifier = Modifier
         .size(size)
-        .clip(androidx.compose.foundation.shape.CircleShape)
+        .clip(CircleShape)
         .background(bg)
         .let { if (onClick != null) it.clickable(onClick = onClick) else it }
     Box(
@@ -653,20 +660,20 @@ private fun IconPickerDialog(
         title = { Text("$categoryName · ${stringResource(R.string.icon_pick_title)}") },
         text = {
             Column {
-                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(6),
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(6),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(280.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    androidx.compose.foundation.lazy.grid.items(EMOJI_PALETTE) { emoji ->
+                    gridItems(EMOJI_PALETTE) { emoji ->
                         val selected = emoji == currentIcon
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .clip(CircleShape)
                                 .background(
                                     if (selected) MaterialTheme.colorScheme.primaryContainer
                                     else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -741,8 +748,8 @@ private fun BudgetEditDialog(
                 },
                 label = { Text(stringResource(R.string.budget_monthly_amount)) },
                 singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
                 ),
                 colors =
                     OutlinedTextFieldDefaults.colors(

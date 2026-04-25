@@ -15,12 +15,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -127,14 +131,14 @@ fun LedgerScreen(
                     singleLine = true,
                     leadingIcon = {
                         Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Filled.Search,
+                            imageVector = Icons.Filled.Search,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                     trailingIcon = {
                         if (filter.isActive) {
-                            androidx.compose.material3.TextButton(onClick = ledgerViewModel::clear) {
+                            TextButton(onClick = ledgerViewModel::clear) {
                                 Text(stringResource(R.string.filter_clear))
                             }
                         }
@@ -147,28 +151,28 @@ fun LedgerScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.kind == null,
                             onClick = { ledgerViewModel.setKind(null) },
                             label = { Text(stringResource(R.string.filter_kind_all)) },
                         )
                     }
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.kind == com.householdbudget.app.domain.CategoryKind.INCOME,
                             onClick = { ledgerViewModel.setKind(com.householdbudget.app.domain.CategoryKind.INCOME) },
                             label = { Text(stringResource(R.string.kind_income)) },
                         )
                     }
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.kind == com.householdbudget.app.domain.CategoryKind.EXPENSE,
                             onClick = { ledgerViewModel.setKind(com.householdbudget.app.domain.CategoryKind.EXPENSE) },
                             label = { Text(stringResource(R.string.kind_expense)) },
                         )
                     }
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.kind == com.householdbudget.app.domain.CategoryKind.SAVINGS,
                             onClick = { ledgerViewModel.setKind(com.householdbudget.app.domain.CategoryKind.SAVINGS) },
                             label = { Text(stringResource(R.string.kind_savings)) },
@@ -180,28 +184,28 @@ fun LedgerScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.sortBy == LedgerSortBy.DATE_DESC,
                             onClick = { ledgerViewModel.setSort(LedgerSortBy.DATE_DESC) },
                             label = { Text(stringResource(R.string.filter_sort_date_desc)) },
                         )
                     }
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.sortBy == LedgerSortBy.DATE_ASC,
                             onClick = { ledgerViewModel.setSort(LedgerSortBy.DATE_ASC) },
                             label = { Text(stringResource(R.string.filter_sort_date_asc)) },
                         )
                     }
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.sortBy == LedgerSortBy.AMOUNT_DESC,
                             onClick = { ledgerViewModel.setSort(LedgerSortBy.AMOUNT_DESC) },
                             label = { Text(stringResource(R.string.filter_sort_amount_desc)) },
                         )
                     }
                     item {
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = filter.sortBy == LedgerSortBy.AMOUNT_ASC,
                             onClick = { ledgerViewModel.setSort(LedgerSortBy.AMOUNT_ASC) },
                             label = { Text(stringResource(R.string.filter_sort_amount_asc)) },

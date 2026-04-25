@@ -119,6 +119,9 @@
     <string name="search_placeholder">메모·카테고리 검색</string>
     <string name="filter_clear">초기화</string>
     <string name="filter_kind_all">전체</string>
+    <string name="kind_income">수입</string>
+    <string name="kind_expense">지출</string>
+    <string name="kind_savings">저축</string>
     <string name="filter_sort_date_desc">최신순</string>
     <string name="filter_sort_date_asc">오래된순</string>
     <string name="filter_sort_amount_desc">금액 높은순</string>
