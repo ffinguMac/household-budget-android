@@ -92,6 +92,20 @@ class EditTransactionViewModel(
         _uiState.update { it.copy(memo = value) }
     }
 
+    /** 거래 추가 화면에서 inline으로 새 대분류 추가. 성공 시 새 parentId를 callback으로 전달. */
+    fun addParent(name: String, kind: CategoryKind, onResult: (Result<Long>) -> Unit) {
+        viewModelScope.launch {
+            onResult(repository.addParentCategory(name, kind))
+        }
+    }
+
+    /** 거래 추가 화면에서 inline으로 새 소분류 추가. 성공 시 새 leafId를 callback으로 전달. */
+    fun addLeaf(parentId: Long, name: String, onResult: (Result<Long>) -> Unit) {
+        viewModelScope.launch {
+            onResult(repository.addLeafCategory(parentId, name))
+        }
+    }
+
     fun save(cashbackChannel: CashbackChannel?, onSuccess: () -> Unit, onInvalid: () -> Unit) {
         val s = _uiState.value
         val amount = s.amountText.toLongOrNull() ?: 0L

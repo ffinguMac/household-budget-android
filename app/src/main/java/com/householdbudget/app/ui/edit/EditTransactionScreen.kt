@@ -11,14 +11,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -34,6 +40,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -81,10 +89,14 @@ fun EditTransactionScreen(
     val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val zone = ZoneId.of("Asia/Seoul")
     var cashbackChannel by remember { mutableStateOf(CashbackChannel.OFFLINE) }
+    var cashbackApply by remember { mutableStateOf(true) }
     val showCashbackSelector = ui.kind == CategoryKind.EXPENSE && kbankCardEnabled && transactionId == null
 
     val parents = parentsByKind[ui.kind].orEmpty()
     val leaves = ui.parentId?.let { childrenByParent[it] }.orEmpty()
+
+    var showAddParentDialog by remember { mutableStateOf(false) }
+    var showAddLeafDialog by remember { mutableStateOf(false) }
 
     // 최초 로드 또는 kind 변경 시 대분류/소분류 자동 선택.
     LaunchedEffect(parents, leaves, ui.parentId, ui.categoryId, ui.loadFinished) {
@@ -223,6 +235,23 @@ fun EditTransactionScreen(
                                     ),
                             )
                         }
+                        item(key = "__add_parent__") {
+                            AssistChip(
+                                onClick = { showAddParentDialog = true },
+                                label = { Text(stringResource(R.string.edit_add_parent_inline)) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Add,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                    labelColor = MaterialTheme.colorScheme.onSurface,
+                                ),
+                            )
+                        }
                     }
 
                     // ── 소분류 ──
@@ -231,7 +260,7 @@ fun EditTransactionScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (ui.parentId == null || leaves.isEmpty()) {
+                    if (ui.parentId == null) {
                         Text(
                             text = stringResource(R.string.edit_category_pick_parent_first),
                             style = MaterialTheme.typography.bodySmall,
@@ -259,6 +288,23 @@ fun EditTransactionScreen(
                                         ),
                                 )
                             }
+                            item(key = "__add_leaf__") {
+                                AssistChip(
+                                    onClick = { showAddLeafDialog = true },
+                                    label = { Text(stringResource(R.string.edit_add_child_inline)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Filled.Add,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                        labelColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                )
+                            }
                         }
                     }
 
@@ -276,39 +322,55 @@ fun EditTransactionScreen(
                     )
 
                     if (showCashbackSelector) {
-                        Text(
-                            text = stringResource(R.string.edit_cashback_channel),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = cashbackChannel == CashbackChannel.OFFLINE,
-                                onClick = { cashbackChannel = CashbackChannel.OFFLINE },
-                                label = { Text(stringResource(R.string.edit_cashback_offline)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                ),
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.edit_cashback_apply),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            FilterChip(
-                                selected = cashbackChannel == CashbackChannel.ONLINE,
-                                onClick = { cashbackChannel = CashbackChannel.ONLINE },
-                                label = { Text(stringResource(R.string.edit_cashback_online)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            Switch(
+                                checked = cashbackApply,
+                                onCheckedChange = { cashbackApply = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 ),
                             )
                         }
-                        val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
-                        val previewAmount = (ui.amountText.toLongOrNull() ?: 0L) * rate / 1000L
-                        if (previewAmount > 0L) {
-                            Text(
-                                text = stringResource(R.string.edit_cashback_preview, previewAmount.formatWon()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
+                        if (cashbackApply) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = cashbackChannel == CashbackChannel.OFFLINE,
+                                    onClick = { cashbackChannel = CashbackChannel.OFFLINE },
+                                    label = { Text(stringResource(R.string.edit_cashback_offline)) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
+                                )
+                                FilterChip(
+                                    selected = cashbackChannel == CashbackChannel.ONLINE,
+                                    onClick = { cashbackChannel = CashbackChannel.ONLINE },
+                                    label = { Text(stringResource(R.string.edit_cashback_online)) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
+                                )
+                            }
+                            val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
+                            val previewAmount = (ui.amountText.toLongOrNull() ?: 0L) * rate / 1000L
+                            if (previewAmount > 0L) {
+                                Text(
+                                    text = stringResource(R.string.edit_cashback_preview, previewAmount.formatWon()),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
                         }
                     }
 
@@ -333,7 +395,7 @@ fun EditTransactionScreen(
             Button(
                 onClick = {
                     vm.save(
-                        cashbackChannel = if (showCashbackSelector) cashbackChannel else null,
+                        cashbackChannel = if (showCashbackSelector && cashbackApply) cashbackChannel else null,
                         onSuccess = onClose,
                         onInvalid = { showInvalid = true },
                     )
@@ -396,6 +458,37 @@ fun EditTransactionScreen(
         }
     }
 
+    if (showAddParentDialog) {
+        CategoryNameDialog(
+            title = stringResource(R.string.edit_add_parent_inline),
+            onDismiss = { showAddParentDialog = false },
+            onConfirm = { name ->
+                showAddParentDialog = false
+                vm.addParent(name, ui.kind) { result ->
+                    result.onSuccess { newParentId -> vm.setParent(newParentId, null) }
+                }
+            },
+        )
+    }
+
+    if (showAddLeafDialog) {
+        val parentId = ui.parentId
+        if (parentId == null) {
+            showAddLeafDialog = false
+        } else {
+            CategoryNameDialog(
+                title = stringResource(R.string.edit_add_child_inline),
+                onDismiss = { showAddLeafDialog = false },
+                onConfirm = { name ->
+                    showAddLeafDialog = false
+                    vm.addLeaf(parentId, name) { result ->
+                        result.onSuccess { newLeafId -> vm.setCategoryId(newLeafId) }
+                    }
+                },
+            )
+        }
+    }
+
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
@@ -419,6 +512,39 @@ fun EditTransactionScreen(
             },
         )
     }
+}
+
+@Composable
+private fun CategoryNameDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.extraLarge,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.edit_new_category_name_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (name.trim().isNotEmpty()) onConfirm(name.trim()) },
+                enabled = name.trim().isNotEmpty(),
+            ) { Text(stringResource(R.string.edit_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.edit_dismiss)) }
+        },
+    )
 }
 
 @Composable
