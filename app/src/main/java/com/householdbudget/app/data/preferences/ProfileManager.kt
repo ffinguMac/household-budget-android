@@ -3,6 +3,7 @@ package com.householdbudget.app.data.preferences
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -26,6 +27,15 @@ class ProfileManager(context: Context) {
 
     val currentProfileId: Flow<Long> = ds.data.map { prefs ->
         prefs[CURRENT_ID] ?: DEFAULT_PROFILE_ID
+    }
+
+    /** 첫 실행 온보딩(이름 설정)이 완료됐는지. */
+    val onboardingCompleted: Flow<Boolean> = ds.data.map { prefs ->
+        prefs[ONBOARDING_DONE] ?: false
+    }
+
+    suspend fun setOnboardingCompleted(value: Boolean) {
+        ds.edit { prefs -> prefs[ONBOARDING_DONE] = value }
     }
 
     suspend fun getProfilesSnapshot(): List<Profile> = profiles.first()
@@ -82,6 +92,7 @@ class ProfileManager(context: Context) {
 
         private val PROFILES_JSON = stringPreferencesKey("profiles_json")
         private val CURRENT_ID = longPreferencesKey("current_profile_id")
+        private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
 
         fun dbNameForProfile(profileId: Long): String =
             if (profileId == DEFAULT_PROFILE_ID) "household_budget.db"

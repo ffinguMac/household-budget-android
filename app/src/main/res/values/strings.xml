@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">가계부</string>
+
+    <!-- 온보딩 -->
+    <string name="onboarding_welcome">가계부에 오신 것을 환영합니다</string>
+    <string name="onboarding_subtitle">데이터는 이 기기의 Google 계정에 자동 백업되어, 앱을 다시 설치해도 복구됩니다.</string>
+    <string name="onboarding_google_signin">Google 계정으로 시작</string>
+    <string name="onboarding_manual_name">이름 직접 입력</string>
+    <string name="onboarding_name_hint">이름</string>
+    <string name="onboarding_continue">시작하기</string>
+    <string name="onboarding_cancel">취소</string>
+    <string name="onboarding_ok">확인</string>
+    <string name="onboarding_signin_failed">로그인 실패</string>
+    <string name="onboarding_signin_error">오류: %s</string>
+    <string name="onboarding_signin_cancelled">로그인이 취소되었거나 사용 가능한 계정이 없습니다.</string>
+    <string name="onboarding_google_not_configured">Google 로그인이 아직 설정되지 않았습니다. 직접 입력으로 진행해 주세요.</string>
+
     <string name="nav_home">홈</string>
     <string name="nav_ledger">내역</string>
     <string name="nav_calendar">달력</string>

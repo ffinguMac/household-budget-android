@@ -5,6 +5,13 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// local.properties에서 Google OAuth Web Client ID 읽기. 없으면 빈 문자열 → Google 로그인 비활성.
+val localProps = java.util.Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val googleWebClientId: String = localProps.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+
 android {
     namespace = "com.householdbudget.app"
     compileSdk = 35
@@ -16,6 +23,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -39,6 +47,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -64,6 +73,12 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.navigation:navigation-compose:2.8.3")
+
+    // Credential Manager (Google Sign-In via Credential Manager API).
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
