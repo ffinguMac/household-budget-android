@@ -42,6 +42,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.householdbudget.app.R
 import com.householdbudget.app.data.preferences.ProfileManager
@@ -209,6 +210,44 @@ private sealed interface SignInResult {
  */
 private suspend fun signInWithGoogle(activity: ComponentActivity, webClientId: String): SignInResult {
     val credentialManager = CredentialManager.create(activity)
+
+    // GetSignInWithGoogleOption: 기기 계정 상태와 무관하게 표준 Google 계정 선택창을 표시.
+    // GetGoogleIdOption보다 호환성이 높음 (NoCredentialException 회피).
+    val signInOption = GetSignInWithGoogleOption.Builder(webClientId).build()
+
+    val request = GetCredentialRequest.Builder()
+        .addCredentialOption(signInOption)
+        .build()
+
+    return try {
+        val result = credentialManager.getCredential(activity, request)
+        val credential = result.credential
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+            val idTokenCred = GoogleIdTokenCredential.createFrom(credential.data)
+            val name = idTokenCred.displayName?.takeIf { it.isNotBlank() }
+                ?: idTokenCred.id.substringBefore('@')
+            SignInResult.Success(name)
+        } else {
+            SignInResult.Failure("unexpected credential type: ${credential::class.java.simpleName}")
+        }
+    } catch (e: GetCredentialCancellationException) {
+        SignInResult.Cancelled
+    } catch (e: NoCredentialException) {
+        // 폴백: GetGoogleIdOption으로 재시도
+        signInWithGoogleIdOption(credentialManager, activity, webClientId)
+    } catch (e: GetCredentialException) {
+        SignInResult.Failure("${e::class.java.simpleName}: ${e.message ?: e.type}")
+    } catch (e: Exception) {
+        SignInResult.Failure("${e::class.java.simpleName}: ${e.message ?: "unknown"}")
+    }
+}
+
+private suspend fun signInWithGoogleIdOption(
+    credentialManager: CredentialManager,
+    activity: ComponentActivity,
+    webClientId: String,
+): SignInResult {
     val googleIdOption = GetGoogleIdOption.Builder()
         .setFilterByAuthorizedAccounts(false)
         .setServerClientId(webClientId)
@@ -227,11 +266,9 @@ private suspend fun signInWithGoogle(activity: ComponentActivity, webClientId: S
                 ?: idTokenCred.id.substringBefore('@')
             SignInResult.Success(name)
         } else {
-            SignInResult.Failure("unexpected credential type: ${credential::class.java.simpleName}")
+            SignInResult.Failure("fallback: unexpected credential type")
         }
     } catch (e: GetCredentialCancellationException) {
-        SignInResult.Cancelled
-    } catch (e: NoCredentialException) {
         SignInResult.Cancelled
     } catch (e: GetCredentialException) {
         SignInResult.Failure("${e::class.java.simpleName}: ${e.message ?: e.type}")
