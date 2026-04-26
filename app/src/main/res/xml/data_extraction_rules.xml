@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data extraction rules for SDK >= 31. Two channels:
+    - cloud-backup: Auto Backup to Google Drive (same as fullBackupContent on legacy)
+    - device-transfer: direct copy to a new device during phone-to-phone migration
+  Both include the same data: Room DB files + DataStore preferences.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="."/>
+        <include domain="file" path="datastore/"/>
+        <include domain="sharedpref" path="."/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="."/>
+        <include domain="file" path="datastore/"/>
+        <include domain="sharedpref" path="."/>
+    </device-transfer>
+</data-extraction-rules>

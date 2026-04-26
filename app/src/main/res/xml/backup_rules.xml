@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules for SDK <= 30 (legacy fullBackupContent format).
+  Backed up to user's Google Drive (no quota cost), tied to the device's Google account.
+  Restored automatically when the app is reinstalled while signed into the same account.
+-->
+<full-backup-content>
+    <!-- Room SQLite databases (default profile + per-profile DBs) -->
+    <include domain="database" path="."/>
+    <!-- DataStore preferences (profiles list, user prefs) -->
+    <include domain="file" path="datastore/"/>
+    <!-- SharedPreferences (if any future use) -->
+    <include domain="sharedpref" path="."/>
+</full-backup-content>
