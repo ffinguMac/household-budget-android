@@ -12,7 +12,7 @@ val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val googleWebClientId: String = localProps.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+val googleWebClientId: String = localProps.getProperty("GOOGLE_WEB_CLIENT_ID", "").trim()
 
 android {
     namespace = "com.householdbudget.app"
