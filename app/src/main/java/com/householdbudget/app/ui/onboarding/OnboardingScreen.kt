@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.householdbudget.app.R
@@ -106,12 +108,15 @@ fun OnboardingScreen(
                             isWorking = false
                             return@launch
                         }
-                        val name = signInWithGoogle(activity, webClientId)
-                        if (name != null) {
-                            profileManager.renameProfile(ProfileManager.DEFAULT_PROFILE_ID, name)
-                            profileManager.setOnboardingCompleted(true)
-                        } else {
-                            errorMessage = context.getString(R.string.onboarding_signin_cancelled)
+                        when (val result = signInWithGoogle(activity, webClientId)) {
+                            is SignInResult.Success -> {
+                                profileManager.renameProfile(ProfileManager.DEFAULT_PROFILE_ID, result.name)
+                                profileManager.setOnboardingCompleted(true)
+                            }
+                            is SignInResult.Cancelled ->
+                                errorMessage = context.getString(R.string.onboarding_signin_cancelled)
+                            is SignInResult.Failure ->
+                                errorMessage = context.getString(R.string.onboarding_signin_error, result.message)
                         }
                         isWorking = false
                     }
@@ -192,11 +197,17 @@ fun OnboardingScreen(
     }
 }
 
+private sealed interface SignInResult {
+    data class Success(val name: String) : SignInResult
+    data object Cancelled : SignInResult
+    data class Failure(val message: String) : SignInResult
+}
+
 /**
  * Credential Manager + Google ID 토큰을 받아 displayName(또는 email)을 반환.
- * 취소/실패 시 null. webClientId가 비어 있으면 호출되지 않음 (UI에서 사전 체크).
+ * 실패 원인을 구분해서 반환 — 디버깅을 위해 실제 메시지 노출.
  */
-private suspend fun signInWithGoogle(activity: ComponentActivity, webClientId: String): String? {
+private suspend fun signInWithGoogle(activity: ComponentActivity, webClientId: String): SignInResult {
     val credentialManager = CredentialManager.create(activity)
     val googleIdOption = GetGoogleIdOption.Builder()
         .setFilterByAuthorizedAccounts(false)
@@ -212,15 +223,19 @@ private suspend fun signInWithGoogle(activity: ComponentActivity, webClientId: S
         if (credential is CustomCredential &&
             credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
             val idTokenCred = GoogleIdTokenCredential.createFrom(credential.data)
-            // displayName이 비어 있으면 email(로컬 부분)을 사용.
-            idTokenCred.displayName?.takeIf { it.isNotBlank() }
+            val name = idTokenCred.displayName?.takeIf { it.isNotBlank() }
                 ?: idTokenCred.id.substringBefore('@')
+            SignInResult.Success(name)
         } else {
-            null
+            SignInResult.Failure("unexpected credential type: ${credential::class.java.simpleName}")
         }
+    } catch (e: GetCredentialCancellationException) {
+        SignInResult.Cancelled
+    } catch (e: NoCredentialException) {
+        SignInResult.Cancelled
     } catch (e: GetCredentialException) {
-        null
+        SignInResult.Failure("${e::class.java.simpleName}: ${e.message ?: e.type}")
     } catch (e: Exception) {
-        null
+        SignInResult.Failure("${e::class.java.simpleName}: ${e.message ?: "unknown"}")
     }
 }
