@@ -42,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +71,8 @@ fun CategoryManagementScreen(
         viewModel(factory = CategoryManagementViewModelFactory(repository))
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val groups by vm.groups.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { vm.clearTransientState() }
 
     val filtered = remember(ui.selectedKind, groups) {
         groups.filter { it.parent.kind == ui.selectedKind.storage }

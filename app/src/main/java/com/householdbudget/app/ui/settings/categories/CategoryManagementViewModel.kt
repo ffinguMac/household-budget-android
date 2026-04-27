@@ -86,6 +86,10 @@ class CategoryManagementViewModel(
         _ui.value = _ui.value.copy(pendingDeletion = null)
     }
 
+    fun clearTransientState() {
+        _ui.value = _ui.value.copy(error = null, pendingDeletion = null)
+    }
+
     fun addParent(name: String) {
         viewModelScope.launch {
             val result = repository.addParentCategory(name, _ui.value.selectedKind)
