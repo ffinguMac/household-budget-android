@@ -62,11 +62,12 @@ fun RecurringRuleEditorScreen(
     onBack: () -> Unit,
     onSaved: () -> Unit,
     modifier: Modifier = Modifier,
+    nonce: Int = 0,
 ) {
     val vm: RecurringEditorViewModel =
         viewModel(
             factory = RecurringEditorViewModelFactory(repository, ruleId),
-            key = "${ruleId ?: "new"}",
+            key = if (ruleId == null) "new_$nonce" else "$ruleId",
         )
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
