@@ -3,21 +3,22 @@ package com.householdbudget.app.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.draw.clip
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Autorenew
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -146,24 +147,33 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     rowDays.forEach { day ->
-                                        FilterChip(
-                                            modifier = Modifier.weight(1f),
-                                            selected = payday == day,
-                                            onClick = {
-                                                budgetViewModel.setPaydayDom(day)
-                                                showSavedFeedback = true
-                                            },
-                                            label = { Text(text = day.toString()) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                                labelColor = MaterialTheme.colorScheme.onSurface,
-                                            ),
-                                        )
+                                        val selected = payday == day
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .aspectRatio(1f)
+                                                .clip(MaterialTheme.shapes.small)
+                                                .background(
+                                                    if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                                    else MaterialTheme.colorScheme.surfaceContainer,
+                                                )
+                                                .clickable {
+                                                    budgetViewModel.setPaydayDom(day)
+                                                    showSavedFeedback = true
+                                                },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = day.toString(),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                                        else MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        }
                                     }
                                     repeat(7 - rowDays.size) {
-                                        Spacer(Modifier.weight(1f))
+                                        Spacer(Modifier.weight(1f).aspectRatio(1f))
                                     }
                                 }
                             }

@@ -1,10 +1,14 @@
 package com.householdbudget.app.ui.recurring
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,6 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -153,18 +158,30 @@ fun RecurringRuleEditorScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             rowDays.forEach { day ->
-                                FilterChip(
-                                    modifier = Modifier.weight(1f),
-                                    selected = ui.dayOfMonth == day,
-                                    onClick = { vm.setDayOfMonth(day) },
-                                    label = { Text(day.toString()) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    ),
-                                )
+                                val selected = ui.dayOfMonth == day
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(MaterialTheme.shapes.small)
+                                        .background(
+                                            if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                            else MaterialTheme.colorScheme.surfaceContainer,
+                                        )
+                                        .clickable { vm.setDayOfMonth(day) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = day.toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                                else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                             repeat(7 - rowDays.size) {
-                                Spacer(Modifier.weight(1f))
+                                Spacer(Modifier.weight(1f).aspectRatio(1f))
                             }
                         }
                     }
