@@ -71,7 +71,8 @@
     <string name="settings_kbank_card_title">케이뱅크 ONE 체크카드</string>
     <string name="settings_kbank_card_hint">지출 기록 시 캐시백을 수입으로 자동 추가합니다. 온라인 1.1% · 오프라인 0.6%</string>
     <string name="settings_kbank_card_toggle">캐시백 자동 적용</string>
-    <string name="edit_cashback_channel">결제 채널 (케이뱅크 캐시백)</string>
+    <string name="edit_cashback_apply">케이뱅크 캐시백 적용</string>
+    <string name="edit_cashback_channel">결제 채널</string>
     <string name="edit_cashback_online">온라인 (1.1%)</string>
     <string name="edit_cashback_offline">오프라인 (0.6%)</string>
     <string name="edit_cashback_preview">캐시백 예상: +%s</string>
