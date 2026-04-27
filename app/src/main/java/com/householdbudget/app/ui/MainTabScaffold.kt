@@ -145,7 +145,12 @@ fun MainTabScaffold(
     ) { padding ->
         val modifier = Modifier.padding(padding)
         when (selected) {
-            0 -> HomeScreen(budgetViewModel = budgetViewModel, modifier = modifier)
+            0 ->
+                HomeScreen(
+                    budgetViewModel = budgetViewModel,
+                    onTransactionClick = onNavigateEdit,
+                    modifier = modifier,
+                )
             1 ->
                 LedgerScreen(
                     budgetViewModel = budgetViewModel,
@@ -156,6 +161,7 @@ fun MainTabScaffold(
                 CalendarScreen(
                     viewModel = calendarViewModel,
                     repository = repository,
+                    onTransactionClick = onNavigateEdit,
                     modifier = modifier,
                 )
             3 ->

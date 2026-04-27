@@ -54,6 +54,7 @@ import java.util.Locale
 fun CalendarScreen(
     viewModel: CalendarViewModel,
     repository: BudgetRepository,
+    onTransactionClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val ym by viewModel.visibleMonth.collectAsStateWithLifecycle()
@@ -212,6 +213,7 @@ fun CalendarScreen(
                 DayDetailSection(
                     day = selectedDay,
                     repository = repository,
+                    onTransactionClick = onTransactionClick,
                 )
             }
         }
@@ -293,6 +295,7 @@ private fun CalendarCell(
 private fun DayDetailSection(
     day: LocalDate,
     repository: BudgetRepository,
+    onTransactionClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val epoch = day.toEpochDay()
@@ -374,7 +377,9 @@ private fun DayDetailSection(
                     val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
 
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onTransactionClick(row.id) },
                         shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 0.dp,

@@ -1,6 +1,7 @@
 package com.householdbudget.app.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     budgetViewModel: BudgetViewModel,
+    onTransactionClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val summary by budgetViewModel.homeSummary.collectAsStateWithLifecycle()
@@ -220,7 +222,9 @@ fun HomeScreen(
                             val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
 
                             Surface(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onTransactionClick(row.id) },
                                 shape = MaterialTheme.shapes.large,
                                 color = MaterialTheme.colorScheme.surface,
                                 tonalElevation = 0.dp,
