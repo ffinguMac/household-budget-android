@@ -1,5 +1,6 @@
 package com.householdbudget.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -59,6 +60,17 @@ fun MainTabScaffold(
     var settingsPane by rememberSaveable { mutableStateOf(SETTINGS_MAIN) }
     var archiveDetailId by rememberSaveable { mutableStateOf(NO_ARCHIVE_DETAIL) }
     var recurringAddNonce by rememberSaveable { mutableIntStateOf(0) }
+
+    BackHandler(enabled = archiveDetailId != NO_ARCHIVE_DETAIL) {
+        archiveDetailId = NO_ARCHIVE_DETAIL
+    }
+
+    BackHandler(enabled = settingsPane != SETTINGS_MAIN) {
+        settingsPane = when {
+            settingsPane.startsWith(SETTINGS_RECURRING_EDIT_PREFIX) -> SETTINGS_RECURRING_LIST
+            else -> SETTINGS_MAIN
+        }
+    }
 
     LaunchedEffect(selected) {
         if (selected != 3) {
