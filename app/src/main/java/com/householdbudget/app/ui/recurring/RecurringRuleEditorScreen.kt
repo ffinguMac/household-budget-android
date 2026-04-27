@@ -4,14 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
+
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -147,26 +146,27 @@ fun RecurringRuleEditorScreen(
                 )
 
                 Text(stringResource(R.string.recurring_day), style = MaterialTheme.typography.labelLarge)
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(7),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                ) {
-                    gridItems((1..31).toList()) { day ->
-                        FilterChip(
-                            selected = ui.dayOfMonth == day,
-                            onClick = { vm.setDayOfMonth(day) },
-                            label = { Text(day.toString()) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                ),
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..31).chunked(7).forEach { rowDays ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            rowDays.forEach { day ->
+                                FilterChip(
+                                    modifier = Modifier.weight(1f),
+                                    selected = ui.dayOfMonth == day,
+                                    onClick = { vm.setDayOfMonth(day) },
+                                    label = { Text(day.toString()) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    ),
+                                )
+                            }
+                            repeat(7 - rowDays.size) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
                     }
                 }
 

@@ -101,7 +101,7 @@ fun LedgerScreen(
                     LedgerSummaryTile(
                         modifier = Modifier.weight(1f),
                         title = "총 저축",
-                        amount = "↓${summary.totalSavingsMinor.formatWon()}",
+                        amount = "↑${summary.totalSavingsMinor.formatWon()}",
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -203,7 +203,7 @@ fun LedgerScreen(
                     val amountPrefix = when (kind) {
                         com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
                         com.householdbudget.app.domain.CategoryKind.EXPENSE -> "−"
-                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↑"
                     }
                     val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
 

@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Autorenew
@@ -141,29 +139,33 @@ fun SettingsScreen(
                             }
                         }
 
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(7),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(240.dp),
-                        ) {
-                            items((1..31).toList()) { day ->
-                                FilterChip(
-                                    selected = payday == day,
-                                    onClick = {
-                                        budgetViewModel.setPaydayDom(day)
-                                        showSavedFeedback = true
-                                    },
-                                    label = { Text(text = day.toString()) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                        labelColor = MaterialTheme.colorScheme.onSurface,
-                                    ),
-                                )
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            (1..31).chunked(7).forEach { rowDays ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    rowDays.forEach { day ->
+                                        FilterChip(
+                                            modifier = Modifier.weight(1f),
+                                            selected = payday == day,
+                                            onClick = {
+                                                budgetViewModel.setPaydayDom(day)
+                                                showSavedFeedback = true
+                                            },
+                                            label = { Text(text = day.toString()) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                                labelColor = MaterialTheme.colorScheme.onSurface,
+                                            ),
+                                        )
+                                    }
+                                    repeat(7 - rowDays.size) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
                             }
                         }
 
