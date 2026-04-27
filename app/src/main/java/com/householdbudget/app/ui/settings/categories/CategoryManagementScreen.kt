@@ -84,6 +84,7 @@ fun CategoryManagementScreen(
     var confirmDelete by remember { mutableStateOf<CategoryEntity?>(null) }
 
     Scaffold(
+        modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -96,7 +97,7 @@ fun CategoryManagementScreen(
         },
     ) { inner ->
         Column(
-            modifier
+            Modifier
                 .padding(inner)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
