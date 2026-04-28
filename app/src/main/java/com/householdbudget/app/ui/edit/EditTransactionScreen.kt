@@ -34,6 +34,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -44,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -81,7 +84,8 @@ fun EditTransactionScreen(
     val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val zone = ZoneId.of("Asia/Seoul")
     var cashbackChannel by remember { mutableStateOf(CashbackChannel.OFFLINE) }
-    val showCashbackSelector = ui.kind == CategoryKind.EXPENSE && kbankCardEnabled && transactionId == null
+    var applyCashback by remember { mutableStateOf(true) }
+    val showCashbackSection = ui.kind == CategoryKind.EXPENSE && kbankCardEnabled && transactionId == null
 
     val parents = parentsByKind[ui.kind].orEmpty()
     val leaves = ui.parentId?.let { childrenByParent[it] }.orEmpty()
@@ -269,40 +273,61 @@ fun EditTransactionScreen(
                             ),
                     )
 
-                    if (showCashbackSelector) {
-                        Text(
-                            text = stringResource(R.string.edit_cashback_channel),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = cashbackChannel == CashbackChannel.OFFLINE,
-                                onClick = { cashbackChannel = CashbackChannel.OFFLINE },
-                                label = { Text(stringResource(R.string.edit_cashback_offline)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                ),
+                    if (showCashbackSection) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.edit_cashback_apply),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
-                            FilterChip(
-                                selected = cashbackChannel == CashbackChannel.ONLINE,
-                                onClick = { cashbackChannel = CashbackChannel.ONLINE },
-                                label = { Text(stringResource(R.string.edit_cashback_online)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            Switch(
+                                checked = applyCashback,
+                                onCheckedChange = { applyCashback = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 ),
                             )
                         }
-                        val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
-                        val previewAmount = (ui.amountText.toLongOrNull() ?: 0L) * rate / 1000L
-                        if (previewAmount > 0L) {
+                        if (applyCashback) {
                             Text(
-                                text = stringResource(R.string.edit_cashback_preview, previewAmount.formatWon()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary,
+                                text = stringResource(R.string.edit_cashback_channel),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = cashbackChannel == CashbackChannel.OFFLINE,
+                                    onClick = { cashbackChannel = CashbackChannel.OFFLINE },
+                                    label = { Text(stringResource(R.string.edit_cashback_offline)) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
+                                )
+                                FilterChip(
+                                    selected = cashbackChannel == CashbackChannel.ONLINE,
+                                    onClick = { cashbackChannel = CashbackChannel.ONLINE },
+                                    label = { Text(stringResource(R.string.edit_cashback_online)) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
+                                )
+                            }
+                            val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
+                            val previewAmount = (ui.amountText.toLongOrNull() ?: 0L) * rate / 1000L
+                            if (previewAmount > 0L) {
+                                Text(
+                                    text = stringResource(R.string.edit_cashback_preview, previewAmount.formatWon()),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
                         }
                     }
 
@@ -327,7 +352,7 @@ fun EditTransactionScreen(
             Button(
                 onClick = {
                     vm.save(
-                        cashbackChannel = if (showCashbackSelector) cashbackChannel else null,
+                        cashbackChannel = if (showCashbackSection && applyCashback) cashbackChannel else null,
                         onSuccess = onClose,
                         onInvalid = { showInvalid = true },
                     )
