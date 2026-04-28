@@ -170,7 +170,7 @@ fun LedgerScreen(
                         }
                         if (daySavings > 0) {
                             Text(
-                                text = "↓${daySavings.formatWon()}",
+                                text = "↑${daySavings.formatWon()}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary,
