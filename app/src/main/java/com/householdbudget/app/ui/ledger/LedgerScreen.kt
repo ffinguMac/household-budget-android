@@ -2,6 +2,7 @@ package com.householdbudget.app.ui.ledger
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -191,8 +192,8 @@ fun LedgerScreen(
                         com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.error
                     }
                     val avatarBg = when (kind) {
-                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer
+                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer
                         com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.surfaceVariant
                     }
                     val avatarTextColor = when (kind) {
@@ -226,13 +227,14 @@ fun LedgerScreen(
                             Box(
                                 modifier = Modifier
                                     .size(44.dp)
-                                    .clip(MaterialTheme.shapes.large)
+                                    .clip(CircleShape)
                                     .background(avatarBg),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     text = row.categoryName.take(1),
                                     style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
                                     color = avatarTextColor,
                                 )
                             }

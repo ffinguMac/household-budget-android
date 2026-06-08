@@ -175,7 +175,7 @@ private fun ArchiveCard(
                             .size(40.dp)
                             .clip(MaterialTheme.shapes.medium)
                             .background(
-                                if (isMostRecent) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                                if (isMostRecent) MaterialTheme.colorScheme.secondaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant
                             ),
                         contentAlignment = Alignment.Center,

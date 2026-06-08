@@ -233,10 +233,11 @@ private fun CalendarCell(
     Box(
         modifier = modifier
             .aspectRatio(0.85f)
+            .clip(MaterialTheme.shapes.small)
             .background(
                 when {
-                    isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
+                    isSelected -> MaterialTheme.colorScheme.primaryContainer
+                    isToday -> MaterialTheme.colorScheme.surfaceVariant
                     else -> Color.Transparent
                 }
             )
