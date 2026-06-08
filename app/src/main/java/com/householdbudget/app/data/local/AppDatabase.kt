@@ -7,10 +7,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
+import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.CategoryDao
 import com.householdbudget.app.data.local.dao.RecurringRuleDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
+import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
@@ -25,8 +27,9 @@ import kotlinx.coroutines.runBlocking
             TransactionEntity::class,
             RecurringRuleEntity::class,
             ArchivedPeriodEntity::class,
+            CategoryBudgetEntity::class,
         ],
-    version = 4,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +40,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recurringRuleDao(): RecurringRuleDao
 
     abstract fun archivedPeriodDao(): ArchivedPeriodDao
+
+    abstract fun categoryBudgetDao(): CategoryBudgetDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -266,6 +271,50 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        private val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `category_budgets` (
+                          `category_id` INTEGER PRIMARY KEY NOT NULL,
+                          `monthly_amount_minor` INTEGER NOT NULL,
+                          `enabled` INTEGER NOT NULL,
+                          FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                        )
+                        """.trimIndent(),
+                    )
+                }
+            }
+
+        private val MIGRATION_5_6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `categories` ADD COLUMN `icon` TEXT")
+                    // 기본 시드 카테고리에 이모지 아이콘 적용
+                    val icons =
+                        mapOf(
+                            "월급" to "💰",
+                            "기타 수입" to "💵",
+                            "식비" to "🍽️",
+                            "교통" to "🚌",
+                            "통신" to "📱",
+                            "쇼핑" to "🛒",
+                            "문화/여가" to "🎭",
+                            "의료" to "🏥",
+                            "기타" to "📦",
+                            "저축" to "🏦",
+                        )
+                    for ((name, icon) in icons) {
+                        db.execSQL(
+                            "UPDATE `categories` SET `icon` = ? WHERE `name` = ? AND `parent_id` IS NULL",
+                            arrayOf(icon, name),
+                        )
+                    }
+                }
+            }
+
         fun getInstance(context: Context): AppDatabase {
             return instance
                 ?: synchronized(this) {
@@ -275,7 +324,7 @@ abstract class AppDatabase : RoomDatabase() {
                                 AppDatabase::class.java,
                                 "household_budget.db",
                             )
-                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                             .build()
                             .also { db ->
                                 instance = db

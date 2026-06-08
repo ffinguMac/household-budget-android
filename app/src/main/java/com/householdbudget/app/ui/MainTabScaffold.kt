@@ -83,6 +83,18 @@ fun MainTabScaffold(
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var settingsPane by rememberSaveable { mutableStateOf(SETTINGS_MAIN) }
     var archiveDetailId by rememberSaveable { mutableStateOf(NO_ARCHIVE_DETAIL) }
+    var recurringAddNonce by rememberSaveable { mutableIntStateOf(0) }
+
+    BackHandler(enabled = archiveDetailId != NO_ARCHIVE_DETAIL) {
+        archiveDetailId = NO_ARCHIVE_DETAIL
+    }
+
+    BackHandler(enabled = settingsPane != SETTINGS_MAIN) {
+        settingsPane = when {
+            settingsPane.startsWith(SETTINGS_RECURRING_EDIT_PREFIX) -> SETTINGS_RECURRING_LIST
+            else -> SETTINGS_MAIN
+        }
+    }
 
     LaunchedEffect(selected) {
         if (selected != 3) {
@@ -171,7 +183,10 @@ fun MainTabScaffold(
                         RecurringRulesListScreen(
                             repository = repository,
                             onBack = { settingsPane = SETTINGS_MAIN },
-                            onAdd = { settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}new" },
+                            onAdd = {
+                                recurringAddNonce++
+                                settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}new"
+                            },
                             onEdit = { id -> settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}$id" },
                             modifier = modifier,
                         )
@@ -186,7 +201,10 @@ fun MainTabScaffold(
                             RecurringRulesListScreen(
                                 repository = repository,
                                 onBack = { settingsPane = SETTINGS_MAIN },
-                                onAdd = { settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}new" },
+                                onAdd = {
+                                    recurringAddNonce++
+                                    settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}new"
+                                },
                                 onEdit = { id -> settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}$id" },
                                 modifier = modifier,
                             )
@@ -197,6 +215,7 @@ fun MainTabScaffold(
                                 ruleId = ruleId,
                                 onBack = { settingsPane = SETTINGS_RECURRING_LIST },
                                 onSaved = { settingsPane = SETTINGS_RECURRING_LIST },
+                                nonce = if (ruleId == null) recurringAddNonce else 0,
                                 modifier = modifier,
                             )
                         }
