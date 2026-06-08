@@ -1,31 +1,51 @@
 package com.householdbudget.app.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
@@ -46,6 +66,11 @@ private const val SETTINGS_RECURRING_EDIT_PREFIX = "recurring_edit_"
 private const val SETTINGS_CATEGORIES = "categories"
 
 private const val NO_ARCHIVE_DETAIL = -1L
+
+private data class TossTab(
+    val icon: ImageVector,
+    val labelRes: Int,
+)
 
 @Composable
 fun MainTabScaffold(
@@ -68,29 +93,19 @@ fun MainTabScaffold(
         }
     }
 
-    // Terracotta indicator, no cool colors
-    val navItemColors =
-        NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.primary,
-            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             if (selected <= 2) {
                 FloatingActionButton(
                     onClick = onNavigateAdd,
-                    shape = MaterialTheme.shapes.medium,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation =
                         FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 8.dp,
+                            defaultElevation = 6.dp,
+                            pressedElevation = 10.dp,
                         ),
                 ) {
                     Icon(
@@ -101,46 +116,10 @@ fun MainTabScaffold(
             }
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
-            ) {
-                NavigationBarItem(
-                    selected = selected == 0,
-                    onClick = { selected = 0 },
-                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_home), style = MaterialTheme.typography.labelMedium) },
-                    colors = navItemColors,
-                )
-                NavigationBarItem(
-                    selected = selected == 1,
-                    onClick = { selected = 1 },
-                    icon = { Icon(Icons.Filled.List, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_ledger), style = MaterialTheme.typography.labelMedium) },
-                    colors = navItemColors,
-                )
-                NavigationBarItem(
-                    selected = selected == 2,
-                    onClick = { selected = 2 },
-                    icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_calendar), style = MaterialTheme.typography.labelMedium) },
-                    colors = navItemColors,
-                )
-                NavigationBarItem(
-                    selected = selected == 3,
-                    onClick = { selected = 3 },
-                    icon = { Icon(Icons.Filled.Folder, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_archive), style = MaterialTheme.typography.labelMedium) },
-                    colors = navItemColors,
-                )
-                NavigationBarItem(
-                    selected = selected == 4,
-                    onClick = { selected = 4 },
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.labelMedium) },
-                    colors = navItemColors,
-                )
-            }
+            TossBottomBar(
+                selected = selected,
+                onSelect = { selected = it },
+            )
         },
     ) { padding ->
         val modifier = Modifier.padding(padding)
@@ -231,5 +210,116 @@ fun MainTabScaffold(
                         )
                 }
         }
+    }
+}
+
+/**
+ * Toss-style bottom navigation: a flat white bar with a hairline top divider,
+ * outlined icons that fill with the brand blue and gently pop on selection.
+ * No Material pill indicator — clean and minimal.
+ */
+@Composable
+private fun TossBottomBar(
+    selected: Int,
+    onSelect: (Int) -> Unit,
+) {
+    val tabs =
+        remember {
+            listOf(
+                TossTab(Icons.Rounded.Home, R.string.nav_home),
+                TossTab(Icons.Rounded.Receipt, R.string.nav_ledger),
+                TossTab(Icons.Rounded.CalendarMonth, R.string.nav_calendar),
+                TossTab(Icons.Rounded.Inventory2, R.string.nav_archive),
+                TossTab(Icons.Rounded.Settings, R.string.nav_settings),
+            )
+        }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Column {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant),
+            )
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .height(62.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    TossNavItem(
+                        tab = tab,
+                        selected = selected == index,
+                        onClick = { onSelect(index) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.TossNavItem(
+    tab: TossTab,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val contentColor by animateColorAsState(
+        targetValue =
+            if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        label = "navItemColor",
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected) 1.12f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 520f),
+        label = "navItemScale",
+    )
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Column(
+        modifier =
+            Modifier
+                .weight(1f)
+                .selectable(
+                    selected = selected,
+                    onClick = onClick,
+                    role = Role.Tab,
+                    interactionSource = interactionSource,
+                    indication = null,
+                )
+                .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(
+            imageVector = tab.icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier =
+                Modifier
+                    .size(26.dp)
+                    .graphicsLayer {
+                        scaleX = iconScale
+                        scaleY = iconScale
+                    },
+        )
+        Text(
+            text = stringResource(tab.labelRes),
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+        )
     }
 }
