@@ -1,17 +1,20 @@
 package com.householdbudget.app.ui.recurring
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
+
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -62,11 +66,12 @@ fun RecurringRuleEditorScreen(
     onBack: () -> Unit,
     onSaved: () -> Unit,
     modifier: Modifier = Modifier,
+    nonce: Int = 0,
 ) {
     val vm: RecurringEditorViewModel =
         viewModel(
             factory = RecurringEditorViewModelFactory(repository, ruleId),
-            key = "${ruleId ?: "new"}",
+            key = if (ruleId == null) "new_$nonce" else "$ruleId",
         )
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
@@ -146,26 +151,39 @@ fun RecurringRuleEditorScreen(
                 )
 
                 Text(stringResource(R.string.recurring_day), style = MaterialTheme.typography.labelLarge)
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(7),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                ) {
-                    gridItems((1..31).toList()) { day ->
-                        FilterChip(
-                            selected = ui.dayOfMonth == day,
-                            onClick = { vm.setDayOfMonth(day) },
-                            label = { Text(day.toString()) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                ),
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..31).chunked(7).forEach { rowDays ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            rowDays.forEach { day ->
+                                val selected = ui.dayOfMonth == day
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(MaterialTheme.shapes.small)
+                                        .background(
+                                            if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                            else MaterialTheme.colorScheme.surfaceContainer,
+                                        )
+                                        .clickable { vm.setDayOfMonth(day) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = day.toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                                else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                            repeat(7 - rowDays.size) {
+                                Spacer(Modifier.weight(1f).aspectRatio(1f))
+                            }
+                        }
                     }
                 }
 
