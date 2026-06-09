@@ -17,6 +17,40 @@ import androidx.compose.ui.unit.dp
 
 val ScreenHorizontalPadding = 20.dp
 
+/**
+ * Toss-style screen header: a large bold title with an optional muted subtitle
+ * underneath. Shared across Home / Ledger / Archive / Settings for a consistent
+ * top-of-screen rhythm.
+ */
+@Composable
+fun ScreenHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = ScreenHorizontalPadding, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 fun SectionHeader(
     title: String,

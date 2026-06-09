@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 
 import com.householdbudget.app.ui.util.formatWon
@@ -59,32 +60,14 @@ fun LedgerScreen(
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = "이번 회계월",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = androidx.compose.ui.unit.TextUnit(
-                        1.2f,
-                        androidx.compose.ui.unit.TextUnitType.Sp,
-                    ),
-                )
-                Text(
-                    text = "거래 내역",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(12.dp))
+            Column {
+                ScreenHeader(title = "거래 내역", subtitle = "이번 회계월")
                 // 수입 / 지출 / 저축 요약 카드 3열
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenHorizontalPadding)
+                        .padding(bottom = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     LedgerSummaryTile(

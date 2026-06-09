@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import kotlinx.coroutines.delay
 
@@ -67,28 +68,10 @@ fun SettingsScreen(
     ) {
         // ── 에디토리얼 헤더 ──────────────────────────────────────────────────
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = "PREFERENCES",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary,
-                    letterSpacing = androidx.compose.ui.unit.TextUnit(
-                        2.0f, androidx.compose.ui.unit.TextUnitType.Sp,
-                    ),
-                )
-                Text(
-                    text = stringResource(R.string.nav_settings),
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            ScreenHeader(
+                title = stringResource(R.string.nav_settings),
+                subtitle = "앱 환경설정",
+            )
         }
 
         // ── 급여일 섹션 ──────────────────────────────────────────────────────

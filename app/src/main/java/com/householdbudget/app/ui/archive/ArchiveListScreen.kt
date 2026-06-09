@@ -39,6 +39,7 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 
 import com.householdbudget.app.ui.util.formatRangeKorean
@@ -70,34 +71,10 @@ fun ArchiveListScreen(
     ) {
         // ── 에디토리얼 헤더 ──────────────────────────────────────────────────
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = "RECORDS REPOSITORY",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = androidx.compose.ui.unit.TextUnit(
-                        2.0f,
-                        androidx.compose.ui.unit.TextUnitType.Sp,
-                    ),
-                )
-                Text(
-                    text = stringResource(R.string.archive_title),
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.archive_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            ScreenHeader(
+                title = stringResource(R.string.archive_title),
+                subtitle = stringResource(R.string.archive_subtitle),
+            )
         }
 
         if (rows.isEmpty()) {
