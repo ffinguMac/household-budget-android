@@ -8,22 +8,22 @@ import androidx.compose.ui.graphics.Color
 // red(expense), blue(savings). Everything flat, high-contrast, lots of white.
 // ──────────────────────────────────────────────────────────────────────────
 
-// Brand – Toss Blue
-val TossBlue = Color(0xFF3182F6)
-val TossBlueDark = Color(0xFF1B64DA)
-val TossBluePressed = Color(0xFF1957C2)
-val TossBlueContainer = Color(0xFFE8F3FF)
-val TossBlueContainerText = Color(0xFF1B64DA)
+// Brand – Toss Blue (slightly muted so large UI never reads neon; used sparingly)
+val TossBlue = Color(0xFF3A78E6)
+val TossBlueDark = Color(0xFF2C63C9)
+val TossBluePressed = Color(0xFF24539F)
+val TossBlueContainer = Color(0xFFEAF1FD)
+val TossBlueContainerText = Color(0xFF2C63C9)
 
 // Semantic – Income (mint/green)
-val TossGreen = Color(0xFF15B86F)
-val TossGreenContainer = Color(0xFFE7F9F0)
-val TossGreenText = Color(0xFF0E8C53)
+val TossGreen = Color(0xFF16A86A)
+val TossGreenContainer = Color(0xFFE7F6EE)
+val TossGreenText = Color(0xFF0E8050)
 
-// Semantic – Expense (red)
-val TossRed = Color(0xFFF04452)
-val TossRedContainer = Color(0xFFFFEBEC)
-val TossRedText = Color(0xFFD32F3C)
+// Semantic – Expense (red, softened)
+val TossRed = Color(0xFFE5575F)
+val TossRedContainer = Color(0xFFFCECED)
+val TossRedText = Color(0xFFC93741)
 
 // Gray scale (Toss greyscale)
 val Gray900 = Color(0xFF191F28) // primary text
