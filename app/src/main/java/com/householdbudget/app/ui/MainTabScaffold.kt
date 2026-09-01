@@ -1,15 +1,29 @@
 package com.householdbudget.app.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -21,7 +35,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FloatingActionButton
@@ -43,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -60,17 +74,36 @@ import com.householdbudget.app.ui.recurring.RecurringRulesListScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
 import com.householdbudget.app.ui.settings.categories.CategoryManagementScreen
 
-private const val SETTINGS_MAIN = "main"
-private const val SETTINGS_RECURRING_LIST = "recurring_list"
-private const val SETTINGS_RECURRING_EDIT_PREFIX = "recurring_edit_"
-private const val SETTINGS_CATEGORIES = "categories"
+/** 탭 전환 크로스페이드/슬라이드 지속시간. 짧고 절제된 토스 느낌. */
+private const val TAB_TRANSITION_MS = 200
 
-private const val NO_ARCHIVE_DETAIL = -1L
+/** 탭 전환 시 수평 슬라이드 오프셋(px). 아주 약한 움직임만 준다. */
+private const val TAB_SLIDE_OFFSET_PX = 40
 
-private data class TossTab(
+private enum class MainTab(
     val icon: ImageVector,
     val labelRes: Int,
-)
+    val showsFab: Boolean,
+) {
+    HOME(Icons.Rounded.Home, R.string.nav_home, true),
+    LEDGER(Icons.Rounded.Receipt, R.string.nav_ledger, true),
+    CALENDAR(Icons.Rounded.CalendarMonth, R.string.nav_calendar, true),
+    SETTINGS(Icons.Rounded.Settings, R.string.nav_settings, false),
+}
+
+private sealed interface SettingsPane {
+    data object Main : SettingsPane
+
+    data object Categories : SettingsPane
+
+    data object RecurringList : SettingsPane
+
+    data class RecurringEdit(val ruleId: Long?) : SettingsPane
+
+    data object Archive : SettingsPane
+
+    data class ArchiveDetail(val archiveId: Long) : SettingsPane
+}
 
 @Composable
 fun MainTabScaffold(
@@ -80,35 +113,38 @@ fun MainTabScaffold(
     onNavigateAdd: () -> Unit,
     onNavigateEdit: (Long) -> Unit,
 ) {
-    var selected by rememberSaveable { mutableIntStateOf(0) }
-    var settingsPane by rememberSaveable { mutableStateOf(SETTINGS_MAIN) }
-    var archiveDetailId by rememberSaveable { mutableStateOf(NO_ARCHIVE_DETAIL) }
+    // enum 은 기본 Saver 가 없어 ordinal 로 저장하고 파생시킨다.
+    var selectedOrdinal by rememberSaveable { mutableIntStateOf(MainTab.HOME.ordinal) }
+    val selected = MainTab.entries[selectedOrdinal]
+    // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
+    var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
     var recurringAddNonce by rememberSaveable { mutableIntStateOf(0) }
 
-    BackHandler(enabled = archiveDetailId != NO_ARCHIVE_DETAIL) {
-        archiveDetailId = NO_ARCHIVE_DETAIL
-    }
+    // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
+    // 스크롤 상태를 여기(바깥)에서 만들어 내려보내 탭 전환 후에도 위치를 보존한다.
+    val homeScrollState = rememberScrollState()
+    val ledgerListState = rememberLazyListState()
+    val calendarListState = rememberLazyListState()
 
-    BackHandler(enabled = settingsPane != SETTINGS_MAIN) {
-        settingsPane = when {
-            settingsPane.startsWith(SETTINGS_RECURRING_EDIT_PREFIX) -> SETTINGS_RECURRING_LIST
-            else -> SETTINGS_MAIN
-        }
+    BackHandler(enabled = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main) {
+        settingsPane =
+            when (settingsPane) {
+                is SettingsPane.RecurringEdit -> SettingsPane.RecurringList
+                is SettingsPane.ArchiveDetail -> SettingsPane.Archive
+                else -> SettingsPane.Main
+            }
     }
 
     LaunchedEffect(selected) {
-        if (selected != 3) {
-            archiveDetailId = NO_ARCHIVE_DETAIL
-        }
-        if (selected != 4) {
-            settingsPane = SETTINGS_MAIN
+        if (selected != MainTab.SETTINGS) {
+            settingsPane = SettingsPane.Main
         }
     }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            if (selected <= 2) {
+            if (selected.showsFab) {
                 FloatingActionButton(
                     onClick = onNavigateAdd,
                     shape = CircleShape,
@@ -130,104 +166,112 @@ fun MainTabScaffold(
         bottomBar = {
             TossBottomBar(
                 selected = selected,
-                onSelect = { selected = it },
+                onSelect = { selectedOrdinal = it.ordinal },
             )
         },
     ) { padding ->
-        val modifier = Modifier.padding(padding)
-        when (selected) {
-            0 -> HomeScreen(budgetViewModel = budgetViewModel, modifier = modifier)
-            1 ->
-                LedgerScreen(
-                    budgetViewModel = budgetViewModel,
-                    onTransactionClick = onNavigateEdit,
-                    modifier = modifier,
+        // 하단 인셋은 넘기지 않는다: 리스트가 바텀바 아래로 자연스럽게 스크롤되고,
+        // 각 화면이 FAB/네비바 여백을 공용 FabContentBottomPadding 으로 직접 처리한다.
+        val layoutDirection = LocalLayoutDirection.current
+        val contentModifier =
+            Modifier.padding(
+                start = padding.calculateStartPadding(layoutDirection),
+                top = padding.calculateTopPadding(),
+                end = padding.calculateEndPadding(layoutDirection),
+            )
+        AnimatedContent(
+            targetState = selected,
+            modifier = contentModifier,
+            transitionSpec = {
+                val forward = targetState.ordinal >= initialState.ordinal
+                (
+                    fadeIn(animationSpec = tween(TAB_TRANSITION_MS)) +
+                        slideInHorizontally(animationSpec = tween(TAB_TRANSITION_MS)) {
+                            if (forward) TAB_SLIDE_OFFSET_PX else -TAB_SLIDE_OFFSET_PX
+                        }
+                ).togetherWith(
+                    fadeOut(animationSpec = tween(TAB_TRANSITION_MS)) +
+                        slideOutHorizontally(animationSpec = tween(TAB_TRANSITION_MS)) {
+                            if (forward) -TAB_SLIDE_OFFSET_PX else TAB_SLIDE_OFFSET_PX
+                        },
                 )
-            2 ->
-                CalendarScreen(
-                    viewModel = calendarViewModel,
-                    repository = repository,
-                    modifier = modifier,
-                )
-            3 ->
-                if (archiveDetailId == NO_ARCHIVE_DETAIL) {
-                    ArchiveListScreen(
-                        repository = repository,
-                        onOpenDetail = { archiveDetailId = it },
-                        modifier = modifier,
+            },
+            label = "mainTabContent",
+        ) { tab ->
+            when (tab) {
+                MainTab.HOME ->
+                    HomeScreen(
+                        budgetViewModel = budgetViewModel,
+                        onSeeAllTransactions = { selectedOrdinal = MainTab.LEDGER.ordinal },
+                        scrollState = homeScrollState,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                } else {
-                    ArchiveDetailScreen(
-                        archiveId = archiveDetailId,
-                        repository = repository,
-                        onBack = { archiveDetailId = NO_ARCHIVE_DETAIL },
-                        modifier = modifier,
+                MainTab.LEDGER ->
+                    LedgerScreen(
+                        budgetViewModel = budgetViewModel,
+                        onTransactionClick = onNavigateEdit,
+                        listState = ledgerListState,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                }
-            else ->
-                when {
-                    settingsPane == SETTINGS_MAIN ->
-                        SettingsScreen(
-                            budgetViewModel = budgetViewModel,
-                            onOpenRecurringRules = { settingsPane = SETTINGS_RECURRING_LIST },
-                            onOpenCategoryManagement = { settingsPane = SETTINGS_CATEGORIES },
-                            modifier = modifier,
-                        )
-                    settingsPane == SETTINGS_CATEGORIES ->
-                        CategoryManagementScreen(
-                            repository = repository,
-                            onBack = { settingsPane = SETTINGS_MAIN },
-                            modifier = modifier,
-                        )
-                    settingsPane == SETTINGS_RECURRING_LIST ->
-                        RecurringRulesListScreen(
-                            repository = repository,
-                            onBack = { settingsPane = SETTINGS_MAIN },
-                            onAdd = {
-                                recurringAddNonce++
-                                settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}new"
-                            },
-                            onEdit = { id -> settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}$id" },
-                            modifier = modifier,
-                        )
-                    settingsPane.startsWith(SETTINGS_RECURRING_EDIT_PREFIX) -> {
-                        val suffix = settingsPane.removePrefix(SETTINGS_RECURRING_EDIT_PREFIX)
-                        val ruleId: Long? =
-                            when (suffix) {
-                                "new" -> null
-                                else -> suffix.toLongOrNull()
-                            }
-                        if (ruleId == null && suffix != "new") {
+                MainTab.CALENDAR ->
+                    CalendarScreen(
+                        viewModel = calendarViewModel,
+                        repository = repository,
+                        listState = calendarListState,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                MainTab.SETTINGS ->
+                    when (val pane = settingsPane) {
+                        SettingsPane.Main ->
+                            SettingsScreen(
+                                budgetViewModel = budgetViewModel,
+                                onOpenRecurringRules = { settingsPane = SettingsPane.RecurringList },
+                                onOpenCategoryManagement = { settingsPane = SettingsPane.Categories },
+                                onOpenArchive = { settingsPane = SettingsPane.Archive },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.Categories ->
+                            CategoryManagementScreen(
+                                repository = repository,
+                                onBack = { settingsPane = SettingsPane.Main },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.RecurringList ->
                             RecurringRulesListScreen(
                                 repository = repository,
-                                onBack = { settingsPane = SETTINGS_MAIN },
+                                onBack = { settingsPane = SettingsPane.Main },
                                 onAdd = {
                                     recurringAddNonce++
-                                    settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}new"
+                                    settingsPane = SettingsPane.RecurringEdit(ruleId = null)
                                 },
-                                onEdit = { id -> settingsPane = "${SETTINGS_RECURRING_EDIT_PREFIX}$id" },
-                                modifier = modifier,
+                                onEdit = { id -> settingsPane = SettingsPane.RecurringEdit(ruleId = id) },
+                                modifier = Modifier.fillMaxSize(),
                             )
-                        } else {
+                        is SettingsPane.RecurringEdit ->
                             RecurringRuleEditorScreen(
                                 budgetViewModel = budgetViewModel,
                                 repository = repository,
-                                ruleId = ruleId,
-                                onBack = { settingsPane = SETTINGS_RECURRING_LIST },
-                                onSaved = { settingsPane = SETTINGS_RECURRING_LIST },
-                                nonce = if (ruleId == null) recurringAddNonce else 0,
-                                modifier = modifier,
+                                ruleId = pane.ruleId,
+                                onBack = { settingsPane = SettingsPane.RecurringList },
+                                onSaved = { settingsPane = SettingsPane.RecurringList },
+                                nonce = if (pane.ruleId == null) recurringAddNonce else 0,
+                                modifier = Modifier.fillMaxSize(),
                             )
-                        }
+                        SettingsPane.Archive ->
+                            ArchiveListScreen(
+                                repository = repository,
+                                onOpenDetail = { settingsPane = SettingsPane.ArchiveDetail(archiveId = it) },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        is SettingsPane.ArchiveDetail ->
+                            ArchiveDetailScreen(
+                                archiveId = pane.archiveId,
+                                repository = repository,
+                                onBack = { settingsPane = SettingsPane.Archive },
+                                modifier = Modifier.fillMaxSize(),
+                            )
                     }
-                    else ->
-                        SettingsScreen(
-                            budgetViewModel = budgetViewModel,
-                            onOpenRecurringRules = { settingsPane = SETTINGS_RECURRING_LIST },
-                            onOpenCategoryManagement = { settingsPane = SETTINGS_CATEGORIES },
-                            modifier = modifier,
-                        )
-                }
+            }
         }
     }
 }
@@ -239,20 +283,9 @@ fun MainTabScaffold(
  */
 @Composable
 private fun TossBottomBar(
-    selected: Int,
-    onSelect: (Int) -> Unit,
+    selected: MainTab,
+    onSelect: (MainTab) -> Unit,
 ) {
-    val tabs =
-        remember {
-            listOf(
-                TossTab(Icons.Rounded.Home, R.string.nav_home),
-                TossTab(Icons.Rounded.Receipt, R.string.nav_ledger),
-                TossTab(Icons.Rounded.CalendarMonth, R.string.nav_calendar),
-                TossTab(Icons.Rounded.Inventory2, R.string.nav_archive),
-                TossTab(Icons.Rounded.Settings, R.string.nav_settings),
-            )
-        }
-
     Surface(
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -273,11 +306,11 @@ private fun TossBottomBar(
                         .height(62.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                tabs.forEachIndexed { index, tab ->
+                MainTab.entries.forEach { tab ->
                     TossNavItem(
                         tab = tab,
-                        selected = selected == index,
-                        onClick = { onSelect(index) },
+                        selected = selected == tab,
+                        onClick = { onSelect(tab) },
                     )
                 }
             }
@@ -287,7 +320,7 @@ private fun TossBottomBar(
 
 @Composable
 private fun RowScope.TossNavItem(
-    tab: TossTab,
+    tab: MainTab,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -306,6 +339,12 @@ private fun RowScope.TossNavItem(
         label = "navItemScale",
     )
     val interactionSource = remember { MutableInteractionSource() }
+    // ripple 대신 아주 약한 알파 반응으로 눌림 피드백을 준다.
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressAlpha by animateFloatAsState(
+        targetValue = if (pressed) 0.55f else 1f,
+        label = "navItemPressAlpha",
+    )
 
     Column(
         modifier =
@@ -318,6 +357,7 @@ private fun RowScope.TossNavItem(
                     interactionSource = interactionSource,
                     indication = null,
                 )
+                .graphicsLayer { alpha = pressAlpha }
                 .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),

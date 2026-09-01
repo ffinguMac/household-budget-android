@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 달력 -->
+    <string name="cal_prev_month">이전 달</string>
+    <string name="cal_next_month">다음 달</string>
+    <string name="cal_tx_count">%d건</string>
+    <string name="calendar_empty_title">이 날 거래가 없어요</string>
+    <string-array name="cal_weekdays">
+        <item>일</item>
+        <item>월</item>
+        <item>화</item>
+        <item>수</item>
+        <item>목</item>
+        <item>금</item>
+        <item>토</item>
+    </string-array>
+
+    <!-- 설정 -->
+    <string name="settings_group_basic">기본</string>
+    <string name="settings_group_automation">자동화</string>
+    <string name="settings_group_data">데이터</string>
+    <string name="settings_payday_value">매월 %d일</string>
+    <string name="settings_payday_sheet_title">월급일 선택</string>
+    <string name="settings_recurring_subtitle">정기 수입·지출 자동 등록 관리</string>
+
+    <!-- 지난 기록 -->
+    <string name="archive_subtitle_short">월급일 주기가 끝나면 자동으로 보관됩니다.</string>
+    <string name="archive_empty_title">아직 보관된 기록이 없어요</string>
+    <string name="archive_empty_desc">다음 월급일이 지나면 이전 달이 자동 저장됩니다.</string>
+    <string name="archive_open_detail">자세히 보기</string>
+
+    <!-- 카테고리 관리 -->
+    <string name="category_move_up">위로 이동</string>
+    <string name="category_move_down">아래로 이동</string>
+    <string name="category_children_count">%d개</string>
+    <string name="category_empty_title">카테고리가 없어요</string>
+    <string name="category_expand">펼치기</string>
+    <string name="category_collapse">접기</string>
+
+    <!-- 반복 규칙 -->
+    <string name="recurring_empty_title">반복 규칙이 없어요</string>
+    <string name="recurring_empty_desc">매월 같은 날짜에 거래를 자동으로 추가합니다.</string>
+    <string name="recurring_day_hint">31일이 없는 달은 말일로 자동 조정됩니다.</string>
+    <string name="recurring_day_pick">발생일 선택</string>
+    <string name="recurring_error_amount">금액을 입력해 주세요.</string>
+    <string name="recurring_error_category">카테고리를 선택해 주세요.</string>
+</resources>

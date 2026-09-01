@@ -12,8 +12,13 @@ import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -93,6 +98,65 @@ class BudgetViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = false,
         )
+
+    // ── 내역(Ledger) 화면: 회계월 이동 ─────────────────────────────────────
+
+    /** 내역 화면에서 선택한 회계월 오프셋. 0 = 현재 회계월, -1 = 직전 회계월. */
+    private val _ledgerPeriodOffset = MutableStateFlow(0)
+    val ledgerPeriodOffset: StateFlow<Int> = _ledgerPeriodOffset.asStateFlow()
+
+    /** 선택된 회계월의 기간·거래 요약. DB에서 첫 값이 오기 전에는 null (스켈레톤 표시용). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val ledgerSummary: StateFlow<HomeSummary?> =
+        _ledgerPeriodOffset
+            .flatMapLatest { offset -> observeSummaryAtOffset(offset) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = null,
+            )
+
+    /** [homeSummary]가 DB에서 첫 값을 방출했는지 여부 (콜드 스타트 "0원" 깜빡임 방지용). */
+    val homeSummaryLoaded: StateFlow<Boolean> =
+        repository.observeHomeSummary()
+            .map { true }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = false,
+            )
+
+    fun previousPeriod() {
+        _ledgerPeriodOffset.value -= 1
+    }
+
+    /** 현재 회계월(오프셋 0)보다 미래로는 이동하지 않는다. */
+    fun nextPeriod() {
+        if (_ledgerPeriodOffset.value < 0) _ledgerPeriodOffset.value += 1
+    }
+
+    fun resetPeriod() {
+        _ledgerPeriodOffset.value = 0
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeSummaryAtOffset(offset: Int): Flow<HomeSummary> =
+        if (offset == 0) {
+            repository.observeHomeSummary()
+        } else {
+            repository.paydayDom.flatMapLatest { dom ->
+                val resolver = PeriodResolver()
+                var period =
+                    resolver.periodContaining(LocalDate.now(ZoneId.of("Asia/Seoul")), dom)
+                repeat(-offset) { period = resolver.previousPeriod(period, dom) }
+                repository
+                    .observeTransactionsInRange(
+                        period.startInclusive.toEpochDay(),
+                        period.endExclusive.toEpochDay(),
+                    )
+                    .map { rows -> HomeSummary(period = period, transactions = rows) }
+            }
+        }
 
     fun setPaydayDom(day: Int) {
         viewModelScope.launch { repository.setPaydayDom(day) }

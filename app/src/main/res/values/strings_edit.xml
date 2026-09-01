@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 거래 추가/수정 화면 전용 문자열 (T2). strings.xml 은 건드리지 않는다. -->
+<resources>
+    <string name="edit_amount_zero">0원</string>
+    <string name="edit_amount_display">%1$s %2$s원</string>
+    <string name="edit_hint_enter_amount">금액을 입력해 주세요</string>
+    <string name="edit_hint_pick_category">카테고리를 선택해 주세요</string>
+    <string name="edit_date_today">오늘</string>
+    <string name="edit_date_yesterday">어제</string>
+    <string name="edit_date_future_badge">예정</string>
+    <string name="edit_discard_title">정말 취소할까요?</string>
+    <string name="edit_discard_body">입력한 내용이 사라집니다.</string>
+    <string name="edit_discard_confirm">나가기</string>
+    <string name="edit_discard_dismiss">계속 작성</string>
+    <string name="edit_keypad_backspace">한 자리 지우기, 길게 누르면 전체 삭제</string>
+    <string name="edit_recent_categories">최근 사용</string>
+    <string name="edit_category_sheet_title">카테고리 선택</string>
+    <string name="edit_category_search_hint">카테고리 검색</string>
+    <string name="edit_category_search_empty">검색 결과가 없습니다.</string>
+    <string name="edit_category_open_picker">카테고리 선택 열기</string>
+    <string name="edit_confirm_ok">확인</string>
+</resources>

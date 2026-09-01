@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 공용 UI 컴포넌트(ui/components) 전용 문자열. res/values/ 병합으로 strings.xml 과 합쳐진다. -->
+<resources>
+    <string name="summary_income">수입</string>
+    <string name="summary_expense">지출</string>
+    <string name="summary_savings">저축</string>
+</resources>

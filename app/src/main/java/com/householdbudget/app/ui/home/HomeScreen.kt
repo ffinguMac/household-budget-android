@@ -1,5 +1,6 @@
 package com.householdbudget.app.ui.home
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,43 +12,60 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.EmptyState
+import com.householdbudget.app.ui.components.FabContentBottomPadding
+import com.householdbudget.app.ui.components.KindSummaryRow
+import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.theme.TossBlue
-import com.householdbudget.app.ui.theme.TossBlueDark
+import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.theme.heroGradient
+import com.householdbudget.app.ui.theme.onHeroColor
+import com.householdbudget.app.ui.theme.onHeroMutedColor
 import com.householdbudget.app.ui.util.formatRangeKorean
+import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 @Composable
 fun HomeScreen(
     budgetViewModel: BudgetViewModel,
     modifier: Modifier = Modifier,
+    onSeeAllTransactions: (() -> Unit)? = null,
+    scrollState: ScrollState = rememberScrollState(),
 ) {
     val summary by budgetViewModel.homeSummary.collectAsStateWithLifecycle()
-    val dateFmt = DateTimeFormatter.ofPattern("MM.dd (E)").withLocale(Locale.KOREA)
+    val loaded by budgetViewModel.homeSummaryLoaded.collectAsStateWithLifecycle()
+    val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+    val daysLeft =
+        ChronoUnit.DAYS
+            .between(today, summary.period.endExclusive)
+            .coerceAtLeast(0L)
 
     val netPrefix = if (summary.netMinor >= 0) "+" else "−"
     val absNet = if (summary.netMinor < 0) -summary.netMinor else summary.netMinor
@@ -56,39 +74,19 @@ fun HomeScreen(
         modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(scrollState),
     ) {
-        // ── 헤더 ────────────────────────────────────────────────────────────
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.home_title),
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = summary.period.formatRangeKorean(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        // ScreenHeader 는 좌우/상하 패딩을 스스로 처리한다.
+        ScreenHeader(title = stringResource(R.string.home_title))
 
-        // ── 순액 히어로 카드 (토스 블루) ──────────────────────────────────────
+        // ── 순액 히어로 카드 ─────────────────────────────────────────────────
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = ScreenHorizontalPadding)
                     .clip(MaterialTheme.shapes.extraLarge)
-                    .background(
-                        Brush.linearGradient(colors = listOf(TossBlue, TossBlueDark)),
-                    ),
+                    .background(heroGradient()),
         ) {
             // soft decorative glow
             Box(
@@ -97,7 +95,7 @@ fun HomeScreen(
                         .size(200.dp)
                         .align(Alignment.TopEnd)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.08f)),
+                        .background(onHeroColor().copy(alpha = 0.08f)),
             )
             Column(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
@@ -106,51 +104,69 @@ fun HomeScreen(
                 Text(
                     text = stringResource(R.string.home_net),
                     style = MaterialTheme.typography.titleSmall,
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = onHeroMutedColor(),
                     fontWeight = FontWeight.SemiBold,
                 )
+                if (loaded) {
+                    Text(
+                        text = netPrefix + absNet.formatWon(),
+                        style = MaterialTheme.typography.displaySmall,
+                        color = onHeroColor(),
+                        fontWeight = FontWeight.Bold,
+                    )
+                } else {
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(180.dp)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(onHeroColor().copy(alpha = 0.16f)),
+                    )
+                }
                 Text(
-                    text = netPrefix + absNet.formatWon(),
-                    style = MaterialTheme.typography.displaySmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = summary.period.formatRangeKorean(),
+                    text =
+                        summary.period.formatRangeKorean() +
+                            " · " +
+                            stringResource(R.string.home_days_left, daysLeft),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = onHeroMutedColor(),
                 )
             }
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // ── 수입 / 지출 / 저축 3분할 카드 ────────────────────────────────────
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            HomeSummaryCard(
-                modifier = Modifier.weight(1f),
-                accent = MaterialTheme.colorScheme.secondary,
-                label = stringResource(R.string.home_income),
-                amount = summary.totalIncomeMinor.formatWon(),
+        // ── 수입 / 지출 / 저축 3분할 요약 ────────────────────────────────────
+        if (loaded) {
+            KindSummaryRow(
+                incomeMinor = summary.totalIncomeMinor,
+                expenseMinor = summary.totalExpenseMinor,
+                savingsMinor = summary.totalSavingsMinor,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenHorizontalPadding),
             )
-            HomeSummaryCard(
-                modifier = Modifier.weight(1f),
-                accent = MaterialTheme.colorScheme.error,
-                label = stringResource(R.string.home_expense),
-                amount = summary.totalExpenseMinor.formatWon(),
-            )
-            HomeSummaryCard(
-                modifier = Modifier.weight(1f),
-                accent = MaterialTheme.colorScheme.primary,
-                label = stringResource(R.string.home_savings),
-                amount = summary.totalSavingsMinor.formatWon(),
-            )
+        } else {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenHorizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(72.dp)
+                                .clip(MaterialTheme.shapes.large)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(28.dp))
@@ -163,28 +179,33 @@ fun HomeScreen(
                     .padding(horizontal = ScreenHorizontalPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.home_recent),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+            SectionHeader(
+                title = stringResource(R.string.home_recent),
+                trailing =
+                    onSeeAllTransactions?.let { seeAll ->
+                        {
+                            TextButton(onClick = seeAll) {
+                                Text(text = stringResource(R.string.home_see_all))
+                            }
+                        }
+                    },
             )
 
             val recent = summary.transactions.take(10)
             if (recent.isEmpty()) {
-                Surface(
+                EmptyState(
+                    icon = Icons.Outlined.ReceiptLong,
+                    title = stringResource(R.string.home_empty_title),
+                    description = stringResource(R.string.home_empty_desc),
+                    actionLabel =
+                        if (onSeeAllTransactions != null) {
+                            stringResource(R.string.home_see_all)
+                        } else {
+                            null
+                        },
+                    onAction = onSeeAllTransactions,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
-                ) {
-                    Text(
-                        text = stringResource(R.string.ledger_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(20.dp),
-                    )
-                }
+                )
             } else {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -199,141 +220,23 @@ fun HomeScreen(
                                 .padding(vertical = 6.dp),
                     ) {
                         recent.forEach { row ->
-                            val d = LocalDate.ofEpochDay(row.occurredEpochDay)
-                            val kind = CategoryKind.fromStorage(row.kind)
-                            val amountColor =
-                                when (kind) {
-                                    CategoryKind.INCOME -> MaterialTheme.colorScheme.secondary
-                                    CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primary
-                                    CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurface
-                                }
-                            val avatarBg =
-                                when (kind) {
-                                    CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer
-                                    CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer
-                                    CategoryKind.EXPENSE -> MaterialTheme.colorScheme.surfaceVariant
-                                }
-                            val avatarTextColor =
-                                when (kind) {
-                                    CategoryKind.INCOME -> MaterialTheme.colorScheme.onSecondaryContainer
-                                    CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            val amountPrefix =
-                                when (kind) {
-                                    CategoryKind.INCOME -> "+"
-                                    CategoryKind.EXPENSE -> "−"
-                                    CategoryKind.SAVINGS -> "↓"
-                                }
-                            val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
-
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                            .background(avatarBg),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = row.categoryName.take(1),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = avatarTextColor,
-                                    )
-                                }
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(
-                                        text = "$parentPrefix${row.categoryName}",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        text =
-                                            buildString {
-                                                append(d.format(dateFmt))
-                                                if (row.memo.isNotBlank()) append(" · ${row.memo}")
-                                            },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                Text(
-                                    text = amountPrefix + row.amountMinor.formatWon(),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = amountColor,
-                                )
-                            }
+                            TransactionRow(
+                                categoryName = row.categoryName,
+                                parentCategoryName = row.parentCategoryName,
+                                memo = row.memo,
+                                amountMinor = row.amountMinor,
+                                kind = CategoryKind.fromStorage(row.kind),
+                                dateLabel =
+                                    LocalDate
+                                        .ofEpochDay(row.occurredEpochDay)
+                                        .formatShortDayLabel(),
+                            )
                         }
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(96.dp))
-    }
-}
-
-@Composable
-private fun HomeSummaryCard(
-    modifier: Modifier,
-    accent: Color,
-    label: String,
-    amount: String,
-) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(accent),
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            Text(
-                text = amount,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Spacer(Modifier.height(FabContentBottomPadding))
     }
 }

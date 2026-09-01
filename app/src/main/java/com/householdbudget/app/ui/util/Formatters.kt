@@ -1,7 +1,11 @@
 package com.householdbudget.app.ui.util
 
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.ui.theme.kindSignPrefix
+import java.math.BigInteger
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -10,8 +14,50 @@ private val wonFormatter: NumberFormat = NumberFormat.getNumberInstance(Locale.K
 private val periodFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy.MM.dd").withLocale(Locale.KOREA)
 
+private val dayLabelFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("M월 d일 (E)").withLocale(Locale.KOREA)
+
+private val shortDayLabelFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MM.dd (E)").withLocale(Locale.KOREA)
+
 fun Long.formatWon(): String = "${wonFormatter.format(this)}원"
 
 /** UI에 표시할 때는 [BudgetPeriod.endExclusive] 전날까지가 실제 포함 마지막 날이다. */
 fun BudgetPeriod.formatRangeKorean(): String =
     "${startInclusive.format(periodFormatter)} ~ ${endExclusive.minusDays(1).format(periodFormatter)}"
+
+/** "원" 없이 천단위만. 예: 1234567 -> "1,234,567" */
+fun Long.formatAmountGrouped(): String = wonFormatter.format(this)
+
+/**
+ * 입력 중인 숫자 문자열에 천단위 콤마. 숫자 이외 문자는 버린다. 앞자리 0 은 정리한다.
+ * "" -> "", "0" -> "0", "007" -> "7", "1234567" -> "1,234,567"
+ */
+fun formatDigitsGrouped(raw: String): String {
+    val digits = raw.filter { it.isDigit() }
+    if (digits.isEmpty()) return ""
+    val trimmed = digits.trimStart('0')
+    if (trimmed.isEmpty()) return "0"
+    // Long 범위를 넘는 비정상 입력도 죽지 않게 BigInteger 로 그룹핑한다.
+    return wonFormatter.format(BigInteger(trimmed))
+}
+
+/** [formatDigitsGrouped] 의 역: 콤마 등을 떼고 숫자만 남긴다. */
+fun stripDigits(formatted: String): String = formatted.filter { it.isDigit() }
+
+/** 부호 접두사 + 금액 + "원". 예: (150000, EXPENSE) -> "−150,000원" */
+fun Long.formatSignedWon(kind: CategoryKind): String = kindSignPrefix(kind) + formatWon()
+
+/**
+ * 날짜 라벨. 오늘이면 "오늘", 어제면 "어제", 그 외 "M월 d일 (E)" (Locale.KOREA).
+ * today 는 호출자가 주입 (테스트 가능성 + 자정 경계).
+ */
+fun LocalDate.formatDayLabel(today: LocalDate): String =
+    when (this) {
+        today -> "오늘"
+        today.minusDays(1) -> "어제"
+        else -> format(dayLabelFormatter)
+    }
+
+/** 짧은 날짜 라벨: "MM.dd (E)" (Locale.KOREA) */
+fun LocalDate.formatShortDayLabel(): String = format(shortDayLabelFormatter)

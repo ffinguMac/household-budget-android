@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,16 +37,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.ui.components.EmptyState
+import com.householdbudget.app.ui.components.FabContentBottomPadding
+import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.util.formatWon
+import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.util.formatDayLabel
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -55,6 +63,7 @@ fun CalendarScreen(
     viewModel: CalendarViewModel,
     repository: BudgetRepository,
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
 ) {
     val ym by viewModel.visibleMonth.collectAsStateWithLifecycle()
     val totals by viewModel.dayTotals.collectAsStateWithLifecycle()
@@ -70,26 +79,27 @@ fun CalendarScreen(
     val offset = first.dayOfWeek.value % 7
     val daysInMonth = ym.lengthOfMonth()
     val totalCells = ((offset + daysInMonth + 6) / 7) * 7
-    val weekLabels = listOf("일", "월", "화", "수", "목", "금", "토")
+    val weekLabels = stringArrayResource(R.array.cal_weekdays)
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
         // 월 네비게이션
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = 20.dp),
+                    .padding(horizontal = ScreenHorizontalPadding, vertical = Space.xl),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { viewModel.previousMonth() }) {
                     Icon(
                         Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cal_prev_month),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -104,41 +114,24 @@ fun CalendarScreen(
                 IconButton(onClick = { viewModel.nextMonth() }) {
                     Icon(
                         Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cal_next_month),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
         }
 
-        // 월별 수입/지출/저축 3열 통계
+        // 월별 수입/지출/저축 3분할 요약
         item {
-            Row(
+            KindSummaryRow(
+                incomeMinor = monthlyIncome,
+                expenseMinor = monthlyExpense,
+                savingsMinor = monthlySavings,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = ScreenHorizontalPadding),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                CalendarSummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "월 수입",
-                    amount = monthlyIncome.formatWon(),
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-                CalendarSummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "월 지출",
-                    amount = monthlyExpense.formatWon(),
-                    color = MaterialTheme.colorScheme.error,
-                )
-                CalendarSummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "월 저축",
-                    amount = monthlySavings.formatWon(),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(Modifier.height(16.dp))
+            )
+            Spacer(Modifier.height(Space.lg))
         }
 
         // 달력 그리드
@@ -152,15 +145,19 @@ fun CalendarScreen(
                 tonalElevation = 0.dp,
             ) {
                 Column {
-                    // 요일 헤더
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                        weekLabels.forEach { w ->
+                    // 요일 헤더 (일=빨강, 토=파랑)
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = Space.md)) {
+                        weekLabels.forEachIndexed { index, w ->
                             Text(
                                 text = w,
                                 modifier = Modifier.weight(1f),
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                color = when (index) {
+                                    0 -> MaterialTheme.colorScheme.error
+                                    6 -> MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                },
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -205,12 +202,13 @@ fun CalendarScreen(
             }
         }
 
-        // 선택된 날짜 거래 목록 (인라인)
+        // 선택된 날짜 상세 (격자 바로 아래)
         if (selectedEpochDay != Long.MIN_VALUE) {
             val selectedDay = LocalDate.ofEpochDay(selectedEpochDay)
             item(key = "day_detail") {
                 DayDetailSection(
                     day = selectedDay,
+                    today = today,
                     repository = repository,
                 )
             }
@@ -234,27 +232,36 @@ private fun CalendarCell(
         modifier = modifier
             .aspectRatio(0.85f)
             .background(
-                when {
-                    isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
-                    else -> Color.Transparent
-                }
+                if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                else Color.Transparent
             )
             .then(if (inMonth) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(8.dp),
+            .padding(Space.sm),
     ) {
-        Text(
-            text = if (inMonth) dayNum.toString() else "",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = when {
-                isSelected -> MaterialTheme.colorScheme.primary
-                isToday -> MaterialTheme.colorScheme.primary
-                inMonth -> MaterialTheme.colorScheme.onSurface
-                else -> Color.Transparent
-            },
-            modifier = Modifier.align(Alignment.TopStart),
-        )
+        // 오늘은 primary 채운 원으로 명확하게 표시
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (inMonth) dayNum.toString() else "",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    isToday -> MaterialTheme.colorScheme.onPrimary
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    inMonth -> MaterialTheme.colorScheme.onSurface
+                    else -> Color.Transparent
+                },
+                maxLines = 1,
+            )
+        }
         if (inMonth && (hasIncome || hasExpense || hasSavings)) {
             Row(
                 modifier = Modifier.align(Alignment.BottomStart),
@@ -292,12 +299,13 @@ private fun CalendarCell(
 @Composable
 private fun DayDetailSection(
     day: LocalDate,
+    today: LocalDate,
     repository: BudgetRepository,
     modifier: Modifier = Modifier,
 ) {
     val epoch = day.toEpochDay()
     val txs by repository.observeTransactionsOnDay(epoch).collectAsStateWithLifecycle(initialValue = emptyList())
-    val title = day.format(DateTimeFormatter.ofPattern("M월 d일 (E)").withLocale(Locale.KOREA))
+    val title = day.formatDayLabel(today)
 
     Column(modifier = modifier.fillMaxWidth()) {
         // 헤더
@@ -305,7 +313,7 @@ private fun DayDetailSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ScreenHorizontalPadding)
-                .padding(top = 24.dp, bottom = 12.dp),
+                .padding(top = Space.xxl, bottom = Space.md),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -319,155 +327,51 @@ private fun DayDetailSection(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "${txs.size}건",
+                    text = stringResource(R.string.cal_tx_count, txs.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Space.xs))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         }
 
         // 거래 목록
         if (txs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = 24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.calendar_day_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            EmptyState(
+                icon = Icons.Filled.CalendarMonth,
+                title = stringResource(R.string.calendar_empty_title),
+                description = stringResource(R.string.calendar_day_empty),
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = ScreenHorizontalPadding),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(Space.sm),
             ) {
                 txs.forEach { row ->
-                    val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(row.kind)
-                    val amountColor = when (kind) {
-                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondary
-                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primary
-                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.error
-                    }
-                    val avatarBg = when (kind) {
-                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer
-                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.primaryContainer
-                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.surfaceVariant
-                    }
-                    val avatarText = when (kind) {
-                        com.householdbudget.app.domain.CategoryKind.INCOME -> MaterialTheme.colorScheme.onSecondaryContainer
-                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onPrimaryContainer
-                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    val amountPrefix = when (kind) {
-                        com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
-                        com.householdbudget.app.domain.CategoryKind.EXPENSE -> "−"
-                        com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
-                    }
-                    val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
-
+                    val kind = CategoryKind.fromStorage(row.kind)
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 0.dp,
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(avatarBg),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = row.categoryName.take(1),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = avatarText,
-                                )
-                            }
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                Text(
-                                    text = "$parentPrefix${row.categoryName}",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                if (row.memo.isNotBlank()) {
-                                    Text(
-                                        text = row.memo,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                            Text(
-                                text = amountPrefix + row.amountMinor.formatWon(),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = amountColor,
-                            )
-                        }
+                        TransactionRow(
+                            categoryName = row.categoryName,
+                            parentCategoryName = row.parentCategoryName,
+                            memo = row.memo,
+                            amountMinor = row.amountMinor,
+                            kind = kind,
+                            dateLabel = null,
+                            onClick = null,
+                        )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Space.sm))
             }
-        }
-    }
-}
-
-@Composable
-private fun CalendarSummaryTile(
-    modifier: Modifier,
-    title: String,
-    amount: String,
-    color: androidx.compose.ui.graphics.Color,
-) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = amount,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }

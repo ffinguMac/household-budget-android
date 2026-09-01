@@ -53,3 +53,9 @@ val DarkOnSurfaceVariant = Color(0xFF9DA4AE)
 val DarkOutline = Color(0xFF3A3D45)
 val TossBlueDarkTheme = Color(0xFF5B9DFF)
 val TossBlueContainerDark = Color(0xFF1F3A5C)
+
+// ── Hero card gradient (dark theme) ─────────────────────────────────────────
+// 다크에서는 라이트용 TossBlue 그라디언트가 너무 밝아 흰 텍스트 대비가 약해진다.
+// 어둡게 누른 블루 두 단계 — 흰 텍스트가 항상 읽히는 범위.
+val HeroGradientDarkStart = Color(0xFF2A5CB8)
+val HeroGradientDarkEnd = Color(0xFF1B3F86)
