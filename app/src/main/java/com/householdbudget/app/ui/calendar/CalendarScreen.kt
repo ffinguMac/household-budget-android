@@ -67,6 +67,7 @@ fun CalendarScreen(
 ) {
     val ym by viewModel.visibleMonth.collectAsStateWithLifecycle()
     val totals by viewModel.dayTotals.collectAsStateWithLifecycle()
+    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
     var selectedEpochDay by remember { mutableLongStateOf(Long.MIN_VALUE) }
 
     val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
@@ -78,6 +79,8 @@ fun CalendarScreen(
     // Sunday-first: SUN=7 → 7%7=0, MON=1 → 1%7=1, ..., SAT=6 → 6%7=6
     val offset = first.dayOfWeek.value % 7
     val daysInMonth = ym.lengthOfMonth()
+    // 월급 받는 날 (31일이 없는 달은 말일로 조정 — PeriodResolver 와 동일한 클램프 규칙)
+    val paydayDay = minOf(paydayDom, daysInMonth)
     val totalCells = ((offset + daysInMonth + 6) / 7) * 7
     val weekLabels = stringArrayResource(R.array.cal_weekdays)
 
@@ -182,6 +185,7 @@ fun CalendarScreen(
                                     inMonth = inMonth,
                                     isToday = isToday,
                                     isSelected = isSelected,
+                                    isPayday = inMonth && dayNum == paydayDay,
                                     hasIncome = (t?.incomeMinor ?: 0L) > 0L,
                                     hasExpense = (t?.expenseMinor ?: 0L) > 0L,
                                     hasSavings = (t?.savingsMinor ?: 0L) > 0L,
@@ -222,6 +226,7 @@ private fun CalendarCell(
     inMonth: Boolean,
     isToday: Boolean,
     isSelected: Boolean,
+    isPayday: Boolean,
     hasIncome: Boolean,
     hasExpense: Boolean,
     hasSavings: Boolean,
@@ -260,6 +265,16 @@ private fun CalendarCell(
                     else -> Color.Transparent
                 },
                 maxLines = 1,
+            )
+        }
+        // 월급 받는 날 표시 — 우상단 민트 점
+        if (isPayday) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
             )
         }
         if (inMonth && (hasIncome || hasExpense || hasSavings)) {

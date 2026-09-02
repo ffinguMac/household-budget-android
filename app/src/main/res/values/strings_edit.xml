@@ -14,6 +14,7 @@
     <string name="edit_discard_dismiss">계속 작성</string>
     <string name="edit_keypad_backspace">한 자리 지우기, 길게 누르면 전체 삭제</string>
     <string name="edit_recent_categories">최근 사용</string>
+    <string name="edit_memo_collapsed">✏️ 메모 (선택)</string>
     <string name="edit_category_sheet_title">카테고리 선택</string>
     <string name="edit_category_search_hint">카테고리 검색</string>
     <string name="edit_category_search_empty">검색 결과가 없습니다.</string>

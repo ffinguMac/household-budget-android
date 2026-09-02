@@ -73,12 +73,25 @@ fun TransactionRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 아바타 첫 글자는 장식 — 제목이 곧 카테고리명이라 스크린리더 중복 읽기를 막는다.
+        // EXPENSE 는 목록의 대다수라 레드 컨테이너가 시끄럽다 — 중립(surfaceVariant)으로 가라앉힌다(목업 기준).
+        val avatarBg =
+            if (kind == CategoryKind.EXPENSE) {
+                MaterialTheme.colorScheme.surfaceVariant
+            } else {
+                kindContainer(kind)
+            }
+        val avatarFg =
+            if (kind == CategoryKind.EXPENSE) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                kindOnContainer(kind)
+            }
         Box(
             modifier =
                 Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(kindContainer(kind))
+                    .background(avatarBg)
                     .clearAndSetSemantics { },
             contentAlignment = Alignment.Center,
         ) {
@@ -86,7 +99,7 @@ fun TransactionRow(
                 text = categoryName.take(1),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = kindOnContainer(kind),
+                color = avatarFg,
             )
         }
         Column(

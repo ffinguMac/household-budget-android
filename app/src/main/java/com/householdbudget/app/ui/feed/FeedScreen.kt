@@ -1,4 +1,4 @@
-package com.householdbudget.app.ui.ledger
+package com.householdbudget.app.ui.feed
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -50,37 +53,41 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
-import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
-import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.heroGradient
 import com.householdbudget.app.ui.theme.kindAccent
 import com.householdbudget.app.ui.theme.kindContainer
 import com.householdbudget.app.ui.theme.kindOnContainer
 import com.householdbudget.app.ui.theme.kindSignPrefix
+import com.householdbudget.app.ui.theme.onHeroColor
+import com.householdbudget.app.ui.theme.onHeroMutedColor
 import com.householdbudget.app.ui.util.formatDayLabel
+import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
+import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /** 종류 필터에서 "전체"를 뜻하는 sentinel 값 (rememberSaveable 저장용). */
 private const val FILTER_ALL = "ALL"
 
-private val periodMonthFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyy.MM").withLocale(Locale.KOREA)
-
-private val periodDayFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("MM.dd").withLocale(Locale.KOREA)
-
+/**
+ * 홈 + 내역을 합친 "가계부" 피드.
+ *
+ * 히어로(월급 카운트다운·남은 금액·예산 바) + 한 줄 요약 + 검색/필터 + 날짜 그룹 피드.
+ * 월 이동은 [BudgetViewModel.ledgerPeriodOffset]을 그대로 재사용한다.
+ */
 @Composable
-fun LedgerScreen(
+fun FeedScreen(
     budgetViewModel: BudgetViewModel,
     onTransactionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -88,6 +95,7 @@ fun LedgerScreen(
 ) {
     val summary by budgetViewModel.ledgerSummary.collectAsStateWithLifecycle()
     val periodOffset by budgetViewModel.ledgerPeriodOffset.collectAsStateWithLifecycle()
+    val monthlyBudgetMinor by budgetViewModel.monthlyBudgetMinor.collectAsStateWithLifecycle()
     val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
 
     var query by rememberSaveable { mutableStateOf("") }
@@ -123,54 +131,59 @@ fun LedgerScreen(
     ) {
         item(key = "header") {
             // ScreenHeader 는 좌우/상하 패딩을 스스로 처리한다.
-            ScreenHeader(
-                title = stringResource(R.string.ledger_title),
-                eyebrow =
-                    stringResource(
-                        if (periodOffset == 0) {
-                            R.string.ledger_eyebrow_current
-                        } else {
-                            R.string.ledger_eyebrow_past
-                        },
-                    ),
-            )
+            ScreenHeader(title = stringResource(R.string.nav_feed))
         }
 
-        item(key = "header_controls") {
+        item(key = "hero") {
+            if (currentSummary != null) {
+                FeedHeroCard(
+                    summary = currentSummary,
+                    periodOffset = periodOffset,
+                    monthlyBudgetMinor = monthlyBudgetMinor,
+                    today = today,
+                    onPrevious = budgetViewModel::previousPeriod,
+                    onNext = budgetViewModel::nextPeriod,
+                    onResetPeriod = budgetViewModel::resetPeriod,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ScreenHorizontalPadding),
+                )
+            } else {
+                HeroSkeleton(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ScreenHorizontalPadding),
+                )
+            }
+        }
+
+        item(key = "controls") {
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = ScreenHorizontalPadding)
-                        .padding(bottom = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(top = Space.md, bottom = Space.xs),
+                verticalArrangement = Arrangement.spacedBy(Space.md),
             ) {
                 if (currentSummary != null) {
-                    PeriodNavigator(
-                        period = currentSummary.period,
-                        nextEnabled = periodOffset < 0,
-                        onPrevious = budgetViewModel::previousPeriod,
-                        onNext = budgetViewModel::nextPeriod,
-                    )
-                    if (periodOffset != 0) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            TextButton(onClick = budgetViewModel::resetPeriod) {
-                                Text(text = stringResource(R.string.ledger_back_to_today))
-                            }
-                        }
-                    }
-                    // 회계월 전체 합계 (필터와 무관)
-                    KindSummaryRow(
+                    KindInlineSummary(
                         incomeMinor = currentSummary.totalIncomeMinor,
                         expenseMinor = currentSummary.totalExpenseMinor,
                         savingsMinor = currentSummary.totalSavingsMinor,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
-                    SummarySkeletonRow()
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(20.dp)
+                                .clip(MaterialTheme.shapes.small)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    )
                 }
 
                 OutlinedTextField(
@@ -209,7 +222,7 @@ fun LedgerScreen(
                         Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Space.sm),
                 ) {
                     KindFilterChip(
                         selected = selectedKind == null,
@@ -233,7 +246,7 @@ fun LedgerScreen(
 
         when {
             currentSummary == null -> {
-                // 첫 로딩 중: 헤더의 스켈레톤만 보여준다.
+                // 첫 로딩 중: 위의 스켈레톤만 보여준다.
             }
 
             rows.isEmpty() -> {
@@ -286,7 +299,7 @@ fun LedgerScreen(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = ScreenHorizontalPadding)
-                                    .padding(top = 12.dp),
+                                    .padding(top = Space.md),
                         )
                     }
                 }
@@ -301,14 +314,16 @@ fun LedgerScreen(
                     item(key = "header_$epochDay") {
                         val date = LocalDate.ofEpochDay(epochDay)
                         val isToday = date == today
+                        // 회계월 안에서 월급날은 기간 시작일 하나뿐이다 (클램프 포함).
+                        val isPayday = date == currentSummary.period.startInclusive
                         Row(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = ScreenHorizontalPadding)
-                                    .padding(top = 20.dp, bottom = 8.dp),
+                                    .padding(top = Space.xl, bottom = Space.sm),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Space.sm),
                         ) {
                             Text(
                                 text = date.formatDayLabel(today),
@@ -321,6 +336,19 @@ fun LedgerScreen(
                                         MaterialTheme.colorScheme.onSurface
                                     },
                             )
+                            if (isPayday) {
+                                Text(
+                                    text = stringResource(R.string.feed_payday_badge),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = kindOnContainer(CategoryKind.INCOME),
+                                    modifier =
+                                        Modifier
+                                            .clip(RoundedCornerShape(percent = 50))
+                                            .background(kindContainer(CategoryKind.INCOME))
+                                            .padding(horizontal = Space.sm, vertical = Space.xxs),
+                                )
+                            }
                             Spacer(Modifier.weight(1f))
                             CategoryKind.entries.forEach { kind ->
                                 val dayTotal =
@@ -372,71 +400,211 @@ fun LedgerScreen(
     }
 }
 
-/** `◀  2026.09 (09.25 ~ 10.24)  ▶` 형태의 회계월 이동 컨트롤. */
+/**
+ * 히어로 카드: 월 이동(◀ 9월 ▶) + "다음 월급까지 N일" + 기간 + 남은 금액 + 예산 진행 바.
+ * 과거 기간을 보는 중에는 카운트다운·예산 바 대신 "오늘로" 버튼을 보여준다.
+ */
 @Composable
-private fun PeriodNavigator(
-    period: BudgetPeriod,
-    nextEnabled: Boolean,
+private fun FeedHeroCard(
+    summary: HomeSummary,
+    periodOffset: Int,
+    monthlyBudgetMinor: Long?,
+    today: LocalDate,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onResetPeriod: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+    val period = summary.period
+    val netPrefix = if (summary.netMinor >= 0) "+" else "−"
+    val absNet = if (summary.netMinor < 0) -summary.netMinor else summary.netMinor
+    val start = period.startInclusive
+    val monthLabel =
+        if (start.year == today.year) {
+            "${start.monthValue}월"
+        } else {
+            "${start.year}년 ${start.monthValue}월"
+        }
+    val daysRemaining =
+        (period.endExclusive.toEpochDay() - today.toEpochDay())
+            .coerceAtLeast(0L)
+            .toInt()
+
+    Box(
+        modifier =
+            modifier
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(heroGradient()),
     ) {
-        IconButton(onClick = onPrevious) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.ledger_prev_period),
-            )
-        }
+        // soft decorative glow
+        Box(
+            modifier =
+                Modifier
+                    .size(200.dp)
+                    .align(Alignment.TopEnd)
+                    .clip(CircleShape)
+                    .background(onHeroColor().copy(alpha = 0.08f)),
+        )
         Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.xl),
+            verticalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onPrevious) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = stringResource(R.string.ledger_prev_period),
+                        tint = onHeroColor(),
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = monthLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = onHeroColor(),
+                    )
+                    Text(
+                        text = period.formatRangeShort(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = onHeroMutedColor(),
+                    )
+                }
+                IconButton(onClick = onNext, enabled = periodOffset < 0) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.ledger_next_period),
+                        tint =
+                            if (periodOffset < 0) {
+                                onHeroColor()
+                            } else {
+                                onHeroColor().copy(alpha = 0.3f)
+                            },
+                    )
+                }
+            }
+
+            if (periodOffset == 0) {
+                Text(
+                    text = period.paydayCountdownLabel(today),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = onHeroMutedColor(),
+                )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    TextButton(onClick = onResetPeriod) {
+                        Text(
+                            text = stringResource(R.string.ledger_back_to_today),
+                            color = onHeroColor(),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+
             Text(
-                text = period.startInclusive.format(periodMonthFormatter),
-                style = MaterialTheme.typography.titleMedium,
+                text = stringResource(R.string.home_net),
+                style = MaterialTheme.typography.labelMedium,
+                color = onHeroMutedColor(),
+            )
+            Text(
+                text = netPrefix + absNet.formatWon(),
+                style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = onHeroColor(),
             )
-            Text(
-                text =
-                    period.startInclusive.format(periodDayFormatter) +
-                        " ~ " +
-                        period.endExclusive.minusDays(1).format(periodDayFormatter),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        IconButton(onClick = onNext, enabled = nextEnabled) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = stringResource(R.string.ledger_next_period),
-            )
+
+            if (periodOffset == 0) {
+                BudgetProgressBar(
+                    spentMinor = summary.totalExpenseMinor,
+                    budgetMinor = monthlyBudgetMinor,
+                    daysRemaining = daysRemaining,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = Space.sm),
+                    onHero = true,
+                )
+            }
         }
     }
 }
 
-/** 요약 타일 자리에 놓는 콜드 스타트 스켈레톤. */
+/** 히어로 카드 자리에 놓는 콜드 스타트 스켈레톤. */
 @Composable
-private fun SummarySkeletonRow(modifier: Modifier = Modifier) {
+private fun HeroSkeleton(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .height(200.dp)
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    )
+}
+
+/** 수입/지출/저축 한 줄 요약 (목업의 컴팩트 한 줄 텍스트). */
+@Composable
+private fun KindInlineSummary(
+    incomeMinor: Long,
+    expenseMinor: Long,
+    savingsMinor: Long,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Space.md),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        repeat(3) {
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .height(72.dp)
-                        .clip(MaterialTheme.shapes.large)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            )
-        }
+        KindInlineItem(
+            label = stringResource(R.string.ledger_filter_income),
+            amountMinor = incomeMinor,
+            kind = CategoryKind.INCOME,
+        )
+        KindInlineItem(
+            label = stringResource(R.string.ledger_filter_expense),
+            amountMinor = expenseMinor,
+            kind = CategoryKind.EXPENSE,
+        )
+        KindInlineItem(
+            label = stringResource(R.string.ledger_filter_savings),
+            amountMinor = savingsMinor,
+            kind = CategoryKind.SAVINGS,
+        )
+    }
+}
+
+@Composable
+private fun KindInlineItem(
+    label: String,
+    amountMinor: Long,
+    kind: CategoryKind,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.xs),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = kindSignPrefix(kind) + amountMinor.formatWon(),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = kindAccent(kind),
+        )
     }
 }
 

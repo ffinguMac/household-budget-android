@@ -59,3 +59,42 @@ val TossBlueContainerDark = Color(0xFF1F3A5C)
 // 어둡게 누른 블루 두 단계 — 흰 텍스트가 항상 읽히는 범위.
 val HeroGradientDarkStart = Color(0xFF2A5CB8)
 val HeroGradientDarkEnd = Color(0xFF1B3F86)
+
+// ──────────────────────────────────────────────────────────────────────────
+// Midnight palette (라운드 2) — 다크 단일 테마.
+// 배경 #0C1018 + 민트 #5EE8B5 포인트, 지출 레드 #FF7D8A, 저축 블루 #7FB2FF.
+// ──────────────────────────────────────────────────────────────────────────
+
+// Neutrals
+val MidnightBg = Color(0xFF0C1018) // background
+val MidnightSurface = Color(0xFF131A26) // surface
+val MidnightBorder = Color(0xFF1C2634) // outlineVariant (서피스 보더)
+val MidnightSurfaceHigh = Color(0xFF1A2434) // surfaceVariant / surfaceContainerHigh
+val MidnightSurfaceLow = Color(0xFF101623) // surfaceContainerLow
+val MidnightSurfaceHighest = Color(0xFF222D40) // surfaceContainerHighest
+val MidnightOnSurface = Color(0xFFEDF1F7) // 본문
+val MidnightMuted = Color(0xFF7D8AA0) // 보조 텍스트
+val MidnightOutline = Color(0xFF2A3648) // outline (보더보다 한 단계 밝게)
+
+// Brand — mint
+val MintPrimary = Color(0xFF5EE8B5)
+val OnMint = Color(0xFF06281A)
+val MintContainer = Color(0xFF12352A)
+val OnMintContainer = Color(0xFFA7F3D3)
+val MintInverse = Color(0xFF0E8C5C) // 밝은 inverseSurface 위에서 쓰는 어두운 민트
+
+// Semantic — expense red
+val ExpenseRed = Color(0xFFFF7D8A)
+val OnExpenseRed = Color(0xFF360911)
+val ExpenseRedContainer = Color(0xFF3D1620)
+val OnExpenseRedContainer = Color(0xFFFFB3BA)
+
+// Semantic — savings blue
+val SavingsBlue = Color(0xFF7FB2FF)
+val OnSavingsBlue = Color(0xFF071A33)
+val SavingsBlueContainer = Color(0xFF16294A)
+val OnSavingsBlueContainer = Color(0xFFBDD7FF)
+
+// Hero card gradient — 미드나잇 전용
+val MidnightHeroStart = Color(0xFF131A26)
+val MidnightHeroEnd = Color(0xFF0F2231)

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 통계 탭 (W4 전용) -->
+    <string name="stats_title">%1$d월 리포트</string>
+    <string name="stats_title_plain">리포트</string>
+    <string name="stats_mode_report">리포트</string>
+    <string name="stats_mode_map">맵</string>
+
+    <!-- 예산 게이지 카드 -->
+    <string name="stats_gauge_pct">%1$d%%</string>
+    <string name="stats_gauge_center_label">예산 사용</string>
+    <string name="stats_gauge_remaining">%1$s 남음</string>
+    <string name="stats_gauge_over">%1$s 초과</string>
+    <string name="stats_gauge_daily">하루 %1$s씩 쓸 수 있어요</string>
+    <string name="stats_gauge_over_desc">이번 달 예산을 넘었어요</string>
+    <string name="stats_no_budget_title">예산을 설정하면 사용률을 보여드려요</string>
+    <string name="stats_no_budget_desc">설정 탭 → 예산에서 월 예산을 정할 수 있어요</string>
+
+    <!-- 주별 지출 -->
+    <string name="stats_weekly_title">주별 지출</string>
+    <string name="stats_week_label">%1$d주</string>
+
+    <!-- 카테고리별 예산 대비 -->
+    <string name="stats_category_title">카테고리별 지출</string>
+    <string name="stats_category_subtitle">예산 대비 · 전월 대비</string>
+    <string name="stats_category_empty">이번 달 지출이 아직 없어요</string>
+    <string name="stats_delta_up">▲%1$d%%</string>
+    <string name="stats_delta_down">▼%1$d%%</string>
+    <string name="stats_delta_flat">—</string>
+
+    <!-- 다가오는 자동이체 -->
+    <string name="stats_upcoming_title">다가오는 자동이체</string>
+    <string name="stats_upcoming_empty">예정된 자동이체가 없어요</string>
+    <string name="stats_upcoming_today">오늘</string>
+    <string name="stats_upcoming_tomorrow">내일</string>
+    <string name="stats_upcoming_in_days">%1$d일 후</string>
+
+    <!-- 머니 맵 -->
+    <string name="stats_map_other">기타</string>
+    <string name="stats_map_leftover">남은 돈</string>
+    <string name="stats_map_overspent">초과 지출</string>
+    <string name="stats_map_savings">저축</string>
+    <string name="stats_map_empty_title">이번 달 거래가 아직 없어요</string>
+    <string name="stats_map_empty_desc">거래를 기록하면 돈의 흐름을 지도로 보여드려요.</string>
+    <string name="stats_legend_less">덜 씀</string>
+    <string name="stats_legend_same">그대로</string>
+    <string name="stats_legend_more">더 씀</string>
+
+    <!-- 상세 바텀시트 -->
+    <string name="stats_sheet_total">%1$d건 · 합계 %2$s</string>
+</resources>

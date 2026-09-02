@@ -34,7 +34,7 @@ import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.util.formatRangeKorean
+import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.components.EmptyState
 import java.time.Instant
@@ -45,8 +45,18 @@ import java.util.Locale
 
 private val savedAtFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy.MM.dd 보관").withLocale(Locale.KOREA)
-private val periodLabelFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyy년 M월").withLocale(Locale.KOREA)
+
+/**
+ * 아카이브 기간 제목: 시작일의 달 기준 "8월", 올해가 아니면 "2025년 8월".
+ * (월급날 기준 한 달은 시작일이 속한 달로 부른다.)
+ */
+@Composable
+internal fun archiveMonthTitle(start: LocalDate, today: LocalDate): String =
+    if (start.year == today.year) {
+        stringResource(R.string.archive_month_label, start.monthValue)
+    } else {
+        stringResource(R.string.archive_month_label_with_year, start.year, start.monthValue)
+    }
 
 @Composable
 fun ArchiveListScreen(
@@ -102,7 +112,8 @@ private fun ArchiveCard(
         endExclusive = LocalDate.ofEpochDay(row.endEpochDay),
     )
     val startDate = LocalDate.ofEpochDay(row.startEpochDay)
-    val periodLabel = startDate.format(periodLabelFormatter)
+    val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+    val periodLabel = archiveMonthTitle(startDate, today)
     val savedAt = Instant.ofEpochMilli(row.archivedAtEpochMs)
         .atZone(ZoneId.of("Asia/Seoul")).toLocalDate()
     val savedAtText = savedAt.format(savedAtFormatter)
@@ -136,25 +147,23 @@ private fun ArchiveCard(
                 )
             }
             Text(
-                text = period.formatRangeKorean(),
+                text = stringResource(R.string.archive_range_payday_based, period.formatRangeShort()),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(Modifier.height(Space.lg))
 
-            // 순액(수입 − 지출 − 저축)을 가장 크게
+            // 순액(수입 − 지출 − 저축) — "+N원 남김"(민트) / "−N원 초과"(레드)
             Text(
-                text = stringResource(R.string.home_net),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = netMinor.formatWon(),
+                text = if (netMinor >= 0) {
+                    stringResource(R.string.archive_net_left, netMinor.formatWon())
+                } else {
+                    stringResource(R.string.archive_net_over, (-netMinor).formatWon())
+                },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (netMinor >= 0) MaterialTheme.colorScheme.onSurface
+                color = if (netMinor >= 0) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.error,
             )
 

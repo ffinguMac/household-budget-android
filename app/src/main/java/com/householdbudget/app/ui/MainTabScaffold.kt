@@ -12,15 +12,15 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,16 +29,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -54,6 +53,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -67,12 +67,13 @@ import com.householdbudget.app.ui.archive.ArchiveDetailScreen
 import com.householdbudget.app.ui.archive.ArchiveListScreen
 import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
-import com.householdbudget.app.ui.home.HomeScreen
-import com.householdbudget.app.ui.ledger.LedgerScreen
+import com.householdbudget.app.ui.feed.FeedScreen
 import com.householdbudget.app.ui.recurring.RecurringRuleEditorScreen
 import com.householdbudget.app.ui.recurring.RecurringRulesListScreen
+import com.householdbudget.app.ui.settings.BudgetSettingsScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
 import com.householdbudget.app.ui.settings.categories.CategoryManagementScreen
+import com.householdbudget.app.ui.stats.StatsScreen
 
 /** 탭 전환 크로스페이드/슬라이드 지속시간. 짧고 절제된 토스 느낌. */
 private const val TAB_TRANSITION_MS = 200
@@ -80,15 +81,20 @@ private const val TAB_TRANSITION_MS = 200
 /** 탭 전환 시 수평 슬라이드 오프셋(px). 아주 약한 움직임만 준다. */
 private const val TAB_SLIDE_OFFSET_PX = 40
 
+/** 중앙 + 버튼 지름. */
+private val AddButtonSize = 50.dp
+
+/** 중앙 + 버튼이 바 위로 돌출되는 높이. */
+private val AddButtonProtrusion = 20.dp
+
 private enum class MainTab(
     val icon: ImageVector,
     val labelRes: Int,
-    val showsFab: Boolean,
 ) {
-    HOME(Icons.Rounded.Home, R.string.nav_home, true),
-    LEDGER(Icons.Rounded.Receipt, R.string.nav_ledger, true),
-    CALENDAR(Icons.Rounded.CalendarMonth, R.string.nav_calendar, true),
-    SETTINGS(Icons.Rounded.Settings, R.string.nav_settings, false),
+    FEED(Icons.Rounded.Home, R.string.nav_feed),
+    CALENDAR(Icons.Rounded.CalendarMonth, R.string.nav_calendar),
+    STATS(Icons.Rounded.BarChart, R.string.nav_stats),
+    SETTINGS(Icons.Rounded.Settings, R.string.nav_settings),
 }
 
 private sealed interface SettingsPane {
@@ -103,6 +109,8 @@ private sealed interface SettingsPane {
     data object Archive : SettingsPane
 
     data class ArchiveDetail(val archiveId: Long) : SettingsPane
+
+    data object Budget : SettingsPane
 }
 
 @Composable
@@ -114,7 +122,7 @@ fun MainTabScaffold(
     onNavigateEdit: (Long) -> Unit,
 ) {
     // enum 은 기본 Saver 가 없어 ordinal 로 저장하고 파생시킨다.
-    var selectedOrdinal by rememberSaveable { mutableIntStateOf(MainTab.HOME.ordinal) }
+    var selectedOrdinal by rememberSaveable { mutableIntStateOf(MainTab.FEED.ordinal) }
     val selected = MainTab.entries[selectedOrdinal]
     // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
@@ -122,9 +130,9 @@ fun MainTabScaffold(
 
     // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
     // 스크롤 상태를 여기(바깥)에서 만들어 내려보내 탭 전환 후에도 위치를 보존한다.
-    val homeScrollState = rememberScrollState()
-    val ledgerListState = rememberLazyListState()
+    val feedListState = rememberLazyListState()
     val calendarListState = rememberLazyListState()
+    val statsListState = rememberLazyListState()
 
     BackHandler(enabled = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main) {
         settingsPane =
@@ -143,35 +151,16 @@ fun MainTabScaffold(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        floatingActionButton = {
-            if (selected.showsFab) {
-                FloatingActionButton(
-                    onClick = onNavigateAdd,
-                    shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    elevation =
-                        FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 10.dp,
-                        ),
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.fab_add_transaction),
-                    )
-                }
-            }
-        },
         bottomBar = {
-            TossBottomBar(
+            MidnightBottomBar(
                 selected = selected,
                 onSelect = { selectedOrdinal = it.ordinal },
+                onAdd = onNavigateAdd,
             )
         },
     ) { padding ->
         // 하단 인셋은 넘기지 않는다: 리스트가 바텀바 아래로 자연스럽게 스크롤되고,
-        // 각 화면이 FAB/네비바 여백을 공용 FabContentBottomPadding 으로 직접 처리한다.
+        // 각 화면이 버튼/네비바 여백을 공용 FabContentBottomPadding 으로 직접 처리한다.
         val layoutDirection = LocalLayoutDirection.current
         val contentModifier =
             Modifier.padding(
@@ -199,18 +188,11 @@ fun MainTabScaffold(
             label = "mainTabContent",
         ) { tab ->
             when (tab) {
-                MainTab.HOME ->
-                    HomeScreen(
-                        budgetViewModel = budgetViewModel,
-                        onSeeAllTransactions = { selectedOrdinal = MainTab.LEDGER.ordinal },
-                        scrollState = homeScrollState,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                MainTab.LEDGER ->
-                    LedgerScreen(
+                MainTab.FEED ->
+                    FeedScreen(
                         budgetViewModel = budgetViewModel,
                         onTransactionClick = onNavigateEdit,
-                        listState = ledgerListState,
+                        listState = feedListState,
                         modifier = Modifier.fillMaxSize(),
                     )
                 MainTab.CALENDAR ->
@@ -218,6 +200,13 @@ fun MainTabScaffold(
                         viewModel = calendarViewModel,
                         repository = repository,
                         listState = calendarListState,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                MainTab.STATS ->
+                    StatsScreen(
+                        repository = repository,
+                        budgetViewModel = budgetViewModel,
+                        listState = statsListState,
                         modifier = Modifier.fillMaxSize(),
                     )
                 MainTab.SETTINGS ->
@@ -228,6 +217,7 @@ fun MainTabScaffold(
                                 onOpenRecurringRules = { settingsPane = SettingsPane.RecurringList },
                                 onOpenCategoryManagement = { settingsPane = SettingsPane.Categories },
                                 onOpenArchive = { settingsPane = SettingsPane.Archive },
+                                onOpenBudget = { settingsPane = SettingsPane.Budget },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Categories ->
@@ -270,6 +260,13 @@ fun MainTabScaffold(
                                 onBack = { settingsPane = SettingsPane.Archive },
                                 modifier = Modifier.fillMaxSize(),
                             )
+                        SettingsPane.Budget ->
+                            BudgetSettingsScreen(
+                                repository = repository,
+                                budgetViewModel = budgetViewModel,
+                                onBack = { settingsPane = SettingsPane.Main },
+                                modifier = Modifier.fillMaxSize(),
+                            )
                     }
             }
         }
@@ -277,43 +274,89 @@ fun MainTabScaffold(
 }
 
 /**
- * Toss-style bottom navigation: a flat white bar with a hairline top divider,
- * outlined icons that fill with the brand blue and gently pop on selection.
- * No Material pill indicator — clean and minimal.
+ * 미드나잇 바텀바: 탭 4개 + 한가운데 살짝 돌출된 민트 + 버튼.
+ *
+ * 버튼이 바 위로 [AddButtonProtrusion] 만큼 돌출되므로, Surface 를 그만큼 아래로 밀어
+ * 버튼 전체가 bottomBar 영역 안에 남게 한다 (Surface 클리핑/히트테스트 문제 회피).
+ * 돌출부 옆 투명 영역은 포인터 핸들러가 없어 터치가 아래 콘텐츠로 통과한다.
  */
 @Composable
-private fun TossBottomBar(
+private fun MidnightBottomBar(
     selected: MainTab,
     onSelect: (MainTab) -> Unit,
+    onAdd: () -> Unit,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        Column {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant),
-            )
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .height(62.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = AddButtonProtrusion),
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
-                MainTab.entries.forEach { tab ->
-                    TossNavItem(
-                        tab = tab,
-                        selected = selected == tab,
-                        onClick = { onSelect(tab) },
+                Column {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant),
                     )
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .height(62.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TossNavItem(
+                            tab = MainTab.FEED,
+                            selected = selected == MainTab.FEED,
+                            onClick = { onSelect(MainTab.FEED) },
+                        )
+                        TossNavItem(
+                            tab = MainTab.CALENDAR,
+                            selected = selected == MainTab.CALENDAR,
+                            onClick = { onSelect(MainTab.CALENDAR) },
+                        )
+                        // 중앙 + 버튼 자리 비움 (버튼은 바깥 Box 에 오버레이).
+                        Spacer(modifier = Modifier.weight(1f))
+                        TossNavItem(
+                            tab = MainTab.STATS,
+                            selected = selected == MainTab.STATS,
+                            onClick = { onSelect(MainTab.STATS) },
+                        )
+                        TossNavItem(
+                            tab = MainTab.SETTINGS,
+                            selected = selected == MainTab.SETTINGS,
+                            onClick = { onSelect(MainTab.SETTINGS) },
+                        )
+                    }
                 }
             }
+        }
+
+        // 중앙 + 버튼: 바 위로 살짝 돌출된 민트 원형.
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .size(AddButtonSize)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(onClick = onAdd),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(R.string.fab_add_transaction),
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(28.dp),
+            )
         }
     }
 }

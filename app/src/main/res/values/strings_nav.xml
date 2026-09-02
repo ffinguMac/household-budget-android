@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 하단 내비 (라운드 2: 피드 통합 + 통계 탭) -->
+    <string name="nav_feed">가계부</string>
+    <string name="nav_stats">통계</string>
+
+    <!-- 피드 화면 -->
+    <string name="feed_payday_badge">💸 월급날</string>
+</resources>

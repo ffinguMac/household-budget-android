@@ -7,6 +7,7 @@ import java.math.BigInteger
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private val wonFormatter: NumberFormat = NumberFormat.getNumberInstance(Locale.KOREA)
@@ -19,6 +20,9 @@ private val dayLabelFormatter: DateTimeFormatter =
 
 private val shortDayLabelFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MM.dd (E)").withLocale(Locale.KOREA)
+
+private val shortRangeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("M.d").withLocale(Locale.KOREA)
 
 fun Long.formatWon(): String = "${wonFormatter.format(this)}원"
 
@@ -61,3 +65,19 @@ fun LocalDate.formatDayLabel(today: LocalDate): String =
 
 /** 짧은 날짜 라벨: "MM.dd (E)" (Locale.KOREA) */
 fun LocalDate.formatShortDayLabel(): String = format(shortDayLabelFormatter)
+
+/**
+ * "다음 월급까지 N일". 오늘이 기간 마지막 날이면 "내일이 월급날!",
+ * 월급날 당일(=기간 시작일)이면 "오늘은 월급날 💸".
+ * N 은 [BudgetPeriod.endExclusive](=다음 월급날)까지 남은 일수.
+ */
+fun BudgetPeriod.paydayCountdownLabel(today: LocalDate): String =
+    when (today) {
+        startInclusive -> "오늘은 월급날 💸"
+        endExclusive.minusDays(1) -> "내일이 월급날!"
+        else -> "다음 월급까지 ${ChronoUnit.DAYS.between(today, endExclusive)}일"
+    }
+
+/** "9.25 ~ 10.24" (연도 생략, 월.일). 끝은 실제 포함 마지막 날([BudgetPeriod.endExclusive] 전날). */
+fun BudgetPeriod.formatRangeShort(): String =
+    "${startInclusive.format(shortRangeFormatter)} ~ ${endExclusive.minusDays(1).format(shortRangeFormatter)}"

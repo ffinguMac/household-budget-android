@@ -42,9 +42,10 @@ import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.util.formatRangeKorean
+import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import java.time.LocalDate
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,8 +124,13 @@ fun ArchiveDetailScreen(
             contentPadding = PaddingValues(bottom = Space.xxxl),
         ) {
             item {
+                // "8월 · 8.25 ~ 9.24 (월급날 기준)"
+                val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+                val monthTitle = archiveMonthTitle(period.startInclusive, today)
+                val rangeText =
+                    stringResource(R.string.archive_range_payday_based, period.formatRangeShort())
                 Text(
-                    text = period.formatRangeKorean(),
+                    text = "$monthTitle · $rangeText",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,

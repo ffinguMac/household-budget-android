@@ -7,7 +7,6 @@
 package com.householdbudget.app.ui.edit
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,9 +27,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -41,7 +43,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -55,11 +56,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -72,6 +70,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
@@ -86,7 +86,6 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
-import com.householdbudget.app.ui.CashbackChannel
 import com.householdbudget.app.ui.EditTransactionViewModel
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
@@ -97,7 +96,6 @@ import com.householdbudget.app.ui.theme.kindOnContainer
 import com.householdbudget.app.ui.theme.kindSignPrefix
 import com.householdbudget.app.ui.util.formatDayLabel
 import com.householdbudget.app.ui.util.formatDigitsGrouped
-import com.householdbudget.app.ui.util.formatWon
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -130,13 +128,9 @@ fun EditTransactionScreen(
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
     val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
-    val kbankCardEnabled by budgetViewModel.kbankCardEnabled.collectAsStateWithLifecycle()
     val recentIdsByKind by vm.recentCategoryIdsByKind.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.of("Asia/Seoul") }
     val today = remember { LocalDate.now(ZoneId.of("Asia/Seoul")) }
-    var cashbackChannel by remember { mutableStateOf(CashbackChannel.OFFLINE) }
-    var applyCashback by remember { mutableStateOf(true) }
-    val showCashbackSection = ui.kind == CategoryKind.EXPENSE && kbankCardEnabled && transactionId == null
 
     val parents = parentsByKind[ui.kind].orEmpty()
     val leaves = ui.parentId?.let { childrenByParent[it] }.orEmpty()
@@ -175,6 +169,13 @@ fun EditTransactionScreen(
     var showCategorySheet by remember { mutableStateOf(false) }
     // 화면이 열리면 바로 금액을 입력할 수 있게 내장 키패드를 기본 표시한다.
     var keypadVisible by rememberSaveable { mutableStateOf(true) }
+    // 메모는 접힌 한 줄로 시작. 수정 모드에서 기존 메모가 있으면 자동으로 펼친다.
+    var memoExpanded by rememberSaveable { mutableStateOf(false) }
+    var memoFocusPending by remember { mutableStateOf(false) }
+    val memoFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(ui.loadFinished) {
+        if (ui.loadFinished && ui.memo.isNotBlank()) memoExpanded = true
+    }
 
     val focusManager = LocalFocusManager.current
     val haptics = LocalHapticFeedback.current
@@ -184,26 +185,53 @@ fun EditTransactionScreen(
     }
     BackHandler { requestClose() }
 
+    // 하단 + 버튼에서 시트처럼 올라오는 화면 — 최상단 코너만 라운드.
+    val sheetShape =
+        MaterialTheme.shapes.extraLarge.copy(
+            bottomStart = CornerSize(0.dp),
+            bottomEnd = CornerSize(0.dp),
+        )
+
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.clip(sheetShape),
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        if (transactionId == null) {
-                            stringResource(R.string.edit_title_new)
-                        } else {
-                            stringResource(R.string.edit_title_edit)
-                        },
-                        style = MaterialTheme.typography.titleLarge,
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = Space.sm),
+            ) {
+                // 드래그 핸들 모양의 장식 바.
+                Box(
+                    Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.outlineVariant),
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = requestClose) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
-                actions = {
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = ScreenHorizontalPadding, end = Space.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text =
+                            if (transactionId == null) {
+                                stringResource(R.string.edit_title_new)
+                            } else {
+                                stringResource(R.string.edit_title_edit)
+                            },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
                     if (transactionId != null) {
                         IconButton(
                             onClick = { showDeleteConfirm = true },
@@ -216,13 +244,15 @@ fun EditTransactionScreen(
                             )
                         }
                     }
-                },
-                colors =
-                    TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
-            )
+                    IconButton(onClick = requestClose) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.common_back),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         },
         bottomBar = {
             Surface(
@@ -260,8 +290,6 @@ fun EditTransactionScreen(
                     Button(
                         onClick = {
                             vm.save(
-                                cashbackChannel =
-                                    if (showCashbackSection && applyCashback) cashbackChannel else null,
                                 onSuccess = {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onClose()
@@ -285,7 +313,7 @@ fun EditTransactionScreen(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onPrimary,
                             )
                         } else {
                             Text(
@@ -508,85 +536,48 @@ fun EditTransactionScreen(
                 }
             }
 
-            // ── 카드 3: 메모 ──
+            // ── 카드 3: 메모 (한 줄 → 탭하면 입력 필드로 확장) ──
             EditCard {
-                OutlinedTextField(
-                    value = ui.memo,
-                    onValueChange = vm::setMemo,
-                    label = { Text(stringResource(R.string.edit_memo)) },
-                    modifier =
+                if (!memoExpanded) {
+                    Row(
                         Modifier
                             .fillMaxWidth()
-                            .onFocusChanged { if (it.isFocused) keypadVisible = false },
-                    shape = MaterialTheme.shapes.medium,
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        ),
-                )
-            }
-
-            // ── 카드 4: 케이뱅크 캐시백 (접히는 섹션) ──
-            if (showCashbackSection) {
-                EditCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable {
+                                memoExpanded = true
+                                memoFocusPending = true
+                            }
+                            .heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = stringResource(R.string.edit_cashback_apply),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Switch(
-                            checked = applyCashback,
-                            onCheckedChange = { applyCashback = it },
-                            colors =
-                                SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                ),
+                            text = stringResource(R.string.edit_memo_collapsed),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    AnimatedVisibility(visible = applyCashback) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
-                            Text(
-                                text = stringResource(R.string.edit_cashback_channel),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                                FilterChip(
-                                    selected = cashbackChannel == CashbackChannel.OFFLINE,
-                                    onClick = { cashbackChannel = CashbackChannel.OFFLINE },
-                                    label = { Text(stringResource(R.string.edit_cashback_offline)) },
-                                    colors = leafChipColors(),
-                                )
-                                FilterChip(
-                                    selected = cashbackChannel == CashbackChannel.ONLINE,
-                                    onClick = { cashbackChannel = CashbackChannel.ONLINE },
-                                    label = { Text(stringResource(R.string.edit_cashback_online)) },
-                                    colors = leafChipColors(),
-                                )
-                            }
-                            val rate = if (cashbackChannel == CashbackChannel.ONLINE) 11L else 6L
-                            val previewAmount = ui.amountMinor * rate / 1000L
-                            if (previewAmount > 0L) {
-                                Text(
-                                    text =
-                                        stringResource(
-                                            R.string.edit_cashback_preview,
-                                            previewAmount.formatWon(),
-                                        ),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                )
-                            }
+                } else {
+                    OutlinedTextField(
+                        value = ui.memo,
+                        onValueChange = vm::setMemo,
+                        label = { Text(stringResource(R.string.edit_memo)) },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(memoFocusRequester)
+                                .onFocusChanged { if (it.isFocused) keypadVisible = false },
+                        shape = MaterialTheme.shapes.medium,
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            ),
+                    )
+                    // 사용자가 직접 탭해서 펼친 경우에만 포커스를 준다 (수정 모드 자동 확장 제외).
+                    LaunchedEffect(Unit) {
+                        if (memoFocusPending) {
+                            memoFocusPending = false
+                            memoFocusRequester.requestFocus()
                         }
                     }
                 }
@@ -910,7 +901,7 @@ private fun AmountKeypad(
                                 .weight(1f)
                                 .heightIn(min = 52.dp)
                                 .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .combinedClickable(
                                     onClick = onDelete,
                                     onLongClick = onClear,
@@ -928,7 +919,7 @@ private fun AmountKeypad(
                             onClick = { onDigits(key) },
                             modifier = Modifier.weight(1f),
                             shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurface,
                         ) {
                             Box(
