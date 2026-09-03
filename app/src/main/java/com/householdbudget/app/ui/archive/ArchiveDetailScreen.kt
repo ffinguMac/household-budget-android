@@ -1,23 +1,26 @@
 package com.householdbudget.app.ui.archive
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,19 +29,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.util.formatRangeKorean
-import com.householdbudget.app.ui.util.formatWon
+import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.util.formatRangeShort
+import com.householdbudget.app.ui.util.formatShortDayLabel
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.time.ZoneId
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchiveDetailScreen(
     archiveId: Long,
@@ -53,99 +62,124 @@ fun ArchiveDetailScreen(
     }
 
     val h = header
-    if (h == null) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(ScreenHorizontalPadding),
-        ) {
-            Text(stringResource(R.string.archive_missing), style = MaterialTheme.typography.bodyLarge)
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.archive_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.recurring_back),
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+    ) { inner ->
+        if (h == null) {
+            Box(
+                Modifier
+                    .padding(inner)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(ScreenHorizontalPadding),
+            ) {
+                Text(
+                    text = stringResource(R.string.archive_missing),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
+            return@Scaffold
         }
-        return
-    }
 
-    val txs by
-        repository
-            .observeTransactionsInRange(h.startEpochDay, h.endEpochDay)
-            .collectAsStateWithLifecycle(initialValue = emptyList())
-    val dateFmt = DateTimeFormatter.ofPattern("MM.dd").withLocale(Locale.KOREA)
+        val txs by
+            repository
+                .observeTransactionsInRange(h.startEpochDay, h.endEpochDay)
+                .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val period =
-        BudgetPeriod(
+        val period = BudgetPeriod(
             startInclusive = LocalDate.ofEpochDay(h.startEpochDay),
             endExclusive = LocalDate.ofEpochDay(h.endEpochDay),
         )
 
-    Column(
-        modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = ScreenHorizontalPadding, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        IconButton(
-            onClick = onBack,
-            colors =
-                IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
+        LazyColumn(
+            modifier = Modifier
+                .padding(inner)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(bottom = Space.xxxl),
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.recurring_back))
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        ) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(period.formatRangeKorean(), style = MaterialTheme.typography.titleLarge)
+            item {
+                // "8월 · 8.25 ~ 9.24 (월급날 기준)"
+                val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+                val monthTitle = archiveMonthTitle(period.startInclusive, today)
+                val rangeText =
+                    stringResource(R.string.archive_range_payday_based, period.formatRangeShort())
                 Text(
-                    stringResource(
-                        R.string.archive_detail_totals,
-                        h.totalIncomeMinor.formatWon(),
-                        h.totalExpenseMinor.formatWon(),
-                        h.totalSavingsMinor.formatWon(),
+                    text = "$monthTitle · $rangeText",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(
+                        horizontal = ScreenHorizontalPadding,
+                        vertical = Space.sm,
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
 
-        Text(
-            stringResource(R.string.archive_detail_transactions),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+            item {
+                KindSummaryRow(
+                    incomeMinor = h.totalIncomeMinor,
+                    expenseMinor = h.totalExpenseMinor,
+                    savingsMinor = h.totalSavingsMinor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenHorizontalPadding),
+                )
+                Spacer(Modifier.height(Space.xl))
+            }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            item {
+                SectionHeader(
+                    title = stringResource(R.string.archive_detail_transactions),
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                )
+                Spacer(Modifier.height(Space.sm))
+            }
+
             items(txs, key = { it.id }) { row ->
-                val d = LocalDate.ofEpochDay(row.occurredEpochDay)
-                val kind = com.householdbudget.app.domain.CategoryKind.fromStorage(row.kind)
-                val prefix = when (kind) {
-                    com.householdbudget.app.domain.CategoryKind.INCOME -> "+"
-                    com.householdbudget.app.domain.CategoryKind.EXPENSE -> "-"
-                    com.householdbudget.app.domain.CategoryKind.SAVINGS -> "↓"
-                }
-                val parentPrefix = row.parentCategoryName?.let { "$it · " }.orEmpty()
-                Column(Modifier.padding(vertical = 10.dp)) {
-                    Text(
-                        text =
-                            "${d.format(dateFmt)} · $parentPrefix${row.categoryName} · " +
-                                prefix +
-                                row.amountMinor.formatWon() +
-                                if (row.memo.isNotBlank()) "\n${row.memo}" else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                val kind = CategoryKind.fromStorage(row.kind)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenHorizontalPadding, vertical = Space.xxs),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
+                ) {
+                    TransactionRow(
+                        categoryName = row.categoryName,
+                        parentCategoryName = row.parentCategoryName,
+                        memo = row.memo,
+                        amountMinor = row.amountMinor,
+                        kind = kind,
+                        dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),
+                        onClick = null,
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }

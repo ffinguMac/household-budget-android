@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_channel_name">기록 리마인더</string>
+    <string name="reminder_notification_title">가계부</string>
+    <string name="reminder_notification_text">오늘 지출을 기록하세요</string>
+
+    <string name="app_lock_prompt_title">가계부 잠금 해제</string>
+    <string name="app_lock_unlock_button">잠금 해제</string>
+    <string name="app_lock_icon_description">잠금</string>
+</resources>

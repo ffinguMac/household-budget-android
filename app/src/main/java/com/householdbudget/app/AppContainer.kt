@@ -8,7 +8,8 @@ import com.householdbudget.app.data.repository.BudgetRepository
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val database = AppDatabase.getInstance(appContext)
-    private val userPreferencesRepository = UserPreferencesRepository(appContext)
+
+    val userPreferencesRepository = UserPreferencesRepository(appContext)
 
     val budgetRepository: BudgetRepository =
         BudgetRepository(
@@ -17,6 +18,7 @@ class AppContainer(context: Context) {
             categoryDao = database.categoryDao(),
             recurringRuleDao = database.recurringRuleDao(),
             archivedPeriodDao = database.archivedPeriodDao(),
+            categoryBudgetDao = database.categoryBudgetDao(),
             userPreferencesRepository = userPreferencesRepository,
         )
 }

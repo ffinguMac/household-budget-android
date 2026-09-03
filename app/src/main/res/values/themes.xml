@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.HouseholdBudget" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 미드나잇 다크 단일 테마 — Compose 진입 전 첫 프레임도 미드나잇 배경으로. -->
+    <style name="Theme.HouseholdBudget" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0C1018</item>
+        <item name="android:statusBarColor">#0C1018</item>
+        <item name="android:navigationBarColor">#0C1018</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
 </resources>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 달력 -->
+    <string name="cal_prev_month">이전 달</string>
+    <string name="cal_next_month">다음 달</string>
+    <string name="cal_tx_count">%d건</string>
+    <string name="calendar_empty_title">이 날 거래가 없어요</string>
+    <string-array name="cal_weekdays">
+        <item>일</item>
+        <item>월</item>
+        <item>화</item>
+        <item>수</item>
+        <item>목</item>
+        <item>금</item>
+        <item>토</item>
+    </string-array>
+
+    <!-- 설정 -->
+    <string name="settings_group_basic">기본</string>
+    <string name="settings_group_automation">자동화 · 알림</string>
+    <string name="settings_group_data">데이터</string>
+    <string name="settings_group_security">보안</string>
+    <string name="settings_payday_value">매월 %d일</string>
+    <string name="settings_payday_sheet_title">월급 받는 날</string>
+    <string name="settings_recurring_subtitle">정기 수입·지출 자동 등록 관리</string>
+    <string name="settings_payday_title_v2">월급 받는 날</string>
+    <string name="settings_payday_subtitle_v2">매월 %d일 · 이날 기준으로 한 달을 계산해요</string>
+    <string name="settings_budget_title">예산 설정</string>
+    <string name="settings_budget_subtitle_set">월 %s · 카테고리별 관리</string>
+    <string name="settings_budget_subtitle_unset">아직 설정 전</string>
+    <string name="settings_reminder_title">기록 리마인더</string>
+    <string name="settings_reminder_subtitle_off">하루 한 번, 기록을 잊지 않게 알려드려요</string>
+    <string name="settings_reminder_subtitle_on">매일 %d시에 알림</string>
+    <string name="settings_reminder_denied">알림 권한이 꺼져 있어요. 시스템 설정에서 허용해 주세요.</string>
+    <string name="settings_reminder_sheet_title">알림 시간</string>
+    <string name="settings_reminder_sheet_desc">매일 이 시간에 기록 알림을 보내드려요.</string>
+    <string name="settings_reminder_hour_cell">%d시</string>
+    <string name="settings_export_title">내보내기 (CSV)</string>
+    <string name="settings_export_subtitle">이번 월급 주기 내역을 파일로 공유해요</string>
+    <string name="settings_export_running">파일을 만들고 있어요…</string>
+    <string name="settings_export_error">내보내기에 실패했어요. 다시 시도해 주세요.</string>
+    <string name="settings_lock_title">화면 잠금</string>
+    <string name="settings_lock_subtitle">생체 인증으로 열기</string>
+
+    <!-- 예산 설정 화면 -->
+    <string name="budget_settings_title">예산 설정</string>
+    <string name="budget_settings_monthly_section">월 총 예산</string>
+    <string name="budget_settings_monthly_row">한 달 전체 예산</string>
+    <string name="budget_settings_category_section">카테고리별 예산</string>
+    <string name="budget_settings_category_desc">지출 대분류별로 한도를 정해요</string>
+    <string name="budget_settings_spent">지출 %s</string>
+    <string name="budget_settings_none_option">예산 없음</string>
+    <string name="budget_settings_sheet_hint">이번 주기에 쓸 최대 금액을 입력하세요.</string>
+    <string name="budget_settings_footer">카테고리 예산은 통계와 머니 맵에서 사용돼요.</string>
+    <string name="budget_settings_empty_categories">지출 대분류가 없어요. 카테고리 관리에서 먼저 추가해 주세요.</string>
+
+    <!-- 지난 기록 -->
+    <string name="archive_subtitle_short">한 달이 끝나면 자동으로 보관돼요. (월급날 기준)</string>
+    <string name="archive_empty_title">아직 보관된 기록이 없어요</string>
+    <string name="archive_empty_desc">다음 월급날이 지나면 이전 달이 자동 저장돼요.</string>
+    <string name="archive_open_detail">자세히 보기</string>
+    <string name="archive_month_label">%d월</string>
+    <string name="archive_month_label_with_year">%1$d년 %2$d월</string>
+    <string name="archive_range_payday_based">%s (월급날 기준)</string>
+    <string name="archive_net_left">+%s 남김</string>
+    <string name="archive_net_over">−%s 초과</string>
+
+    <!-- 카테고리 관리 -->
+    <string name="category_move_up">위로 이동</string>
+    <string name="category_move_down">아래로 이동</string>
+    <string name="category_children_count">%d개</string>
+    <string name="category_empty_title">카테고리가 없어요</string>
+    <string name="category_expand">펼치기</string>
+    <string name="category_collapse">접기</string>
+
+    <!-- 반복 규칙 -->
+    <string name="recurring_empty_title">반복 규칙이 없어요</string>
+    <string name="recurring_empty_desc">매월 같은 날짜에 거래를 자동으로 추가합니다.</string>
+    <string name="recurring_day_hint">31일이 없는 달은 말일로 자동 조정됩니다.</string>
+    <string name="recurring_day_pick">발생일 선택</string>
+    <string name="recurring_error_amount">금액을 입력해 주세요.</string>
+    <string name="recurring_error_category">카테고리를 선택해 주세요.</string>
+</resources>

@@ -3,10 +3,12 @@ package com.householdbudget.app.data.repository
 import androidx.room.withTransaction
 import com.householdbudget.app.data.local.AppDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
+import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.CategoryDao
 import com.householdbudget.app.data.local.dao.RecurringRuleDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
+import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
@@ -50,20 +52,40 @@ class BudgetRepository(
     private val categoryDao: CategoryDao,
     private val recurringRuleDao: RecurringRuleDao,
     private val archivedPeriodDao: ArchivedPeriodDao,
+    private val categoryBudgetDao: CategoryBudgetDao,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val periodResolver: PeriodResolver = PeriodResolver(),
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
 ) {
     val paydayDom: Flow<Int> = userPreferencesRepository.paydayDom
-    val kbankCardEnabled: Flow<Boolean> = userPreferencesRepository.kbankCardEnabled
+
+    /** 월 총 예산 (minor). null = 미설정. */
+    val monthlyBudgetMinor: Flow<Long?> = userPreferencesRepository.monthlyBudgetMinor
+
+    suspend fun setMonthlyBudgetMinor(value: Long?) {
+        userPreferencesRepository.setMonthlyBudgetMinor(value)
+    }
 
     suspend fun setPaydayDom(day: Int) {
         userPreferencesRepository.setPaydayDom(day)
         userPreferencesRepository.clearLastSeenPeriodStart()
     }
 
-    suspend fun setKbankCardEnabled(enabled: Boolean) {
-        userPreferencesRepository.setKbankCardEnabled(enabled)
+    fun observeCategoryBudgets(): Flow<List<CategoryBudgetEntity>> = categoryBudgetDao.observeAll()
+
+    /** 카테고리별 예산 설정. [amountMinor] 가 null 이면 해당 카테고리 예산 삭제. */
+    suspend fun setCategoryBudget(categoryId: Long, amountMinor: Long?) {
+        if (amountMinor == null) {
+            categoryBudgetDao.deleteByCategoryId(categoryId)
+        } else {
+            require(amountMinor > 0)
+            categoryBudgetDao.upsert(
+                CategoryBudgetEntity(
+                    categoryId = categoryId,
+                    monthlyAmountMinor = amountMinor,
+                ),
+            )
+        }
     }
 
     fun observeArchivedPeriods(): Flow<List<ArchivedPeriodEntity>> = archivedPeriodDao.observeAll()

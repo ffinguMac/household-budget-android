@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 공용 UI 컴포넌트(ui/components) 전용 문자열. res/values/ 병합으로 strings.xml 과 합쳐진다. -->
+<resources>
+    <string name="summary_income">수입</string>
+    <string name="summary_expense">지출</string>
+    <string name="summary_savings">저축</string>
+
+    <!-- BudgetProgressBar (ui/components/BudgetBar.kt) -->
+    <string name="budget_bar_meta">예산 %1$s 중 %2$d%% 사용</string>
+    <string name="budget_bar_daily_leeway">하루 %1$s 여유</string>
+    <string name="budget_bar_until_today">오늘까지 %1$s</string>
+</resources>

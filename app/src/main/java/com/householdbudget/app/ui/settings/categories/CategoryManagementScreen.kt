@@ -3,7 +3,6 @@ package com.householdbudget.app.ui.settings.categories
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -47,10 +47,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,7 +64,10 @@ import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.CategoryValidationError
 import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.theme.kindContainer
+import com.householdbudget.app.ui.theme.kindOnContainer
 
 @Composable
 fun CategoryManagementScreen(
@@ -137,16 +145,19 @@ fun CategoryManagementScreen(
             ) {
                 KindTab(
                     selected = ui.selectedKind == CategoryKind.INCOME,
+                    kind = CategoryKind.INCOME,
                     label = stringResource(R.string.category_tab_income),
                     onClick = { vm.selectKind(CategoryKind.INCOME) },
                 )
                 KindTab(
                     selected = ui.selectedKind == CategoryKind.EXPENSE,
+                    kind = CategoryKind.EXPENSE,
                     label = stringResource(R.string.category_tab_expense),
                     onClick = { vm.selectKind(CategoryKind.EXPENSE) },
                 )
                 KindTab(
                     selected = ui.selectedKind == CategoryKind.SAVINGS,
+                    kind = CategoryKind.SAVINGS,
                     label = stringResource(R.string.category_tab_savings),
                     onClick = { vm.selectKind(CategoryKind.SAVINGS) },
                 )
@@ -155,18 +166,14 @@ fun CategoryManagementScreen(
             Spacer(Modifier.height(12.dp))
 
             if (filtered.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(48.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource(R.string.category_empty_for_kind),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                EmptyState(
+                    icon = Icons.Filled.Category,
+                    title = stringResource(R.string.category_empty_title),
+                    description = stringResource(R.string.category_empty_for_kind),
+                    actionLabel = stringResource(R.string.category_add_parent),
+                    onAction = { showAddParent = true },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(
@@ -283,7 +290,12 @@ fun CategoryManagementScreen(
                 TextButton(onClick = {
                     vm.requestDelete(target)
                     confirmDelete = null
-                }) { Text(stringResource(R.string.category_delete)) }
+                }) {
+                    Text(
+                        stringResource(R.string.category_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = null }) {
@@ -308,7 +320,10 @@ fun CategoryManagementScreen(
             },
             confirmButton = {
                 TextButton(onClick = { vm.confirmForceDelete() }) {
-                    Text(stringResource(R.string.category_delete))
+                    Text(
+                        stringResource(R.string.category_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             },
             dismissButton = {
@@ -323,6 +338,7 @@ fun CategoryManagementScreen(
 @Composable
 private fun KindTab(
     selected: Boolean,
+    kind: CategoryKind,
     label: String,
     onClick: () -> Unit,
 ) {
@@ -332,8 +348,8 @@ private fun KindTab(
         label = { Text(label) },
         colors =
             FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                selectedContainerColor = kindContainer(kind),
+                selectedLabelColor = kindOnContainer(kind),
             ),
     )
 }
@@ -369,7 +385,9 @@ private fun ParentRow(
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = null,
+                    contentDescription =
+                        if (isExpanded) stringResource(R.string.category_collapse)
+                        else stringResource(R.string.category_expand),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.width(8.dp))
@@ -381,16 +399,16 @@ private fun ParentRow(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "${group.children.size}",
+                    text = stringResource(R.string.category_children_count, group.children.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = onMoveParentUp) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.category_move_up))
                 }
                 IconButton(onClick = onMoveParentDown) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.category_move_down))
                 }
                 IconButton(onClick = onRename) {
                     Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.category_rename))
@@ -428,18 +446,18 @@ private fun ParentRow(
                                 modifier = Modifier.weight(1f),
                             )
                             IconButton(onClick = { onMoveChildUp(leaf) }) {
-                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
+                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.category_move_up))
                             }
                             IconButton(onClick = { onMoveChildDown(leaf) }) {
-                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.category_move_down))
                             }
                             IconButton(onClick = { onRenameChild(leaf) }) {
-                                Icon(Icons.Filled.Edit, contentDescription = null)
+                                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.category_rename))
                             }
                             IconButton(onClick = { onDeleteChild(leaf) }) {
                                 Icon(
                                     Icons.Filled.Delete,
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.category_delete),
                                     tint = MaterialTheme.colorScheme.error,
                                 )
                             }
@@ -480,6 +498,8 @@ private fun NamePromptDialog(
     onConfirm: (String) -> Unit,
 ) {
     var text by remember { mutableStateOf(initial) }
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -490,6 +510,19 @@ private fun NamePromptDialog(
                 label = { Text(stringResource(R.string.category_name_label)) },
                 placeholder = { Text(stringResource(R.string.category_name_hint)) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = { if (text.isNotBlank()) onConfirm(text) },
+                ),
+                supportingText = {
+                    if (text.isBlank()) {
+                        Text(
+                            text = stringResource(R.string.category_empty_name),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                },
+                modifier = Modifier.focusRequester(focusRequester),
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
