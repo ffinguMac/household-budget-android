@@ -78,6 +78,14 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[APP_LOCK_ENABLED] = value }
     }
 
+    /** 마지막으로 적용한 기본 카테고리 트리 버전. [AppDatabase.CATEGORY_SEED_VERSION] 과 비교한다. */
+    val categorySeedVersion: Flow<Int> =
+        dataStore.data.map { prefs -> prefs[CATEGORY_SEED_VERSION] ?: 1 }
+
+    suspend fun setCategorySeedVersion(value: Int) {
+        dataStore.edit { it[CATEGORY_SEED_VERSION] = value }
+    }
+
     companion object {
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
         private val LAST_SEEN_PERIOD_START = longPreferencesKey("last_seen_period_start_epoch_day")
@@ -85,6 +93,7 @@ class UserPreferencesRepository(context: Context) {
         private val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         private val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         private val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        private val CATEGORY_SEED_VERSION = intPreferencesKey("category_seed_version")
         private const val DEFAULT_PAYDAY_DOM = 25
         private const val DEFAULT_REMINDER_HOUR = 21
     }

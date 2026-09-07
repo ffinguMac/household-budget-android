@@ -73,6 +73,9 @@ class BudgetRepository(
 
     fun observeCategoryBudgets(): Flow<List<CategoryBudgetEntity>> = categoryBudgetDao.observeAll()
 
+    /** 앱 업데이트로 기본 카테고리 트리가 확장됐을 때 부족분만 추가한다. */
+    suspend fun topUpDefaultCategories() = AppDatabase.topUpDefaultCategories(categoryDao)
+
     /** 카테고리별 예산 설정. [amountMinor] 가 null 이면 해당 카테고리 예산 삭제. */
     suspend fun setCategoryBudget(categoryId: Long, amountMinor: Long?) {
         if (amountMinor == null) {

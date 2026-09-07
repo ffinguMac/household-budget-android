@@ -335,27 +335,55 @@ abstract class AppDatabase : RoomDatabase() {
                 }
         }
 
+        /**
+         * 기본 카테고리 트리 버전. 트리를 확장할 때마다 올린다.
+         * [topUpDefaultCategories] 실행 여부를 UserPreferences 의 categorySeedVersion 과 비교해 결정한다.
+         */
+        const val CATEGORY_SEED_VERSION = 2
+
+        /** 대분류 → 소분류 기본 트리. 신규 설치 시드와 기존 설치 부족분 채우기(top-up)가 공유한다. */
+        private data class DefaultSeed(
+            val kind: CategoryKind,
+            val parent: String,
+            val icon: String,
+            val children: List<String>,
+        )
+
+        private val DEFAULT_CATEGORY_SEEDS =
+            listOf(
+                // ── 수입 ─────────────────────────────────────────────────────
+                DefaultSeed(CategoryKind.INCOME, "월급", "💰", listOf("기본", "상여/보너스")),
+                DefaultSeed(CategoryKind.INCOME, "부수입", "💵", listOf("이자/배당", "캐시백/포인트", "중고 판매", "용돈")),
+                DefaultSeed(CategoryKind.INCOME, "기타 수입", "🧧", listOf("기본", "환급/지원금")),
+                // ── 지출 ─────────────────────────────────────────────────────
+                DefaultSeed(CategoryKind.EXPENSE, "식비", "🍽️", listOf("식사", "카페", "간식", "배달", "술/모임")),
+                DefaultSeed(CategoryKind.EXPENSE, "생활/마트", "🧺", listOf("장보기", "생필품", "가전/가구")),
+                DefaultSeed(CategoryKind.EXPENSE, "주거/공과금", "🏠", listOf("월세/관리비", "전기/가스", "수도", "인터넷/TV")),
+                DefaultSeed(CategoryKind.EXPENSE, "통신", "📱", listOf("휴대폰", "구독 서비스")),
+                DefaultSeed(CategoryKind.EXPENSE, "교통", "🚌", listOf("대중교통", "택시", "기차/시외버스")),
+                DefaultSeed(CategoryKind.EXPENSE, "차량", "🚗", listOf("주유", "주차/통행료", "정비/세차", "보험/자동차세")),
+                DefaultSeed(CategoryKind.EXPENSE, "쇼핑", "🛒", listOf("의류/패션", "뷰티/미용", "온라인 쇼핑")),
+                DefaultSeed(CategoryKind.EXPENSE, "문화/여가", "🎭", listOf("영화/공연", "취미", "운동/헬스", "게임")),
+                DefaultSeed(CategoryKind.EXPENSE, "여행", "✈️", listOf("숙소", "항공/교통", "현지 경비")),
+                DefaultSeed(CategoryKind.EXPENSE, "의료", "🏥", listOf("병원", "약국", "영양제/건강식품")),
+                DefaultSeed(CategoryKind.EXPENSE, "교육", "📚", listOf("도서", "강의/학원", "시험/자격증")),
+                DefaultSeed(CategoryKind.EXPENSE, "경조사/선물", "🎁", listOf("경조사비", "선물")),
+                DefaultSeed(CategoryKind.EXPENSE, "금융", "💳", listOf("보험료", "수수료/이자", "세금")),
+                DefaultSeed(CategoryKind.EXPENSE, "반려동물", "🐾", listOf("사료/간식", "병원/미용")),
+                DefaultSeed(CategoryKind.EXPENSE, "기타", "📦", listOf("기본")),
+                // ── 저축 ─────────────────────────────────────────────────────
+                DefaultSeed(CategoryKind.SAVINGS, "적금/예금", "🏦", listOf("적금", "예금", "파킹통장")),
+                DefaultSeed(CategoryKind.SAVINGS, "투자", "📈", listOf("주식", "펀드/ETF", "코인")),
+                DefaultSeed(CategoryKind.SAVINGS, "연금", "🪙", listOf("연금저축", "IRP")),
+                DefaultSeed(CategoryKind.SAVINGS, "청약", "🏗️", listOf("기본")),
+                DefaultSeed(CategoryKind.SAVINGS, "비상금", "🚨", listOf("기본")),
+            )
+
         private suspend fun seedCategoriesIfEmpty(categoryDao: CategoryDao) {
             if (categoryDao.count() > 0) return
 
-            // 대분류 → 소분류 정의. 소분류 비어있으면 자동으로 "기본" 1개 생성.
-            data class Seed(val kind: CategoryKind, val parent: String, val children: List<String>)
-            val seeds =
-                listOf(
-                    Seed(CategoryKind.INCOME, "월급", listOf("기본")),
-                    Seed(CategoryKind.INCOME, "기타 수입", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "식비", listOf("식사", "카페", "간식")),
-                    Seed(CategoryKind.EXPENSE, "교통", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "통신", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "쇼핑", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "문화/여가", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "의료", listOf("기본")),
-                    Seed(CategoryKind.EXPENSE, "기타", listOf("기본")),
-                    Seed(CategoryKind.SAVINGS, "저축", listOf("투자", "연금저축", "청약")),
-                )
-
             var parentSort = 0
-            for (seed in seeds) {
+            for (seed in DEFAULT_CATEGORY_SEEDS) {
                 val parentId =
                     categoryDao.insert(
                         CategoryEntity(
@@ -363,6 +391,7 @@ abstract class AppDatabase : RoomDatabase() {
                             kind = seed.kind.storage,
                             parentId = null,
                             sortOrder = parentSort++,
+                            icon = seed.icon,
                         ),
                     )
                 seed.children.forEachIndexed { idx, childName ->
@@ -374,6 +403,48 @@ abstract class AppDatabase : RoomDatabase() {
                             sortOrder = idx,
                         ),
                     )
+                }
+            }
+        }
+
+        /**
+         * 기존 설치에 기본 트리의 **부족분만** 추가한다 (앱 업데이트로 기본 카테고리가 확장된 경우).
+         * 이름 기준으로 비교하므로 사용자가 만들거나 이름을 바꾼 카테고리는 건드리지 않고,
+         * 사용자가 지운 기본 카테고리는 시드 버전이 올라간 딱 한 번만 다시 생길 수 있다.
+         */
+        suspend fun topUpDefaultCategories(categoryDao: CategoryDao) {
+            for (seed in DEFAULT_CATEGORY_SEEDS) {
+                val existing = categoryDao.findTopLevelByName(seed.kind.storage, seed.parent)
+                val parentId =
+                    if (existing == null) {
+                        val sort = (categoryDao.maxTopLevelSortOrder(seed.kind.storage) ?: -1) + 1
+                        categoryDao.insert(
+                            CategoryEntity(
+                                name = seed.parent,
+                                kind = seed.kind.storage,
+                                parentId = null,
+                                sortOrder = sort,
+                                icon = seed.icon,
+                            ),
+                        )
+                    } else {
+                        if (existing.icon == null) {
+                            categoryDao.update(existing.copy(icon = seed.icon))
+                        }
+                        existing.id
+                    }
+                var childSort = (categoryDao.maxChildSortOrder(parentId) ?: -1) + 1
+                for (childName in seed.children) {
+                    if (categoryDao.findChildByName(parentId, childName) == null) {
+                        categoryDao.insert(
+                            CategoryEntity(
+                                name = childName,
+                                kind = seed.kind.storage,
+                                parentId = parentId,
+                                sortOrder = childSort++,
+                            ),
+                        )
+                    }
                 }
             }
         }
