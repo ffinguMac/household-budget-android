@@ -25,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -253,7 +253,7 @@ fun FeedScreen(
                 item(key = "empty") {
                     // EmptyState 는 좌우/상하 패딩을 스스로 처리한다.
                     EmptyState(
-                        icon = Icons.Outlined.ReceiptLong,
+                        icon = Icons.AutoMirrored.Outlined.ReceiptLong,
                         title = stringResource(R.string.ledger_period_empty_title),
                         description = stringResource(R.string.ledger_period_empty_desc),
                         modifier = Modifier.fillMaxWidth(),
