@@ -1,6 +1,7 @@
 package com.householdbudget.app.ui.feed
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +38,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -416,7 +416,13 @@ private fun FeedHeroCard(
     modifier: Modifier = Modifier,
 ) {
     val period = summary.period
-    val netPrefix = if (summary.netMinor >= 0) "+" else "−"
+    // 0원에는 부호를 붙이지 않는다.
+    val netPrefix =
+        when {
+            summary.netMinor > 0 -> "+"
+            summary.netMinor < 0 -> "−"
+            else -> ""
+        }
     val absNet = if (summary.netMinor < 0) -summary.netMinor else summary.netMinor
     val start = period.startInclusive
     val monthLabel =
@@ -436,82 +442,85 @@ private fun FeedHeroCard(
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(heroGradient()),
     ) {
-        // soft decorative glow
-        Box(
+        Column(
             modifier =
                 Modifier
-                    .size(200.dp)
-                    .align(Alignment.TopEnd)
-                    .clip(CircleShape)
-                    .background(onHeroColor().copy(alpha = 0.08f)),
-        )
-        Column(
-            modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.xl),
-            verticalArrangement = Arrangement.spacedBy(Space.sm),
+                    .fillMaxWidth()
+                    .padding(horizontal = Space.xl, vertical = Space.lg),
+            verticalArrangement = Arrangement.spacedBy(Space.xs),
         ) {
+            // ── 상단: 왼쪽 라벨/기간 · 오른쪽 컴팩트 월 이동 ◀ 8월 ▶ ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
-                IconButton(onClick = onPrevious) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.ledger_prev_period),
-                        tint = onHeroColor(),
-                    )
-                }
                 Column(
                     modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(
-                        text = monthLabel,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = onHeroColor(),
-                    )
+                    if (periodOffset == 0) {
+                        Text(
+                            text = period.paydayCountdownLabel(today),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = onHeroColor(),
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.ledger_back_to_today),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = onHeroColor(),
+                            modifier =
+                                Modifier
+                                    .clip(CircleShape)
+                                    .background(onHeroColor().copy(alpha = 0.14f))
+                                    .clickable(onClick = onResetPeriod)
+                                    .padding(horizontal = Space.md, vertical = Space.xs),
+                        )
+                    }
                     Text(
                         text = period.formatRangeShort(),
                         style = MaterialTheme.typography.bodySmall,
                         color = onHeroMutedColor(),
                     )
                 }
-                IconButton(onClick = onNext, enabled = periodOffset < 0) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.ledger_next_period),
-                        tint =
-                            if (periodOffset < 0) {
-                                onHeroColor()
-                            } else {
-                                onHeroColor().copy(alpha = 0.3f)
-                            },
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onPrevious, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = stringResource(R.string.ledger_prev_period),
+                            tint = onHeroColor(),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Text(
+                        text = monthLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = onHeroColor(),
                     )
-                }
-            }
-
-            if (periodOffset == 0) {
-                Text(
-                    text = period.paydayCountdownLabel(today),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = onHeroMutedColor(),
-                )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    TextButton(onClick = onResetPeriod) {
-                        Text(
-                            text = stringResource(R.string.ledger_back_to_today),
-                            color = onHeroColor(),
-                            fontWeight = FontWeight.SemiBold,
+                    IconButton(
+                        onClick = onNext,
+                        enabled = periodOffset < 0,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.ledger_next_period),
+                            tint =
+                                if (periodOffset < 0) {
+                                    onHeroColor()
+                                } else {
+                                    onHeroColor().copy(alpha = 0.3f)
+                                },
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
             }
+
+            Spacer(Modifier.height(Space.sm))
 
             Text(
                 text = stringResource(R.string.home_net),
@@ -547,7 +556,7 @@ private fun HeroSkeleton(modifier: Modifier = Modifier) {
     Box(
         modifier =
             modifier
-                .height(200.dp)
+                .height(150.dp)
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     )
@@ -600,7 +609,13 @@ private fun KindInlineItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = kindSignPrefix(kind) + amountMinor.formatWon(),
+            // 0원에는 부호를 붙이지 않는다 ("지출 −0원" 방지).
+            text =
+                if (amountMinor > 0) {
+                    kindSignPrefix(kind) + amountMinor.formatWon()
+                } else {
+                    amountMinor.formatWon()
+                },
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
             color = kindAccent(kind),
