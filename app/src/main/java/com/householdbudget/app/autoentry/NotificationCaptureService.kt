@@ -14,22 +14,28 @@ import kotlinx.coroutines.launch
 class NotificationCaptureService : NotificationListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName == packageName) return
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (sbn == null || sbn.packageName == packageName) return
         val repo = (application as? BudgetApplication)?.container?.autoEntryRepository ?: return
-        val n = sbn.notification
-        val extras = n.extras
-        val incoming = IncomingNotification(
-            packageName = sbn.packageName,
-            key = sbn.key,
-            postTimeMs = sbn.postTime,
-            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
-            text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
-            bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty(),
-            isGroupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0,
-        )
+        // extras는 타 프로세스가 만든 Bundle이라 읽을 때 예외가 날 수 있다. 메인 스레드 밖에서 runCatching 안에서 읽는다.
         // 내용은 로그에 남기지 않고 실패는 삼킨다.
-        scope.launch { runCatching { repo.handleNotification(incoming) } }
+        scope.launch {
+            runCatching {
+                val n = sbn.notification
+                val extras = n.extras
+                repo.handleNotification(
+                    IncomingNotification(
+                        packageName = sbn.packageName,
+                        key = sbn.key,
+                        postTimeMs = sbn.postTime,
+                        title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
+                        text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
+                        bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty(),
+                        isGroupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0,
+                    ),
+                )
+            }
+        }
     }
 
     override fun onDestroy() {
