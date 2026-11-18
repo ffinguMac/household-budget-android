@@ -13,9 +13,8 @@ import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
-import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
-import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.domain.category.FixedCategories
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
@@ -24,18 +23,16 @@ import kotlinx.coroutines.runBlocking
         [
             CategoryEntity::class,
             TransactionEntity::class,
-            RecurringRuleEntity::class,
             ArchivedPeriodEntity::class,
             CategoryBudgetEntity::class,
         ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
 
     abstract fun transactionDao(): TransactionDao
-
 
     abstract fun archivedPeriodDao(): ArchivedPeriodDao
 
@@ -313,6 +310,9 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        internal val ALL_MIGRATIONS: Array<Migration> =
+            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+
         fun getInstance(context: Context): AppDatabase {
             return instance
                 ?: synchronized(this) {
@@ -322,7 +322,7 @@ abstract class AppDatabase : RoomDatabase() {
                                 AppDatabase::class.java,
                                 "household_budget.db",
                             )
-                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                            .addMigrations(*ALL_MIGRATIONS)
                             .build()
                             .also { db ->
                                 instance = db
@@ -333,56 +333,18 @@ abstract class AppDatabase : RoomDatabase() {
                 }
         }
 
-        /** 대분류 → 소분류 기본 트리. 신규 설치 시드. */
-        private data class DefaultSeed(
-            val kind: CategoryKind,
-            val parent: String,
-            val icon: String,
-            val children: List<String>,
-        )
-
-        private val DEFAULT_CATEGORY_SEEDS =
-            listOf(
-                // ── 수입 ─────────────────────────────────────────────────────
-                DefaultSeed(CategoryKind.INCOME, "월급", "💰", listOf("기본", "상여/보너스")),
-                DefaultSeed(CategoryKind.INCOME, "부수입", "💵", listOf("이자/배당", "캐시백/포인트", "중고 판매", "용돈")),
-                DefaultSeed(CategoryKind.INCOME, "기타 수입", "🧧", listOf("기본", "환급/지원금")),
-                // ── 지출 ─────────────────────────────────────────────────────
-                DefaultSeed(CategoryKind.EXPENSE, "식비", "🍽️", listOf("식사", "카페", "간식", "배달", "술/모임")),
-                DefaultSeed(CategoryKind.EXPENSE, "생활/마트", "🧺", listOf("장보기", "생필품", "가전/가구")),
-                DefaultSeed(CategoryKind.EXPENSE, "주거/공과금", "🏠", listOf("월세/관리비", "전기/가스", "수도", "인터넷/TV")),
-                DefaultSeed(CategoryKind.EXPENSE, "통신", "📱", listOf("휴대폰", "구독 서비스")),
-                DefaultSeed(CategoryKind.EXPENSE, "교통", "🚌", listOf("대중교통", "택시", "기차/시외버스")),
-                DefaultSeed(CategoryKind.EXPENSE, "차량", "🚗", listOf("주유", "주차/통행료", "정비/세차", "보험/자동차세")),
-                DefaultSeed(CategoryKind.EXPENSE, "쇼핑", "🛒", listOf("의류/패션", "뷰티/미용", "온라인 쇼핑")),
-                DefaultSeed(CategoryKind.EXPENSE, "문화/여가", "🎭", listOf("영화/공연", "취미", "운동/헬스", "게임")),
-                DefaultSeed(CategoryKind.EXPENSE, "여행", "✈️", listOf("숙소", "항공/교통", "현지 경비")),
-                DefaultSeed(CategoryKind.EXPENSE, "의료", "🏥", listOf("병원", "약국", "영양제/건강식품")),
-                DefaultSeed(CategoryKind.EXPENSE, "교육", "📚", listOf("도서", "강의/학원", "시험/자격증")),
-                DefaultSeed(CategoryKind.EXPENSE, "경조사/선물", "🎁", listOf("경조사비", "선물")),
-                DefaultSeed(CategoryKind.EXPENSE, "금융", "💳", listOf("보험료", "수수료/이자", "세금")),
-                DefaultSeed(CategoryKind.EXPENSE, "반려동물", "🐾", listOf("사료/간식", "병원/미용")),
-                DefaultSeed(CategoryKind.EXPENSE, "기타", "📦", listOf("기본")),
-                // ── 저축 ─────────────────────────────────────────────────────
-                DefaultSeed(CategoryKind.SAVINGS, "적금/예금", "🏦", listOf("적금", "예금", "파킹통장")),
-                DefaultSeed(CategoryKind.SAVINGS, "투자", "📈", listOf("주식", "펀드/ETF", "코인")),
-                DefaultSeed(CategoryKind.SAVINGS, "연금", "🪙", listOf("연금저축", "IRP")),
-                DefaultSeed(CategoryKind.SAVINGS, "청약", "🏗️", listOf("기본")),
-                DefaultSeed(CategoryKind.SAVINGS, "비상금", "🚨", listOf("기본")),
-            )
-
-        private suspend fun seedCategoriesIfEmpty(categoryDao: CategoryDao) {
+        /** 신규 설치 시드: 비어 있을 때만 [FixedCategories.TREE]를 넣는다. */
+        internal suspend fun seedCategoriesIfEmpty(categoryDao: CategoryDao) {
             if (categoryDao.count() > 0) return
 
-            var parentSort = 0
-            for (seed in DEFAULT_CATEGORY_SEEDS) {
+            FixedCategories.TREE.forEachIndexed { parentSort, seed ->
                 val parentId =
                     categoryDao.insert(
                         CategoryEntity(
-                            name = seed.parent,
+                            name = seed.name,
                             kind = seed.kind.storage,
                             parentId = null,
-                            sortOrder = parentSort++,
+                            sortOrder = parentSort,
                             icon = seed.icon,
                         ),
                     )

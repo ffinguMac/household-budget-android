@@ -20,4 +20,10 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): CategoryEntity?
+
+    @Query(
+        "SELECT c.* FROM categories c JOIN categories p ON p.id = c.parent_id " +
+            "WHERE c.kind = :kind AND p.name = :parentName AND c.name = :childName LIMIT 1",
+    )
+    suspend fun findLeafByPath(kind: String, parentName: String, childName: String): CategoryEntity?
 }
