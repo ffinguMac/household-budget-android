@@ -65,6 +65,7 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.ui.archive.ArchiveDetailScreen
 import com.householdbudget.app.ui.archive.ArchiveListScreen
+import com.householdbudget.app.ui.autoentry.AutoEntrySettingsScreen
 import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.feed.FeedScreen
@@ -102,6 +103,8 @@ private sealed interface SettingsPane {
     data class ArchiveDetail(val archiveId: Long) : SettingsPane
 
     data object Budget : SettingsPane
+
+    data object AutoEntry : SettingsPane
 }
 
 @Composable
@@ -205,6 +208,7 @@ fun MainTabScaffold(
                                 budgetViewModel = budgetViewModel,
                                 onOpenArchive = { settingsPane = SettingsPane.Archive },
                                 onOpenBudget = { settingsPane = SettingsPane.Budget },
+                                onOpenAutoEntry = { settingsPane = SettingsPane.AutoEntry },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->
@@ -218,6 +222,12 @@ fun MainTabScaffold(
                                 archiveId = pane.archiveId,
                                 repository = repository,
                                 onBack = { settingsPane = SettingsPane.Archive },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.AutoEntry ->
+                            AutoEntrySettingsScreen(
+                                onBack = { settingsPane = SettingsPane.Main },
+                                onOpenPending = {}, // Task 10 에서 연결
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Budget ->

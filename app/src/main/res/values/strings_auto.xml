@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auto_title">자동 기록</string>
+    <string name="auto_row_subtitle_idle">은행·결제 알림을 읽어 자동으로 적어요</string>
+    <string name="auto_row_subtitle_pending">확인 필요 %d건</string>
+    <string name="auto_access_title">알림 접근</string>
+    <string name="auto_access_on">허용됨</string>
+    <string name="auto_access_off">꺼져 있어요</string>
+    <string name="auto_access_open">알림 접근 설정 열기</string>
+    <string name="auto_pending_row">확인이 필요한 거래 %d건</string>
+    <string name="auto_watched_title">알림을 읽을 앱</string>
+    <string name="auto_watched_pay_warning">결제 앱을 켜 두었다면 그 앱의 알림도 켜져 있어야 해요. 꺼져 있으면 은행에서 충전한 돈이 기록되지 않아 지출이 빠져요.</string>
+    <string name="auto_shell_label">Shell (테스트)</string>
+    <string name="auto_rules_title">학습한 규칙</string>
+    <string name="auto_rules_empty">아직 학습한 규칙이 없어요</string>
+    <string name="auto_rule_delete">규칙 삭제</string>
+    <string name="auto_rule_no_record">기록 안 함</string>
+    <string name="auto_dir_out">출금</string>
+    <string name="auto_dir_in">입금</string>
+    <string name="auto_dir_refund">환불</string>
+    <string name="auto_dir_unknown">방향 모름</string>
+</resources>

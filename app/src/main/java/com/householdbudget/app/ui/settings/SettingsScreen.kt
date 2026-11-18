@@ -72,6 +72,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     budgetViewModel: BudgetViewModel,
+    onOpenAutoEntry: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenArchive: (() -> Unit)? = null,
     onOpenBudget: (() -> Unit)? = null,
@@ -84,6 +85,8 @@ fun SettingsScreen(
     val prefs = container.userPreferencesRepository
     val repository = container.budgetRepository
     val scope = rememberCoroutineScope()
+    val pendingCount by container.autoEntryRepository.observePendingCount()
+        .collectAsStateWithLifecycle(initialValue = 0)
 
     val payday by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
     val monthlyBudgetMinor by prefs.monthlyBudgetMinor.collectAsStateWithLifecycle(initialValue = null)
@@ -207,6 +210,19 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
+                SettingsActionRow(
+                    icon = Icons.Filled.Autorenew,
+                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    title = stringResource(R.string.auto_title),
+                    subtitle = if (pendingCount > 0) {
+                        stringResource(R.string.auto_row_subtitle_pending, pendingCount)
+                    } else {
+                        stringResource(R.string.auto_row_subtitle_idle)
+                    },
+                    onClick = onOpenAutoEntry,
+                )
+                SettingsRowDivider()
                 SettingsActionRow(
                     icon = Icons.Filled.Notifications,
                     iconContainer = MaterialTheme.colorScheme.secondaryContainer,
@@ -448,7 +464,7 @@ fun SettingsScreen(
 
 /** 설정 그룹을 감싸는 라운드 패널. */
 @Composable
-private fun SettingsGroupPanel(
+internal fun SettingsGroupPanel(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -465,7 +481,7 @@ private fun SettingsGroupPanel(
 }
 
 @Composable
-private fun SettingsRowDivider() {
+internal fun SettingsRowDivider() {
     androidx.compose.material3.HorizontalDivider(
         modifier = Modifier.padding(horizontal = Space.lg),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
@@ -474,7 +490,7 @@ private fun SettingsRowDivider() {
 
 /** 좌측 아이콘 + 제목/부제 + 우측 chevron 또는 커스텀 trailing. 행 전체가 클릭 대상. */
 @Composable
-private fun SettingsActionRow(
+internal fun SettingsActionRow(
     icon: ImageVector,
     iconContainer: Color,
     iconTint: Color,

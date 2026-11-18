@@ -1,0 +1,223 @@
+package com.householdbudget.app.ui.autoentry
+
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PendingActions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.householdbudget.app.BudgetApplication
+import com.householdbudget.app.R
+import com.householdbudget.app.autoentry.WatchedApps
+import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.settings.SettingsActionRow
+import com.householdbudget.app.ui.settings.SettingsGroupPanel
+import com.householdbudget.app.ui.settings.SettingsRowDivider
+import com.householdbudget.app.ui.theme.Space
+import kotlinx.coroutines.launch
+
+@Composable
+fun AutoEntrySettingsScreen(
+    onBack: () -> Unit,
+    onOpenPending: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val container = remember(context) { (context.applicationContext as BudgetApplication).container }
+    val repo = container.autoEntryRepository
+    val prefs = container.userPreferencesRepository
+    val scope = rememberCoroutineScope()
+
+    var accessGranted by remember { mutableStateOf(false) }
+    LifecycleResumeEffect(Unit) {
+        accessGranted = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        onPauseOrDispose {}
+    }
+
+    val pendingCount by repo.observePendingCount().collectAsStateWithLifecycle(initialValue = 0)
+    val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
+    val rules by repo.observeRules().collectAsStateWithLifecycle(initialValue = emptyList())
+    val apps = remember(context) { loadSelectableApps(context) }
+    val watched = WatchedApps.effective(stored, context)
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(bottom = 96.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                }
+                ScreenHeader(title = stringResource(R.string.auto_title), modifier = Modifier.weight(1f))
+            }
+        }
+
+        item {
+            SectionHeader(
+                title = stringResource(R.string.auto_access_title),
+                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+            )
+            Spacer(Modifier.height(Space.sm))
+            SettingsGroupPanel {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = Space.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(if (accessGranted) R.string.auto_access_on else R.string.auto_access_off),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    TextButton(onClick = {
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }) { Text(stringResource(R.string.auto_access_open)) }
+                }
+                SettingsRowDivider()
+                SettingsActionRow(
+                    icon = Icons.Filled.PendingActions,
+                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    title = stringResource(R.string.auto_pending_row, pendingCount),
+                    subtitle = null,
+                    onClick = onOpenPending,
+                )
+            }
+            Spacer(Modifier.height(Space.xxl))
+        }
+
+        item {
+            SectionHeader(
+                title = stringResource(R.string.auto_watched_title),
+                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+            )
+            Spacer(Modifier.height(Space.sm))
+            SettingsGroupPanel {
+                apps.forEachIndexed { i, app ->
+                    if (i > 0) SettingsRowDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = Space.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Space.lg),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(app.label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                app.packageName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = app.packageName in watched,
+                            onCheckedChange = { on ->
+                                val next = if (on) watched + app.packageName else watched - app.packageName
+                                scope.launch { prefs.setWatchedPackages(next) }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(Space.sm))
+            Text(
+                text = stringResource(R.string.auto_watched_pay_warning),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+            )
+            Spacer(Modifier.height(Space.xxl))
+        }
+
+        item {
+            SectionHeader(
+                title = stringResource(R.string.auto_rules_title),
+                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+            )
+            Spacer(Modifier.height(Space.sm))
+        }
+        if (rules.isEmpty()) {
+            item {
+                Text(
+                    text = stringResource(R.string.auto_rules_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                )
+            }
+        } else {
+            items(rules, key = { it.merchantKey + "|" + it.direction }) { row ->
+                val dir = stringResource(
+                    when (row.direction) {
+                        "OUT" -> R.string.auto_dir_out
+                        "IN" -> R.string.auto_dir_in
+                        "REFUND" -> R.string.auto_dir_refund
+                        else -> R.string.auto_dir_unknown
+                    },
+                )
+                val target = if (row.categoryId == null) {
+                    stringResource(R.string.auto_rule_no_record)
+                } else {
+                    listOfNotNull(row.parentCategoryName, row.categoryName).joinToString(" · ")
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ScreenHorizontalPadding, vertical = Space.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "${row.displayName} · $dir",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(target, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { scope.launch { repo.deleteRule(row.merchantKey, row.direction) } }) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.auto_rule_delete))
+                    }
+                }
+            }
+        }
+    }
+}
