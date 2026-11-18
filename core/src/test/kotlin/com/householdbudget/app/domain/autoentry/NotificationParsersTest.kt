@@ -41,6 +41,9 @@ class NotificationParsersTest {
     @Test fun chargeKeepsPayName() =
         assertEquals(ParsedNotification(10000, OUT, "네이버페이"), p("출금 10,000원", "네이버페이 충전 | 가짜통장(1234)"))
 
+    @Test fun pipeWithoutSpaces_keepsMerchant() =
+        assertEquals(ParsedNotification(3300, OUT, "가나다마트"), p("가짜은행", "출금 3,300원|가나다마트|가짜통장(1234)"))
+
     @Test fun noAmount_returnsNull() = assertNull(p("로그인 알림", "새 기기에서 로그인했어요"))
 
     @Test fun ad_returnsNull() = assertNull(p("(광고) 가짜카드", "지금 결제하면 5,000원 할인\n수신거부: 설정 > 알림"))
