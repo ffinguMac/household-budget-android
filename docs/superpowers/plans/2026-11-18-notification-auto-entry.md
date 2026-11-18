@@ -31,7 +31,7 @@
 
 1. 같은 알림이 내용 그대로 다시 게시된다(앱이 알림을 갱신, 그룹 요약 알림, key나 postTime만 다름) → 거래는 한 번만 생긴다. (Task 7 `sameContentWithin10s_isDuplicate`, Task 8 그룹 요약 건너뛰기)
 2. 금융 앱의 광고·혜택 알림에 금액과 "결제"가 들어 있다, 또는 결제 금액 옆에 잔액·누적 금액이 같이 나온다 → 확인 필요에 쌓이지 않고, 잔액이 결제 금액으로 잡히지 않는다. (Task 4 `ad_returnsNull`, `balanceBeforeAmount_isSkipped`)
-3. 지출로 학습시킨 이름(예: 친구)이 반대로 돈을 보내온다 → 지출로 자동 등록하지 않고 확인 필요로 보낸다. (Task 5 `learnedExpenseRule_onIncoming_needsReview`, Task 7 동일 흐름)
+3. 지출로 학습시킨 이름(예: 친구)이 반대로 돈을 보내온다 → 규칙은 (이름, 방향)별이라 출금 규칙이 입금에 적용되지 않고, 입금은 확인 필요로 간다. (Task 6 `merchantRule_isKeyedByNameAndDirection`, Task 7 `ruleForOut_doesNotApplyToIncoming`)
 4. "중복 같아요" 항목을 사용자가 "기록 안 함"으로 정리한다 → 그 가맹점이 영구 무시 규칙이 되면 안 된다. (Task 7 `resolvingDuplicate_doesNotLearnRule`)
 5. 기본 대분류 아래에 사용자가 만든 소분류, 또는 v4 이전 설치의 `식비>기본` 같은 잎에 거래가 있다 → "기타"로 섞이지 않고 그 대분류의 대표 소분류로 간다. (Task 1 `unknownChildUnderKnownParent_usesWildcard`, Task 3 `customChildUnderKnownParent_keepsParentMeaning`)
 
@@ -39,8 +39,8 @@
 
 - PR #8이 건드리는 것: `BudgetRepository`의 반복 규칙 함수 2곳 + `tryArchiveCompletedPeriods`의 보관 범위 수정 1줄, `CategoryManagementScreen/ViewModel`, `EditTransactionScreen`의 날짜 선택 UTC 수정, 문자열 `category_ok`·`category_more_actions`.
 - 이 계획은 `EditTransactionScreen.kt`를 수정하지 않는다(충돌 없음). 반복 규칙 함수와 카테고리 관리 화면은 Task 2에서 통째로 지우므로 PR #8의 그 부분은 버려진다.
-- **Task 2 시작 전** 확인: `git fetch origin && git merge-base --is-ancestor origin/fix/category-ui-and-data-bugs origin/master && echo MERGED`. `MERGED`면 `git merge origin/master`로 먼저 받아온 뒤 Task 2를 한다(그러면 지울 파일에 충돌이 남지 않는다).
-- PR #8이 이 브랜치보다 나중에 병합되면 충돌 해소 규칙: 지운 파일은 삭제 유지, `BudgetRepository`는 `tryArchiveCompletedPeriods`의 `if (startEx < lastSeen) return@repeat` 줄만 살리고 반복 규칙 쪽은 버림, 문자열 `category_ok`·`category_more_actions`는 삭제.
+- **전제: PR #8은 Task 2 전에 `master`에 병합된다(사용자 결정).** Task 2 시작 전 확인: `git fetch origin && git merge-base --is-ancestor origin/fix/category-ui-and-data-bugs origin/master && echo MERGED`. `MERGED`면 `git merge origin/master`로 먼저 받아온 뒤 Task 2를 한다(그러면 지울 파일에 충돌이 남지 않는다). `MERGED`가 안 나오면 멈추고 조정자에게 알린다.
+- 대비책 — 그래도 PR #8이 이 브랜치보다 나중에 병합되면 충돌 해소 규칙: 지운 파일은 삭제 유지, `BudgetRepository`는 `tryArchiveCompletedPeriods`의 `if (startEx < lastSeen) return@repeat` 줄만 살리고 반복 규칙 쪽은 버림, 문자열 `category_ok`·`category_more_actions`는 삭제.
 
 ## 파일 구조
 
@@ -383,8 +383,8 @@ private fun p(title: String, body: String, pkg: String = "com.fake.bank") = Noti
       val CHARGE_APPS: List<ChargeApp>
   }
   enum class ReviewReason { UNKNOWN_DIRECTION, UNCLASSIFIED, DUP_CROSS_APP, DUP_MANUAL }
-  /** categoryId == null 이면 "기록 안 함". categoryKind는 categoryId가 있을 때만 non-null. */
-  data class LearnedRule(val categoryId: Long?, val categoryKind: CategoryKind?)
+  /** 호출자가 (정규화한 이름, 방향)으로 찾아 넘긴 규칙. categoryId == null 이면 "기록 안 함". */
+  data class LearnedRule(val categoryId: Long?)
   sealed interface Decision {
       data class RegisterById(val categoryId: Long) : Decision
       data class RegisterByPath(val path: CategoryPath) : Decision
@@ -392,7 +392,6 @@ private fun p(title: String, body: String, pkg: String = "com.fake.bank") = Noti
       data class NeedsReview(val reason: ReviewReason) : Decision
   }
   object AutoClassifier {
-      fun isCompatible(direction: Direction, kind: CategoryKind): Boolean
       fun classify(parsed: ParsedNotification, fullText: String, sourcePackage: String,
                    watchedPackages: Set<String>, learned: LearnedRule?): Decision
   }
@@ -414,9 +413,8 @@ private fun p(title: String, body: String, pkg: String = "com.fake.bank") = Noti
   | 텔레콤, 유플러스, 케이티, 알뜰폰 | 생활>통신 |
   | 넷플릭스, netflix, 유튜브, youtube | 생활>구독 |
 
-- `isCompatible`: `UNKNOWN` → 항상 true · `OUT` → EXPENSE 또는 SAVINGS · `IN`, `REFUND` → INCOME.
 - `classify` 순서(`key = normalize(parsed.merchant)`, `text = normalize(fullText)`):
-  1. `learned != null`: `categoryId == null` → `Ignore`. 아니면 `isCompatible(direction, categoryKind)`이면 `RegisterById`, 아니면 `NeedsReview(UNCLASSIFIED)`.
+  1. `learned != null`: `categoryId == null` → `Ignore`, 아니면 `RegisterById(categoryId)`. 규칙은 방향별로 저장되므로(Task 6·7) 여기서 방향을 다시 따지지 않는다. 사용자가 입금에 지출 카테고리를 골랐다면 그대로 따른다.
   2. `direction == UNKNOWN` → `NeedsReview(UNKNOWN_DIRECTION)`.
   3. `OUT`이고 `text`에 `CHARGE_APPS` 키워드가 있는 첫 항목 `app`: `sourcePackage in app.packages`이면 → `text`에 `충전`이 있으면 `Ignore`(결제 앱 자신의 충전 알림), 없으면 4번으로. `sourcePackage`가 그 앱이 아니면 → `watchedPackages`와 `app.packages`가 겹치면 `Ignore`, 안 겹치면 `RegisterByPath(EXPENSE 쇼핑>간편결제 충전)`.
   4. `OUT`이고 `key`가 기본 가맹점 규칙에 맞으면 `RegisterByPath`.
@@ -443,12 +441,10 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 @Test fun unknownMerchant_needsReview() = assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(30000, OUT, "김가짜"))
 @Test fun unknownDirection_needsReview() = assertEquals(Decision.NeedsReview(UNKNOWN_DIRECTION), c(7000, UNKNOWN, "가짜커피"))
 @Test fun learnedRule_beatsBuiltin() =
-    assertEquals(Decision.RegisterById(77), c(4500, OUT, "가짜커피", learned = LearnedRule(77, EXPENSE)))
-@Test fun learnedIgnore() = assertEquals(Decision.Ignore, c(4500, OUT, "가짜커피", learned = LearnedRule(null, null)))
-@Test fun learnedExpenseRule_onIncoming_needsReview() =
-    assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(30000, IN, "김가짜", learned = LearnedRule(77, EXPENSE)))
+    assertEquals(Decision.RegisterById(77), c(4500, OUT, "가짜커피", learned = LearnedRule(77)))
+@Test fun learnedIgnore() = assertEquals(Decision.Ignore, c(4500, OUT, "가짜커피", learned = LearnedRule(null)))
 @Test fun learnedRule_appliesToUnknownDirection() =
-    assertEquals(Decision.RegisterById(77), c(7000, UNKNOWN, "김가짜", learned = LearnedRule(77, EXPENSE)))
+    assertEquals(Decision.RegisterById(77), c(7000, UNKNOWN, "김가짜", learned = LearnedRule(77)))
 @Test fun charge_whenPayAppWatched_isIgnored() =
     assertEquals(Decision.Ignore, c(10000, OUT, "네이버페이", "출금 10,000원 네이버페이 충전", watched = setOf(KBANK, NPAY)))
 @Test fun charge_whenPayAppNotWatched_isRecordedAsCharge() =
@@ -486,7 +482,7 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
   - `transactions.source TEXT NOT NULL DEFAULT 'MANUAL'` — `TransactionEntity`에 `@ColumnInfo(name = "source", defaultValue = "MANUAL") val source: String = TransactionSource.MANUAL`; `object TransactionSource { const val MANUAL = "MANUAL"; const val AUTO = "AUTO" }`. `TransactionWithCategoryRow`에 `val source: String` 추가, `TransactionDao`의 두 조회 쿼리에 `t.source AS source` 추가.
   - `notification_log`: `id`(PK auto), `package_name`, `notification_key`, `post_time_ms`, `title`, `body`, `content_hash`. 유니크 인덱스 `(package_name, notification_key, post_time_ms, content_hash)`, 인덱스 `(post_time_ms)`.
   - `auto_entries`: `id`(PK auto), `log_id`, `package_name`, `occurred_epoch_day`, `posted_at_ms`, `amount_minor`, `direction`(`Direction.name`), `merchant`, `merchant_key`, `status`(`"REGISTERED" | "PENDING" | "IGNORED"`), `reason?`(`ReviewReason.name`), `transaction_id?`. 인덱스 `(status)`, `(occurred_epoch_day, amount_minor)`. 외래 키 없음(로그는 90일 뒤 지워지고 거래는 사용자가 지울 수 있다). `object AutoEntryStatus { const val REGISTERED; const val PENDING; const val IGNORED }`.
-  - `merchant_rules`: `merchant_key`(PK), `display_name`, `category_id?`(null = 기록 안 함), `updated_at_ms`.
+  - `merchant_rules`: 복합 PK `(merchant_key, direction)`(`@Entity(primaryKeys = ["merchant_key", "direction"])`, `direction` = `Direction.name`), `display_name`, `category_id?`(null = 기록 안 함), `updated_at_ms`. 한 방향의 규칙은 다른 방향에 영향을 주지 않는다.
   - DAO:
     ```kotlin
     interface NotificationLogDao {
@@ -500,7 +496,7 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
         suspend fun update(e: AutoEntryEntity)
         suspend fun getById(id: Long): AutoEntryEntity?
         suspend fun findByTransactionId(transactionId: Long): AutoEntryEntity?
-        suspend fun listPendingByMerchantKey(merchantKey: String): List<AutoEntryEntity>
+        suspend fun listPendingByMerchantKey(merchantKey: String, direction: String): List<AutoEntryEntity>
         fun observeByStatus(status: String): Flow<List<AutoEntryEntity>>                   // posted_at_ms DESC
         fun observeCountByStatus(status: String): Flow<Int>
         /** direction='OUT', 금액·날짜 같고 package_name != :excludePackage, status IN ('REGISTERED','PENDING'), posted_at_ms BETWEEN */
@@ -508,12 +504,12 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
     }
     interface MerchantRuleDao {
         @Insert(onConflict = REPLACE) suspend fun upsert(e: MerchantRuleEntity)
-        suspend fun getByKey(merchantKey: String): MerchantRuleEntity?
-        suspend fun deleteByKey(merchantKey: String)
+        suspend fun getByKey(merchantKey: String, direction: String): MerchantRuleEntity?
+        suspend fun deleteByKey(merchantKey: String, direction: String)
         suspend fun count(): Int
         fun observeAll(): Flow<List<MerchantRuleRow>>   // categories 두 번 LEFT JOIN, display_name ASC
     }
-    data class MerchantRuleRow(val merchantKey: String, val displayName: String, val categoryId: Long?,
+    data class MerchantRuleRow(val merchantKey: String, val direction: String, val displayName: String, val categoryId: Long?,
                                val categoryName: String?, val parentCategoryName: String?)
     // TransactionDao 추가
     suspend fun countManualMatch(epochDay: Long, amountMinor: Long, kind: String): Int   // source = 'MANUAL'
@@ -532,10 +528,13 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 // OUT 12000 REGISTERED(pkg A), IGNORED(pkg C) 넣고 excludePackage="B" → 1, excludePackage="A" → 0
 @Test fun countManualMatch_ignoresAutoTransactions()
 // 같은 날 4500 EXPENSE: MANUAL 1건 + AUTO 1건 → 1
+@Test fun merchantRule_isKeyedByNameAndDirection()
+// ("김가짜","OUT")→식비>식사, ("김가짜","IN")→null 두 번 upsert → count() == 2; getByKey("김가짜","OUT").categoryId == 식비>식사 id;
+// getByKey("김가짜","REFUND") == null; deleteByKey("김가짜","OUT") 뒤 getByKey("김가짜","IN")은 남아 있다
 @Test fun merchantRuleRow_joinsCategoryNames()
 // 규칙(category = 식비>카페 id)과 규칙(category null) → ("카페","식비"), (null, null)
 ```
-  (뒤 4개는 `Room.inMemoryDatabaseBuilder` + `AppDatabase.seedCategoriesIfEmpty`.)
+  (뒤 5개는 `Room.inMemoryDatabaseBuilder` + `AppDatabase.seedCategoriesIfEmpty`.)
 - [ ] **Step 2: 실패 확인** — Run: `GRADLE :app:testDebugUnitTest --tests "*Migration7To8Test"` → Expected: 컴파일 실패.
 - [ ] **Step 3: 엔티티·DAO·`MIGRATION_7_8`·설정 구현** — `MIGRATION_7_8`의 DDL은 엔티티 선언과 글자 단위로 맞아야 한다(컬럼 순서 무관, 타입·NOT NULL·기본값·인덱스 이름 `index_<table>_<col>_<col>` 일치). 어긋나면 Step 1의 첫 테스트가 Room 스키마 대조 오류로 알려 준다.
 - [ ] **Step 4: 통과 확인** — Run: `GRADLE :app:testDebugUnitTest` → Expected: Task 3 테스트 포함 전부 통과. Run: `GRADLE :app:assembleDebug` → `BUILD SUCCESSFUL`.
@@ -568,7 +567,7 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
       /** categoryId == null 이면 기록 안 함. */
       suspend fun resolvePending(entryId: Long, categoryId: Long?)
       fun observeRules(): Flow<List<MerchantRuleRow>>
-      suspend fun deleteRule(merchantKey: String)
+      suspend fun deleteRule(merchantKey: String, direction: String)
       suspend fun learnFromCorrection(transactionId: Long, newCategoryId: Long)
       suspend fun purgeOldLogs(nowMs: Long = System.currentTimeMillis()): Int
       companion object {
@@ -584,7 +583,7 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 1. `n.packageName !in watchedPackages()` → `NOT_WATCHED`(아무것도 저장하지 않음).
 2. `body = bigText가 비어 있지 않으면 bigText, 아니면 text`. `hash = SHA-256("$packageName\n$title\n$body")`의 hex. `countSimilar(pkg, hash, postTimeMs - ECHO_WINDOW_MS, postTimeMs + ECHO_WINDOW_MS) > 0`이면 → `DUPLICATE`. 아니면 로그를 insert하고, 반환이 -1이면 → `DUPLICATE`.
 3. `NotificationParsers.parse(pkg, title, body)`가 null → `LOGGED_ONLY`.
-4. `key = normalize(merchant)`. `key`가 비어 있지 않으면 `merchantRuleDao.getByKey(key)`로 `LearnedRule`을 만든다(규칙의 카테고리가 DB에 없으면 규칙이 없는 것으로 본다). `AutoClassifier.classify(parsed, "$title\n$body", pkg, watched, learned)`.
+4. `key = normalize(merchant)`. `key`가 비어 있지 않으면 `merchantRuleDao.getByKey(key, parsed.direction.name)`으로 `LearnedRule`을 만든다(규칙의 카테고리가 DB에 없으면 규칙이 없는 것으로 본다). 방향이 다른 규칙은 조회되지 않는다. `AutoClassifier.classify(parsed, "$title\n$body", pkg, watched, learned)`.
 5. `Ignore` → `auto_entries`에 `IGNORED`로 저장 → `IGNORED`. `NeedsReview(r)` → `PENDING`, `reason = r` → `PENDING`.
 6. `RegisterById/ByPath` → 카테고리 잎을 구한다(`ByPath`는 `findLeafByPath`; 못 찾으면 `PENDING/UNCLASSIFIED`). `occurredEpochDay = Instant.ofEpochMilli(postTimeMs).atZone(zoneId).toLocalDate().toEpochDay()`. 중복 검사:
    - `direction == OUT`이고 `countCrossAppOut(amount, day, pkg, postTimeMs - CROSS_APP_WINDOW_MS, postTimeMs + CROSS_APP_WINDOW_MS) > 0` → `PENDING/DUP_CROSS_APP`.
@@ -594,10 +593,10 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 `resolvePending(entryId, categoryId)` — 한 트랜잭션:
 - 대상이 `PENDING`이 아니면 아무것도 하지 않는다.
 - `categoryId == null` → `IGNORED`. 아니면 거래 insert(`occurred_epoch_day`·금액은 항목 값, `memo = merchant`, `source = AUTO`) 후 `REGISTERED`.
-- **규칙 학습**: `merchant_key`가 비어 있지 않고 `reason`이 `UNCLASSIFIED` 또는 `UNKNOWN_DIRECTION`일 때만 `merchant_rules`에 upsert(`display_name = merchant`). `DUP_*`는 학습하지 않는다.
-- 규칙을 학습했으면 같은 `merchant_key`의 다른 `PENDING` 항목(`reason`이 `UNCLASSIFIED`/`UNKNOWN_DIRECTION`) 중 `categoryId == null`이거나 `AutoClassifier.isCompatible(direction, kind)`인 것에 같은 결과를 바로 적용한다(같은 가게가 여러 건 쌓였을 때 한 번만 고르게 하려는 것).
+- **규칙 학습**: `merchant_key`가 비어 있지 않고 `reason`이 `UNCLASSIFIED` 또는 `UNKNOWN_DIRECTION`일 때만 `merchant_rules`에 `(merchant_key, 항목의 direction)` 키로 upsert(`display_name = merchant`). `DUP_*`는 학습하지 않는다.
+- 규칙을 학습했으면 같은 규칙 키, 즉 같은 `merchant_key` **그리고 같은 `direction`**의 다른 `PENDING` 항목(`listPendingByMerchantKey(key, direction)`, `reason`이 `UNCLASSIFIED`/`UNKNOWN_DIRECTION`)에 같은 결과를 바로 적용한다(같은 가게가 여러 건 쌓였을 때 한 번만 고르게 하려는 것). 방향이 다른 대기 건은 건드리지 않는다.
 
-`learnFromCorrection`: `findByTransactionId`로 항목을 찾아 `merchant_key`가 비어 있지 않으면 규칙 upsert. 항목이 없으면 아무것도 하지 않는다. `purgeOldLogs`: `deleteOlderThan(nowMs - 90일)`. `deleteRule`: `deleteByKey`.
+`learnFromCorrection`(사용자가 편집 화면에서 자동 등록 거래의 카테고리를 바꿨을 때): `findByTransactionId`로 항목을 찾아 `merchant_key`가 비어 있지 않으면 `(merchant_key, 항목의 direction)` 키로 규칙 upsert. 항목이 없으면 아무것도 하지 않는다. `purgeOldLogs`: `deleteOlderThan(nowMs - 90일)`. `deleteRule`: `deleteByKey(merchantKey, direction)`.
 
 - [ ] **Step 1: 실패하는 테스트 작성** — 준비: `Room.inMemoryDatabaseBuilder(...).allowMainThreadQueries()` + `seedCategoriesIfEmpty`, `var watched = setOf(KBANK, CARD)` (`KBANK = "com.kbankwith.smartbank"`, `CARD = "com.fake.card"`, `NPAY = "com.naverfin.payapp"`), `repo = AutoEntryRepository(db, { watched })`, `T0 = 1_800_000_000_000L`, 도우미 `n(pkg, title, body, key = "k1", at = T0) = IncomingNotification(pkg, key, at, title, body, "")`, `leafId(kind, parent, child)`.
 
@@ -622,12 +621,15 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 // 다음 날(at = T0 + 86_400_000, key "k2") 같은 이름 20,000원 → REGISTERED, category == 유동 지출>기본
 @Test fun resolveAsIgnore_learnsIgnoreRule()
 // PENDING → resolvePending(id, null) → 거래 0, 항목 IGNORED; 다음 같은 이름 → IGNORED, 거래 0
-@Test fun learnedExpenseRule_incomingFromSameName_goesPending()
-// 위처럼 김가짜 → 유동 지출 학습 후 n(KBANK, "입금 50,000원", "김가짜 | 가짜통장(1234)", key "k3", at = T0 + 3_600_000) → PENDING, 거래 수 불변
+@Test fun ruleForOut_doesNotApplyToIncoming()
+// 위처럼 김가짜 출금 → 유동 지출 학습 후 n(KBANK, "입금 50,000원", "김가짜 | 가짜통장(1234)", key "k3", at = T0 + 3_600_000) → PENDING, 거래 수 불변
+// 그 입금을 resolvePending(id, leafId(수입>용돈)) → 규칙 2개(OUT, IN). 이후 김가짜 출금 → 유동 지출>기본, 김가짜 입금 → 수입>용돈
+@Test fun resolvingOne_doesNotTouchPendingOfOtherDirection()
+// 김가짜 출금 1건 + 김가짜 입금 1건 PENDING → 출금만 resolve → 입금은 여전히 PENDING
 @Test fun emptyMerchant_resolves_withoutRule()
 // n(KBANK, "출금 3,000원", "") → PENDING; resolvePending(id, 유동 지출>기본) → 거래 1, 규칙 0
 @Test fun resolvingOne_appliesToOtherPendingOfSameMerchant()
-// 김가짜 출금 2건(다른 날) PENDING → 하나 resolve → 둘 다 REGISTERED, 거래 2, 남은 PENDING 0
+// 김가짜 출금 2건(다른 날, 같은 방향) PENDING → 하나 resolve → 둘 다 REGISTERED, 거래 2, 남은 PENDING 0
 @Test fun crossApp_sameAmountWithin5Min_secondGoesPending()
 // CARD "승인 12,000원\n가짜마트" at T0 → REGISTERED; KBANK "출금 12,000원" / "가짜마트 | 가짜통장(1234)" at T0 + 120_000 → PENDING(DUP_CROSS_APP); 거래 1
 @Test fun crossApp_after5Min_isRegistered()
@@ -651,7 +653,7 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 @Test fun learnFromCorrection_upsertsRuleForAutoTransaction()
 // REGISTERED된 가짜커피 거래 id로 learnFromCorrection(txId, leafId(식비>간식)) → 규칙의 category == 식비>간식; 다음 가짜커피 → 식비>간식
 @Test fun deleteRule_returnsMerchantToBuiltinOrPending()
-// 김가짜 규칙 삭제 후 같은 이름 → PENDING
+// deleteRule("김가짜", "OUT") 후 같은 이름 출금 → PENDING
 ```
 
 - [ ] **Step 2: 실패 확인** — Run: `GRADLE :app:testDebugUnitTest --tests "*AutoEntryRepositoryTest"` → Expected: 컴파일 실패.
@@ -712,8 +714,8 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 1. 머리말 `자동 기록` + 뒤로(`action_back`).
 2. **알림 접근**: 상태 문구(`허용됨` / `꺼져 있어요`)와 버튼 `알림 접근 설정 열기` → `Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)`. 상태 = `NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)`, `LifecycleResumeEffect`로 화면에 돌아올 때마다 다시 읽는다.
 3. **확인 필요** 행: `확인이 필요한 거래 %d건` → `onOpenPending`(0건이어도 보인다).
-4. **알림을 읽을 앱**: `loadSelectableApps` 목록, 행마다 라벨 + 패키지명(작게) + `Switch`. 체크 상태 = `WatchedApps.effective(stored, context)`에 포함 여부. 토글하면 현재 유효 집합에서 더하거나 뺀 전체 집합을 `setWatchedPackages`로 저장한다.
-5. **학습한 규칙**: `observeRules()` 행마다 `displayName` + (`대분류 · 소분류` 또는 `기록 안 함`) + 삭제 아이콘 버튼(`contentDescription = 규칙 삭제`) → `deleteRule`. 비어 있으면 `아직 학습한 규칙이 없어요`.
+4. **알림을 읽을 앱**: `loadSelectableApps` 목록, 행마다 라벨 + 패키지명(작게) + `Switch`. 체크 상태 = `WatchedApps.effective(stored, context)`에 포함 여부. 토글하면 현재 유효 집합에서 더하거나 뺀 전체 집합을 `setWatchedPackages`로 저장한다. 목록 패널 **바로 아래**에 경고 문구 한 줄을 항상 보인다(`bodySmall`, `onSurfaceVariant`, 좌우 `ScreenHorizontalPadding`): `R.string.auto_watched_pay_warning` = `결제 앱을 켜 두었다면 그 앱의 알림도 켜져 있어야 해요. 꺼져 있으면 은행에서 충전한 돈이 기록되지 않아 지출이 빠져요.`
+5. **학습한 규칙**: `observeRules()` 행마다 `displayName` + 방향 라벨(`OUT` 출금 · `IN` 입금 · `REFUND` 환불 · `UNKNOWN` 방향 모름) + (`대분류 · 소분류` 또는 `기록 안 함`) + 삭제 아이콘 버튼(`contentDescription = 규칙 삭제`) → `deleteRule(row.merchantKey, row.direction)`. 같은 이름이라도 방향이 다르면 다른 행이다. 비어 있으면 `아직 학습한 규칙이 없어요`.
 
 `SettingsScreen`의 "자동화 · 알림" 그룹 첫 행으로 `자동 기록` 행을 넣는다(부제: 확인 필요가 있으면 `확인 필요 %d건`, 없으면 `은행·결제 알림을 읽어 자동으로 적어요`). `MainTabScaffold`는 `SettingsPane.AutoEntry`일 때 `AutoEntrySettingsScreen`을 보이고 뒤로 가면 `Main`으로 간다(`onOpenPending`은 Task 10에서 연결 — 이 태스크에서는 `{}`).
 
@@ -795,10 +797,12 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 - [ ] **Step 4: 자동 등록** — `$ADB shell cmd notification post -S bigtext -t '가짜카드' tag1 '승인 4,500원 가짜커피 강남점'` → `Q "SELECT amount_minor, kind, source, memo FROM transactions ORDER BY id DESC LIMIT 1;"` → Expected: `4500|EXPENSE|AUTO|가짜커피 강남점`. 홈 목록에서 그 거래에 `자동` 표시가 보인다.
 - [ ] **Step 5: 재수신 중복 없음** — 같은 명령을 바로 한 번 더 실행 → `Q "SELECT COUNT(*) FROM transactions WHERE source='AUTO';"` → Expected: `1`.
 - [ ] **Step 6: 확인 필요 → 학습** — `… post -S bigtext -t '출금 30,000원' tag2 '김가짜 | 가짜통장(1234)'` → `Q "SELECT status, reason FROM auto_entries ORDER BY id DESC LIMIT 1;"` → `PENDING|UNCLASSIFIED`. 홈 배너 `확인이 필요한 거래 1건` → 눌러서 `유동 지출 > 기본` 선택 → 거래 생성, `Q "SELECT COUNT(*) FROM merchant_rules;"` → `1`. 11초 뒤 `… post -S bigtext -t '출금 20,000원' tag3 '김가짜 | 가짜통장(1234)'` → 바로 등록(`REGISTERED`).
+- [ ] **Step 6b: 방향별 규칙** — `… post -S bigtext -t '입금 50,000원' tag5 '김가짜 | 가짜통장(1234)'` → `PENDING`(출금 규칙이 입금에 적용되지 않음). 설정 > 자동 기록의 규칙 목록에 `김가짜 · 출금` 한 줄만 있고, 앱 목록 아래 결제 앱 경고 문구가 보인다.
 - [ ] **Step 7: 금액 없는 알림** — `… post -t '로그인 알림' tag4 '새 기기에서 로그인했어요'` → `auto_entries` 행 수 불변, `notification_log` 행 수 +1.
 - [ ] **Step 8: 로그 미노출 확인** — `$ADB logcat -d | grep -E "가짜커피|김가짜"` 결과 중 `com.householdbudget.app` 프로세스가 찍은 줄이 없어야 한다(시스템 `NotificationService` 줄은 대상이 아니다).
 - [ ] **Step 9: 업그레이드 경로** — `git stash` 없이 확인: `git worktree add /tmp/hb-master origin/master`에서 `GRADLE :app:installDebug`로 v6 앱을 깔고(먼저 `$ADB uninstall com.householdbudget.app`), 수동 거래 2건과 반복 규칙 1건을 UI로 만든 뒤, 이 브랜치의 디버그 빌드를 덮어 설치(`installDebug`) → 앱이 뜨고, 거래 2건이 남아 있고, `Q "SELECT COUNT(*) FROM sqlite_master WHERE name='recurring_rules';"` → `0`. 끝나면 `git worktree remove /tmp/hb-master`.
-- [ ] **Step 10: 전체 테스트** — Run: `GRADLE :core:test :app:testDebugUnitTest :app:assembleDebug` → `BUILD SUCCESSFUL`.
+- [ ] **Step 10: 케이뱅크 패키지명 확인** — 에뮬레이터에서 `$ADB shell am start -a android.intent.action.VIEW -d 'https://play.google.com/store/apps/details?id=com.kbankwith.smartbank&hl=ko'`로 스토어 페이지를 열고 스크린샷으로 앱 이름이 `케이뱅크`인지 확인한다(계획 작성 시 같은 주소의 페이지 제목이 `케이뱅크 - Google Play 앱`임을 확인). Play 스토어가 있는 AVD `play35`에 로그인돼 있으면 케이뱅크를 설치해 설정 > 자동 기록 앱 목록에서 맨 위에 `케이뱅크`가 기본 체크로 나오는지도 본다. 이름이 다르면 `NotificationParsers.KBANK_PACKAGE`와 `KnownApps.FINANCE_PACKAGES`를 고치고 보고한다.
+- [ ] **Step 11: 전체 테스트** — Run: `GRADLE :core:test :app:testDebugUnitTest :app:assembleDebug` → `BUILD SUCCESSFUL`.
 
 ---
 
@@ -815,4 +819,4 @@ private fun path(k: CategoryKind, p: String, ch: String) = Decision.RegisterByPa
 | 5.7 백업 설정 유지 | 8(변경 없음을 명시) |
 | 7 검증(JVM 테스트, 마이그레이션 테스트, 에뮬레이터) | 1, 3, 4, 5, 7, 11 |
 
-스펙에 없지만 계획이 정한 것(사용자 확인 대상): 옛 대분류 아래 모르는 소분류는 "기타"가 아니라 그 대분류의 대표 소분류로 보냄(Task 1 `*`), 확인 필요 하나를 고르면 같은 이름의 다른 대기 건에도 적용(Task 7), 자동 등록된 거래의 카테고리를 편집 화면에서 바꾸면 규칙으로 학습(Task 7), "중복 같아요" 처리는 학습하지 않음(Task 7), 이중 알림 기준 5분·같은 내용 재게시 기준 10초(Task 7), 기본 대상 앱은 설치된 금융 앱만(Task 8).
+스펙에 없지만 계획이 정했고 사용자가 승인한 것(2026-11-18): 옛 대분류 아래 모르는 소분류는 "기타"가 아니라 그 대분류의 대표 소분류로 보냄(Task 1 `*`), 확인 필요 하나를 고르면 같은 이름의 다른 대기 건에도 적용(Task 7), 자동 등록된 거래의 카테고리를 편집 화면에서 바꾸면 규칙으로 학습(Task 7), 학습 규칙의 키는 (정규화한 이름, 방향)(Task 6·7), 결제 앱 알림 경고 문구(Task 9), "중복 같아요" 처리는 학습하지 않음(Task 7), 이중 알림 기준 5분·같은 내용 재게시 기준 10초(Task 7), 기본 대상 앱은 설치된 금융 앱만(Task 8).
