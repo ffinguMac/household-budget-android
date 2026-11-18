@@ -21,6 +21,7 @@ class BudgetApplication : Application() {
         applicationScope.launch {
             runCatching {
                 container.budgetRepository.tryArchiveCompletedPeriods()
+                container.autoEntryRepository.purgeOldLogs()
             }
         }
         DailyMaintenanceScheduler.schedule(this)

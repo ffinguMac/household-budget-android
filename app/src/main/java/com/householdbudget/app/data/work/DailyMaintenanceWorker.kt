@@ -13,6 +13,7 @@ class DailyMaintenanceWorker(
         return try {
             val app = applicationContext as? BudgetApplication ?: return Result.failure()
             app.container.budgetRepository.tryArchiveCompletedPeriods()
+            app.container.autoEntryRepository.purgeOldLogs()
             Result.success()
         } catch (_: Exception) {
             Result.retry()

@@ -3,6 +3,13 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".BudgetApplication"
         android:allowBackup="true"
@@ -20,6 +27,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".autoentry.NotificationCaptureService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"
