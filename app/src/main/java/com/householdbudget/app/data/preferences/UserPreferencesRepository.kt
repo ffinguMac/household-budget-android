@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -78,7 +79,16 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[APP_LOCK_ENABLED] = value }
     }
 
+    /** 알림 자동 기록 대상 앱. null = 한 번도 저장한 적 없음(기본값을 쓴다). */
+    val watchedPackagesOrNull: Flow<Set<String>?> =
+        dataStore.data.map { prefs -> prefs[WATCHED_PACKAGES] }
+
+    suspend fun setWatchedPackages(value: Set<String>) {
+        dataStore.edit { it[WATCHED_PACKAGES] = value }
+    }
+
     companion object {
+        private val WATCHED_PACKAGES = stringSetPreferencesKey("auto_entry_watched_packages")
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
         private val LAST_SEEN_PERIOD_START = longPreferencesKey("last_seen_period_start_epoch_day")
         private val MONTHLY_BUDGET_MINOR = longPreferencesKey("monthly_budget_minor")

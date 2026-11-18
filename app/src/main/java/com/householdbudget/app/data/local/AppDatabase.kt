@@ -7,12 +7,18 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
+import com.householdbudget.app.data.local.dao.AutoEntryDao
 import com.householdbudget.app.data.local.dao.CategoryBudgetDao
+import com.householdbudget.app.data.local.dao.MerchantRuleDao
+import com.householdbudget.app.data.local.dao.NotificationLogDao
 import com.householdbudget.app.data.local.dao.CategoryDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
+import com.householdbudget.app.data.local.entity.AutoEntryEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
+import com.householdbudget.app.data.local.entity.MerchantRuleEntity
+import com.householdbudget.app.data.local.entity.NotificationLogEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
 import com.householdbudget.app.domain.category.FixedCategories
 import kotlinx.coroutines.Dispatchers
@@ -25,8 +31,11 @@ import kotlinx.coroutines.runBlocking
             TransactionEntity::class,
             ArchivedPeriodEntity::class,
             CategoryBudgetEntity::class,
+            NotificationLogEntity::class,
+            AutoEntryEntity::class,
+            MerchantRuleEntity::class,
         ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +46,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun archivedPeriodDao(): ArchivedPeriodDao
 
     abstract fun categoryBudgetDao(): CategoryBudgetDao
+
+    abstract fun notificationLogDao(): NotificationLogDao
+
+    abstract fun autoEntryDao(): AutoEntryDao
+
+    abstract fun merchantRuleDao(): MerchantRuleDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -310,8 +325,45 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        /** v7 → v8: 거래 출처 컬럼, 알림 로그·자동 기록·가맹점 규칙 테이블. */
+        private val MIGRATION_7_8 =
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `transactions` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'MANUAL'")
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `notification_log` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `package_name` TEXT NOT NULL, " +
+                            "`notification_key` TEXT NOT NULL, `post_time_ms` INTEGER NOT NULL, " +
+                            "`title` TEXT NOT NULL, `body` TEXT NOT NULL, `content_hash` TEXT NOT NULL)",
+                    )
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS `index_notification_log_package_name_notification_key_post_time_ms_content_hash` " +
+                            "ON `notification_log` (`package_name`, `notification_key`, `post_time_ms`, `content_hash`)",
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_notification_log_post_time_ms` ON `notification_log` (`post_time_ms`)")
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `auto_entries` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `log_id` INTEGER NOT NULL, " +
+                            "`package_name` TEXT NOT NULL, `occurred_epoch_day` INTEGER NOT NULL, " +
+                            "`posted_at_ms` INTEGER NOT NULL, `amount_minor` INTEGER NOT NULL, " +
+                            "`direction` TEXT NOT NULL, `merchant` TEXT NOT NULL, `merchant_key` TEXT NOT NULL, " +
+                            "`status` TEXT NOT NULL, `reason` TEXT, `transaction_id` INTEGER)",
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_auto_entries_status` ON `auto_entries` (`status`)")
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_auto_entries_occurred_epoch_day_amount_minor` " +
+                            "ON `auto_entries` (`occurred_epoch_day`, `amount_minor`)",
+                    )
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `merchant_rules` (" +
+                            "`merchant_key` TEXT NOT NULL, `direction` TEXT NOT NULL, `display_name` TEXT NOT NULL, " +
+                            "`category_id` INTEGER, `updated_at_ms` INTEGER NOT NULL, PRIMARY KEY(`merchant_key`, `direction`))",
+                    )
+                }
+            }
+
         internal val ALL_MIGRATIONS: Array<Migration> =
-            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
         fun getInstance(context: Context): AppDatabase {
             return instance

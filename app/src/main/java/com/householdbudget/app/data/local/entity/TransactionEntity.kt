@@ -32,4 +32,10 @@ data class TransactionEntity(
     val kind: String,
     @ColumnInfo(name = "category_id") val categoryId: Long,
     val memo: String = "",
+    @ColumnInfo(name = "source", defaultValue = "MANUAL") val source: String = TransactionSource.MANUAL,
 )
+
+object TransactionSource {
+    const val MANUAL = "MANUAL"
+    const val AUTO = "AUTO"
+}

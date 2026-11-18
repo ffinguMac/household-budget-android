@@ -23,6 +23,9 @@ interface TransactionDao {
     @Delete
     suspend fun delete(entity: TransactionEntity)
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE source = 'MANUAL' AND occurred_epoch_day = :epochDay AND amount_minor = :amountMinor AND kind = :kind")
+    suspend fun countManualMatch(epochDay: Long, amountMinor: Long, kind: String): Int
+
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
@@ -36,7 +39,8 @@ interface TransactionDao {
                c.name AS categoryName,
                c.parent_id AS parentCategoryId,
                p.name AS parentCategoryName,
-               t.memo AS memo
+               t.memo AS memo,
+               t.source AS source
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
         LEFT JOIN categories p ON p.id = c.parent_id
@@ -57,7 +61,8 @@ interface TransactionDao {
                c.name AS categoryName,
                c.parent_id AS parentCategoryId,
                p.name AS parentCategoryName,
-               t.memo AS memo
+               t.memo AS memo,
+               t.source AS source
         FROM transactions t
         INNER JOIN categories c ON c.id = t.category_id
         LEFT JOIN categories p ON p.id = c.parent_id
