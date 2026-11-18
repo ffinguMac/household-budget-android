@@ -56,16 +56,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.ui.archive.ArchiveDetailScreen
 import com.householdbudget.app.ui.archive.ArchiveListScreen
 import com.householdbudget.app.ui.autoentry.AutoEntrySettingsScreen
+import com.householdbudget.app.ui.autoentry.PendingReviewScreen
 import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.feed.FeedScreen
@@ -105,6 +109,8 @@ private sealed interface SettingsPane {
     data object Budget : SettingsPane
 
     data object AutoEntry : SettingsPane
+
+    data object Pending : SettingsPane
 }
 
 @Composable
@@ -118,6 +124,10 @@ fun MainTabScaffold(
     // enum 은 기본 Saver 가 없어 ordinal 로 저장하고 파생시킨다.
     var selectedOrdinal by rememberSaveable { mutableIntStateOf(MainTab.FEED.ordinal) }
     val selected = MainTab.entries[selectedOrdinal]
+    val context = LocalContext.current
+    val pendingCount by remember(context) {
+        (context.applicationContext as BudgetApplication).container.autoEntryRepository.observePendingCount()
+    }.collectAsStateWithLifecycle(initialValue = 0)
     // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
 
@@ -131,6 +141,7 @@ fun MainTabScaffold(
         settingsPane =
             when (settingsPane) {
                 is SettingsPane.ArchiveDetail -> SettingsPane.Archive
+                SettingsPane.Pending -> SettingsPane.AutoEntry
                 else -> SettingsPane.Main
             }
     }
@@ -185,6 +196,11 @@ fun MainTabScaffold(
                         budgetViewModel = budgetViewModel,
                         onTransactionClick = onNavigateEdit,
                         listState = feedListState,
+                        pendingCount = pendingCount,
+                        onOpenPending = {
+                            selectedOrdinal = MainTab.SETTINGS.ordinal
+                            settingsPane = SettingsPane.Pending
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 MainTab.CALENDAR ->
@@ -227,7 +243,13 @@ fun MainTabScaffold(
                         SettingsPane.AutoEntry ->
                             AutoEntrySettingsScreen(
                                 onBack = { settingsPane = SettingsPane.Main },
-                                onOpenPending = {}, // Task 10 에서 연결
+                                onOpenPending = { settingsPane = SettingsPane.Pending },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.Pending ->
+                            PendingReviewScreen(
+                                budgetViewModel = budgetViewModel,
+                                onBack = { settingsPane = SettingsPane.AutoEntry },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Budget ->

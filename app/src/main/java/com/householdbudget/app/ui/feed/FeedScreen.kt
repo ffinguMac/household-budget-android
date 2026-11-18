@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
@@ -92,6 +93,8 @@ fun FeedScreen(
     onTransactionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    pendingCount: Int = 0,
+    onOpenPending: () -> Unit = {},
 ) {
     val summary by budgetViewModel.ledgerSummary.collectAsStateWithLifecycle()
     val periodOffset by budgetViewModel.ledgerPeriodOffset.collectAsStateWithLifecycle()
@@ -132,6 +135,26 @@ fun FeedScreen(
         item(key = "header") {
             // ScreenHeader 는 좌우/상하 패딩을 스스로 처리한다.
             ScreenHeader(title = stringResource(R.string.nav_feed))
+        }
+
+        if (pendingCount > 0) {
+            item(key = "pendingBanner") {
+                Text(
+                    text = stringResource(R.string.auto_pending_banner, pendingCount),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ScreenHorizontalPadding)
+                            .padding(bottom = Space.sm)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable(onClick = onOpenPending)
+                            .padding(Space.md),
+                )
+            }
         }
 
         item(key = "hero") {
@@ -388,6 +411,7 @@ fun FeedScreen(
                                 categoryName = row.categoryName,
                                 parentCategoryName = row.parentCategoryName,
                                 memo = row.memo,
+                                isAuto = row.source == TransactionSource.AUTO,
                                 amountMinor = row.amountMinor,
                                 kind = CategoryKind.fromStorage(row.kind),
                                 onClick = { onTransactionClick(row.id) },
