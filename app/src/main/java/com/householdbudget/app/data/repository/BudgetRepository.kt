@@ -120,9 +120,11 @@ class BudgetRepository(
         }
 
         var candidate = periodResolver.previousPeriod(current, dom)
+        // lastSeen 이후에 끝난 기간만 보관. 그 이전은 이미 처리했거나 앱 설치 전.
         repeat(ARCHIVE_MAX_STEPS) {
             val startEx = candidate.startInclusive.toEpochDay()
             val endEx = candidate.endExclusive.toEpochDay()
+            if (startEx < lastSeen) return@repeat
             if (archivedPeriodDao.countByBounds(startEx, endEx) > 0) {
                 candidate = periodResolver.previousPeriod(candidate, dom)
                 return@repeat
@@ -262,8 +264,12 @@ class BudgetRepository(
         val leaf =
             categoryDao.getById(entity.categoryId)
                 ?: error("Category not found: ${entity.categoryId}")
-        // 카테고리의 kind와 동기화.
-        recurringRuleDao.update(entity.copy(kind = leaf.kind))
+        database.withTransaction {
+            // lastAppliedYearMonth 는 반복 적용 로직만 갱신한다. 화면이 가진 오래된 값으로 덮어쓰면 중복 생성됨.
+            val applied = recurringRuleDao.getById(entity.id)?.lastAppliedYearMonth
+            // 카테고리의 kind와 동기화.
+            recurringRuleDao.update(entity.copy(kind = leaf.kind, lastAppliedYearMonth = applied))
+        }
     }
 
     suspend fun deleteRecurringRule(id: Long) {
@@ -285,17 +291,20 @@ class BudgetRepository(
             if (today.isBefore(target)) continue
             if (rule.lastAppliedYearMonth == ymStr) continue
             database.withTransaction {
-                val memo = buildAutoMemo(rule)
+                // 앱 시작과 워커가 동시에 돌 수 있으므로 트랜잭션 안에서 최신 값으로 다시 확인
+                val fresh = recurringRuleDao.getById(rule.id) ?: return@withTransaction
+                if (!fresh.enabled || fresh.lastAppliedYearMonth == ymStr) return@withTransaction
+                val memo = buildAutoMemo(fresh)
                 transactionDao.insert(
                     TransactionEntity(
                         occurredEpochDay = target.toEpochDay(),
-                        amountMinor = rule.amountMinor,
-                        kind = rule.kind,
-                        categoryId = rule.categoryId,
+                        amountMinor = fresh.amountMinor,
+                        kind = fresh.kind,
+                        categoryId = fresh.categoryId,
                         memo = memo,
                     ),
                 )
-                recurringRuleDao.update(rule.copy(lastAppliedYearMonth = ymStr))
+                recurringRuleDao.update(fresh.copy(lastAppliedYearMonth = ymStr))
             }
         }
     }

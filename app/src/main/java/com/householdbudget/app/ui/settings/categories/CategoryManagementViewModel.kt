@@ -90,7 +90,7 @@ class CategoryManagementViewModel(
         _ui.value = _ui.value.copy(error = null, pendingDeletion = null)
     }
 
-    fun addParent(name: String) {
+    fun addParent(name: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             val result = repository.addParentCategory(name, _ui.value.selectedKind)
             result.validationError()?.let { err ->
@@ -98,11 +98,12 @@ class CategoryManagementViewModel(
             }
             result.getOrNull()?.let { newId ->
                 _ui.value = _ui.value.copy(expanded = _ui.value.expanded + newId)
+                onSuccess()
             }
         }
     }
 
-    fun addChild(parentId: Long, name: String) {
+    fun addChild(parentId: Long, name: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             val result = repository.addLeafCategory(parentId, name)
             result.validationError()?.let { err ->
@@ -110,16 +111,18 @@ class CategoryManagementViewModel(
             }
             if (result.isSuccess) {
                 _ui.value = _ui.value.copy(expanded = _ui.value.expanded + parentId)
+                onSuccess()
             }
         }
     }
 
-    fun rename(id: Long, newName: String) {
+    fun rename(id: Long, newName: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             val result = repository.renameCategory(id, newName)
             result.validationError()?.let { err ->
                 _ui.value = _ui.value.copy(error = err)
             }
+            if (result.isSuccess) onSuccess()
         }
     }
 
