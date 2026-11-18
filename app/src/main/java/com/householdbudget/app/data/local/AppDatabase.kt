@@ -9,7 +9,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
 import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.CategoryDao
-import com.householdbudget.app.data.local.dao.RecurringRuleDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
@@ -37,7 +36,6 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun transactionDao(): TransactionDao
 
-    abstract fun recurringRuleDao(): RecurringRuleDao
 
     abstract fun archivedPeriodDao(): ArchivedPeriodDao
 
@@ -335,13 +333,7 @@ abstract class AppDatabase : RoomDatabase() {
                 }
         }
 
-        /**
-         * 기본 카테고리 트리 버전. 트리를 확장할 때마다 올린다.
-         * [topUpDefaultCategories] 실행 여부를 UserPreferences 의 categorySeedVersion 과 비교해 결정한다.
-         */
-        const val CATEGORY_SEED_VERSION = 2
-
-        /** 대분류 → 소분류 기본 트리. 신규 설치 시드와 기존 설치 부족분 채우기(top-up)가 공유한다. */
+        /** 대분류 → 소분류 기본 트리. 신규 설치 시드. */
         private data class DefaultSeed(
             val kind: CategoryKind,
             val parent: String,
@@ -403,48 +395,6 @@ abstract class AppDatabase : RoomDatabase() {
                             sortOrder = idx,
                         ),
                     )
-                }
-            }
-        }
-
-        /**
-         * 기존 설치에 기본 트리의 **부족분만** 추가한다 (앱 업데이트로 기본 카테고리가 확장된 경우).
-         * 이름 기준으로 비교하므로 사용자가 만들거나 이름을 바꾼 카테고리는 건드리지 않고,
-         * 사용자가 지운 기본 카테고리는 시드 버전이 올라간 딱 한 번만 다시 생길 수 있다.
-         */
-        suspend fun topUpDefaultCategories(categoryDao: CategoryDao) {
-            for (seed in DEFAULT_CATEGORY_SEEDS) {
-                val existing = categoryDao.findTopLevelByName(seed.kind.storage, seed.parent)
-                val parentId =
-                    if (existing == null) {
-                        val sort = (categoryDao.maxTopLevelSortOrder(seed.kind.storage) ?: -1) + 1
-                        categoryDao.insert(
-                            CategoryEntity(
-                                name = seed.parent,
-                                kind = seed.kind.storage,
-                                parentId = null,
-                                sortOrder = sort,
-                                icon = seed.icon,
-                            ),
-                        )
-                    } else {
-                        if (existing.icon == null) {
-                            categoryDao.update(existing.copy(icon = seed.icon))
-                        }
-                        existing.id
-                    }
-                var childSort = (categoryDao.maxChildSortOrder(parentId) ?: -1) + 1
-                for (childName in seed.children) {
-                    if (categoryDao.findChildByName(parentId, childName) == null) {
-                        categoryDao.insert(
-                            CategoryEntity(
-                                name = childName,
-                                kind = seed.kind.storage,
-                                parentId = parentId,
-                                sortOrder = childSort++,
-                            ),
-                        )
-                    }
                 }
             }
         }

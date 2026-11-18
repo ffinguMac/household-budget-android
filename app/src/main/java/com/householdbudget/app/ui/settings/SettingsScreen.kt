@@ -72,8 +72,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     budgetViewModel: BudgetViewModel,
-    onOpenRecurringRules: () -> Unit,
-    onOpenCategoryManagement: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenArchive: (() -> Unit)? = null,
     onOpenBudget: (() -> Unit)? = null,
@@ -210,15 +208,6 @@ fun SettingsScreen(
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
                 SettingsActionRow(
-                    icon = Icons.Filled.Autorenew,
-                    iconContainer = MaterialTheme.colorScheme.secondaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    title = stringResource(R.string.settings_open_recurring),
-                    subtitle = stringResource(R.string.settings_recurring_subtitle),
-                    onClick = onOpenRecurringRules,
-                )
-                SettingsRowDivider()
-                SettingsActionRow(
                     icon = Icons.Filled.Notifications,
                     iconContainer = MaterialTheme.colorScheme.secondaryContainer,
                     iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -259,16 +248,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
-                SettingsActionRow(
-                    icon = Icons.Filled.Category,
-                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    title = stringResource(R.string.settings_open_categories),
-                    subtitle = stringResource(R.string.settings_open_categories_subtitle),
-                    onClick = onOpenCategoryManagement,
-                )
                 if (onOpenArchive != null) {
-                    SettingsRowDivider()
                     SettingsActionRow(
                         icon = Icons.Filled.Inventory2,
                         iconContainer = MaterialTheme.colorScheme.secondaryContainer,
@@ -277,8 +257,8 @@ fun SettingsScreen(
                         subtitle = null,
                         onClick = onOpenArchive,
                     )
+                    SettingsRowDivider()
                 }
-                SettingsRowDivider()
                 SettingsActionRow(
                     icon = Icons.Filled.Share,
                     iconContainer = MaterialTheme.colorScheme.secondaryContainer,

@@ -26,9 +26,6 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
-    @Query("DELETE FROM transactions WHERE category_id = :leafId")
-    suspend fun deleteByCategoryId(leafId: Long)
-
     @Query(
         """
         SELECT t.id AS id,

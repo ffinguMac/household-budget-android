@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
-import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
@@ -64,13 +63,6 @@ class StatsViewModel(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = null,
             )
-
-    val recurringRules: StateFlow<List<RecurringRuleEntity>> =
-        repository.observeRecurringRules().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList(),
-        )
 }
 
 class StatsViewModelFactory(

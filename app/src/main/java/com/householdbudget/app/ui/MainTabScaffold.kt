@@ -68,11 +68,8 @@ import com.householdbudget.app.ui.archive.ArchiveListScreen
 import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.feed.FeedScreen
-import com.householdbudget.app.ui.recurring.RecurringRuleEditorScreen
-import com.householdbudget.app.ui.recurring.RecurringRulesListScreen
 import com.householdbudget.app.ui.settings.BudgetSettingsScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
-import com.householdbudget.app.ui.settings.categories.CategoryManagementScreen
 import com.householdbudget.app.ui.stats.StatsScreen
 
 /** 탭 전환 크로스페이드/슬라이드 지속시간. 짧고 절제된 토스 느낌. */
@@ -100,12 +97,6 @@ private enum class MainTab(
 private sealed interface SettingsPane {
     data object Main : SettingsPane
 
-    data object Categories : SettingsPane
-
-    data object RecurringList : SettingsPane
-
-    data class RecurringEdit(val ruleId: Long?) : SettingsPane
-
     data object Archive : SettingsPane
 
     data class ArchiveDetail(val archiveId: Long) : SettingsPane
@@ -126,7 +117,6 @@ fun MainTabScaffold(
     val selected = MainTab.entries[selectedOrdinal]
     // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
-    var recurringAddNonce by rememberSaveable { mutableIntStateOf(0) }
 
     // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
     // 스크롤 상태를 여기(바깥)에서 만들어 내려보내 탭 전환 후에도 위치를 보존한다.
@@ -137,7 +127,6 @@ fun MainTabScaffold(
     BackHandler(enabled = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main) {
         settingsPane =
             when (settingsPane) {
-                is SettingsPane.RecurringEdit -> SettingsPane.RecurringList
                 is SettingsPane.ArchiveDetail -> SettingsPane.Archive
                 else -> SettingsPane.Main
             }
@@ -214,37 +203,8 @@ fun MainTabScaffold(
                         SettingsPane.Main ->
                             SettingsScreen(
                                 budgetViewModel = budgetViewModel,
-                                onOpenRecurringRules = { settingsPane = SettingsPane.RecurringList },
-                                onOpenCategoryManagement = { settingsPane = SettingsPane.Categories },
                                 onOpenArchive = { settingsPane = SettingsPane.Archive },
                                 onOpenBudget = { settingsPane = SettingsPane.Budget },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        SettingsPane.Categories ->
-                            CategoryManagementScreen(
-                                repository = repository,
-                                onBack = { settingsPane = SettingsPane.Main },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        SettingsPane.RecurringList ->
-                            RecurringRulesListScreen(
-                                repository = repository,
-                                onBack = { settingsPane = SettingsPane.Main },
-                                onAdd = {
-                                    recurringAddNonce++
-                                    settingsPane = SettingsPane.RecurringEdit(ruleId = null)
-                                },
-                                onEdit = { id -> settingsPane = SettingsPane.RecurringEdit(ruleId = id) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        is SettingsPane.RecurringEdit ->
-                            RecurringRuleEditorScreen(
-                                budgetViewModel = budgetViewModel,
-                                repository = repository,
-                                ruleId = pane.ruleId,
-                                onBack = { settingsPane = SettingsPane.RecurringList },
-                                onSaved = { settingsPane = SettingsPane.RecurringList },
-                                nonce = if (pane.ruleId == null) recurringAddNonce else 0,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->
