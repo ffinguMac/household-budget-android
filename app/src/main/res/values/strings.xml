@@ -100,4 +100,6 @@
     <string name="category_section_children">소분류</string>
     <string name="category_save">저장</string>
     <string name="category_cancel">취소</string>
+    <string name="category_ok">확인</string>
+    <string name="category_more_actions">더보기</string>
 </resources>

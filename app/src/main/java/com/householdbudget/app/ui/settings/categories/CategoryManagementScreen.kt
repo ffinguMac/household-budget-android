@@ -3,10 +3,12 @@ package com.householdbudget.app.ui.settings.categories
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,7 +28,10 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -55,6 +60,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -93,6 +99,8 @@ fun CategoryManagementScreen(
 
     Scaffold(
         modifier = modifier,
+        // 바깥 MainTabScaffold 가 이미 시스템 바 인셋을 적용함
+        contentWindowInsets = WindowInsets(0),
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -239,7 +247,7 @@ fun CategoryManagementScreen(
             title = { Text(validationTitle(err)) },
             confirmButton = {
                 TextButton(onClick = { vm.clearError() }) {
-                    Text(stringResource(R.string.category_cancel))
+                    Text(stringResource(R.string.category_ok))
                 }
             },
         )
@@ -251,8 +259,7 @@ fun CategoryManagementScreen(
             initial = "",
             onDismiss = { showAddParent = false },
             onConfirm = { name ->
-                vm.addParent(name)
-                showAddParent = false
+                vm.addParent(name) { showAddParent = false }
             },
         )
     }
@@ -263,8 +270,7 @@ fun CategoryManagementScreen(
             initial = "",
             onDismiss = { addChildForParent = null },
             onConfirm = { name ->
-                vm.addChild(parent.id, name)
-                addChildForParent = null
+                vm.addChild(parent.id, name) { addChildForParent = null }
             },
         )
     }
@@ -275,8 +281,7 @@ fun CategoryManagementScreen(
             initial = target.name,
             onDismiss = { renaming = null },
             onConfirm = { name ->
-                vm.rename(target.id, name)
-                renaming = null
+                vm.rename(target.id, name) { renaming = null }
             },
         )
     }
@@ -397,6 +402,8 @@ private fun ParentRow(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = stringResource(R.string.category_children_count, group.children.size),
@@ -410,16 +417,7 @@ private fun ParentRow(
                 IconButton(onClick = onMoveParentDown) {
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.category_move_down))
                 }
-                IconButton(onClick = onRename) {
-                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.category_rename))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = stringResource(R.string.category_delete),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
+                RowActionsMenu(onRename = onRename, onDelete = onDelete)
             }
 
             if (isExpanded) {
@@ -444,6 +442,8 @@ private fun ParentRow(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             IconButton(onClick = { onMoveChildUp(leaf) }) {
                                 Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.category_move_up))
@@ -451,16 +451,10 @@ private fun ParentRow(
                             IconButton(onClick = { onMoveChildDown(leaf) }) {
                                 Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.category_move_down))
                             }
-                            IconButton(onClick = { onRenameChild(leaf) }) {
-                                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.category_rename))
-                            }
-                            IconButton(onClick = { onDeleteChild(leaf) }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = stringResource(R.string.category_delete),
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            }
+                            RowActionsMenu(
+                                onRename = { onRenameChild(leaf) },
+                                onDelete = { onDeleteChild(leaf) },
+                            )
                         }
                     }
                     Row(
@@ -486,6 +480,31 @@ private fun ParentRow(
                     }
                 }
             }
+        }
+    }
+}
+
+/** 이름 변경/삭제를 ⋮ 메뉴로 묶어 좁은 화면에서 이름 공간을 확보. */
+@Composable
+private fun RowActionsMenu(onRename: () -> Unit, onDelete: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.category_more_actions))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.category_rename)) },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                onClick = { open = false; onRename() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.category_delete), color = MaterialTheme.colorScheme.error) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                onClick = { open = false; onDelete() },
+            )
         }
     }
 }

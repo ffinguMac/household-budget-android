@@ -99,6 +99,7 @@ import com.householdbudget.app.ui.util.formatDigitsGrouped
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 
 /** 소분류가 이 개수를 넘으면 칩 대신 바텀시트 피커를 쓴다. */
 private const val LEAF_SHEET_THRESHOLD = 12
@@ -129,7 +130,6 @@ fun EditTransactionScreen(
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
     val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
     val recentIdsByKind by vm.recentCategoryIdsByKind.collectAsStateWithLifecycle()
-    val zone = remember { ZoneId.of("Asia/Seoul") }
     val today = remember { LocalDate.now(ZoneId.of("Asia/Seoul")) }
 
     val parents = parentsByKind[ui.kind].orEmpty()
@@ -694,7 +694,7 @@ fun EditTransactionScreen(
     }
 
     if (showDatePicker) {
-        val millis = ui.date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val millis = ui.date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() // DatePicker 는 UTC 기준
         val state = rememberDatePickerState(initialSelectedDateMillis = millis)
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -704,7 +704,7 @@ fun EditTransactionScreen(
                         val selected = state.selectedDateMillis
                         if (selected != null) {
                             val picked =
-                                Instant.ofEpochMilli(selected).atZone(zone).toLocalDate()
+                                Instant.ofEpochMilli(selected).atZone(ZoneOffset.UTC).toLocalDate()
                             vm.setDate(picked)
                         }
                         showDatePicker = false
