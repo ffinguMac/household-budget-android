@@ -36,6 +36,12 @@ object AutoClassifier {
     // 이자카야, 발신자 이자영 같은 이름을 이자 수입으로 오인하지 않게 한다.
     private val INTEREST = Regex("이자(?![가-힣])")
 
+    // 스마트스토어·스마트로 같은 가맹점이 마트로 잡히지 않게 한다.
+    private val MART = Regex("(?<!스)마트")
+
+    private fun matches(key: String, word: String) =
+        if (word == "마트") MART.containsMatchIn(key) else key.contains(word)
+
     fun classify(
         parsed: ParsedNotification,
         fullText: String,
@@ -59,7 +65,7 @@ object AutoClassifier {
                     else Decision.RegisterByPath(CHARGE_PATH)
                 }
             }
-            MERCHANT_RULES.firstOrNull { (words, _) -> words.any { key.contains(it) } }
+            MERCHANT_RULES.firstOrNull { (words, _) -> words.any { matches(key, it) } }
                 ?.let { return Decision.RegisterByPath(it.second) }
         }
         if (parsed.direction == Direction.IN && (text.contains("캐시백") || INTEREST.containsMatchIn(fullText))) {

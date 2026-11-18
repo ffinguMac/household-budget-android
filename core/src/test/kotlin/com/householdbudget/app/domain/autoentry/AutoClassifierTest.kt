@@ -33,6 +33,8 @@ class AutoClassifierTest {
         assertEquals(path(EXPENSE, "생활", "구독"), c(17000, OUT, "NETFLIX"))
     }
 
+    @Test fun smartStore_isNotGrocery() =
+        assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(12000, OUT, "스마트스토어가짜"))
     @Test fun unknownMerchant_needsReview() = assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(30000, OUT, "김가짜"))
     @Test fun unknownDirection_needsReview() = assertEquals(Decision.NeedsReview(UNKNOWN_DIRECTION), c(7000, UNKNOWN, "가짜커피"))
     @Test fun learnedRule_beatsBuiltin() =
