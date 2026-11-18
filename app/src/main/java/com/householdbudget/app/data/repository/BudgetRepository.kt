@@ -10,6 +10,7 @@ import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
+import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.data.local.model.DayTotalRow
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.preferences.UserPreferencesRepository
@@ -34,6 +35,7 @@ class BudgetRepository(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val periodResolver: PeriodResolver = PeriodResolver(),
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
+    private val onAutoRecategorized: suspend (transactionId: Long, categoryId: Long) -> Unit = { _, _ -> },
 ) {
     val paydayDom: Flow<Int> = userPreferencesRepository.paydayDom
 
@@ -196,6 +198,9 @@ class BudgetRepository(
                 memo = memo.trim(),
             )
         transactionDao.update(updated)
+        if (existing.source == TransactionSource.AUTO && existing.categoryId != leaf.id) {
+            onAutoRecategorized(id, leaf.id)
+        }
     }
 
     suspend fun deleteTransaction(id: Long) {
