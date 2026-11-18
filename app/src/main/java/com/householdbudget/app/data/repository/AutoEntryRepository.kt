@@ -60,7 +60,8 @@ class AutoEntryRepository(
     private suspend fun process(n: IncomingNotification, watched: Set<String>): HandleOutcome {
         val pkg = n.packageName
         val body = n.bigText.ifEmpty { n.text }
-        val hash = sha256Hex("$pkg\n${n.title}\n$body")
+        // 요약 알림은 자식 알림과 해시가 겹쳐 실제 결제를 DUPLICATE로 삼키지 않게 한다.
+        val hash = sha256Hex((if (n.isGroupSummary) "summary\n" else "") + "$pkg\n${n.title}\n$body")
         if (logDao.countSimilar(pkg, hash, n.postTimeMs - ECHO_WINDOW_MS, n.postTimeMs + ECHO_WINDOW_MS) > 0) {
             return HandleOutcome.DUPLICATE
         }
@@ -89,26 +90,28 @@ class AutoEntryRepository(
                 entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED))
                 return HandleOutcome.IGNORED
             }
-            is Decision.NeedsReview -> return pending(entry, decision.reason)
+            // 모르는 가맹점이라도 다른 앱의 같은 출금이면 DUP_CROSS_APP으로 둬야 일괄 적용 때 두 번 등록되지 않는다.
+            is Decision.NeedsReview ->
+                return pending(entry, if (crossAppDuplicate(entry)) ReviewReason.DUP_CROSS_APP else decision.reason)
             is Decision.RegisterById -> categoryDao.getById(decision.categoryId)
             is Decision.RegisterByPath ->
                 decision.path.let { categoryDao.findLeafByPath(it.kind.storage, it.parent, it.child) }
         } ?: return pending(entry, ReviewReason.UNCLASSIFIED)
 
-        if (parsed.direction == Direction.OUT &&
-            entryDao.countCrossAppOut(
-                parsed.amountMinor, day, pkg,
-                n.postTimeMs - CROSS_APP_WINDOW_MS, n.postTimeMs + CROSS_APP_WINDOW_MS,
-            ) > 0
-        ) {
-            return pending(entry, ReviewReason.DUP_CROSS_APP)
-        }
+        if (crossAppDuplicate(entry)) return pending(entry, ReviewReason.DUP_CROSS_APP)
         if (transactionDao.countManualMatch(day, parsed.amountMinor, leaf.kind) > 0) {
             return pending(entry, ReviewReason.DUP_MANUAL)
         }
         register(entry.copy(id = entryDao.insert(entry)), leaf)
         return HandleOutcome.REGISTERED
     }
+
+    private suspend fun crossAppDuplicate(e: AutoEntryEntity): Boolean =
+        e.direction == Direction.OUT.name &&
+            entryDao.countCrossAppOut(
+                e.amountMinor, e.occurredEpochDay, e.packageName,
+                e.postedAtMs - CROSS_APP_WINDOW_MS, e.postedAtMs + CROSS_APP_WINDOW_MS,
+            ) > 0
 
     /** 규칙의 카테고리가 DB에 없으면 규칙이 없는 것으로 본다. */
     private suspend fun learnedRule(key: String, direction: String): LearnedRule? {

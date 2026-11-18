@@ -90,6 +90,13 @@ class AutoEntryRepositoryTest {
         assertEquals(0, txCount())
     }
 
+    @Test fun groupSummaryFirst_doesNotSwallowChild() = runBlocking {
+        val summary = IncomingNotification(CARD, "s1", T0, "가짜카드", "승인 4,500원\n가짜커피", "", isGroupSummary = true)
+        assertEquals(HandleOutcome.LOGGED_ONLY, handle(summary))
+        assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피", "k1", T0 + 1_000)))
+        assertEquals(1, txCount())
+    }
+
     @Test fun builtinMerchant_isRegisteredAsAutoTransaction() = runBlocking {
         assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피 강남점")))
         assertEquals(1, txCount())
@@ -194,6 +201,15 @@ class AutoEntryRepositoryTest {
         assertEquals(HandleOutcome.PENDING, handle(n(KBANK, "출금 12,000원", "가짜마트 | 가짜통장(1234)", "k2", T0 + 120_000)))
         assertEquals("DUP_CROSS_APP", pending().single().reason)
         assertEquals(1, txCount())
+    }
+
+    @Test fun crossApp_unknownMerchant_resolvingOne_createsOneTransaction() = runBlocking {
+        assertEquals(HandleOutcome.PENDING, handle(n(CARD, "가짜카드", "승인 7,000원\n김가짜")))
+        assertEquals(HandleOutcome.PENDING, kimOut("k2", T0 + 120_000, "7,000"))
+        assertEquals("DUP_CROSS_APP", pending().single { it.packageName == KBANK }.reason)
+        repo.resolvePending(pending().single { it.packageName == CARD }.id, leafId("EXPENSE", "유동 지출", "기본"))
+        assertEquals(1, txCount())
+        assertEquals(KBANK, pending().single().packageName)
     }
 
     @Test fun crossApp_after5Min_isRegistered() = runBlocking {
