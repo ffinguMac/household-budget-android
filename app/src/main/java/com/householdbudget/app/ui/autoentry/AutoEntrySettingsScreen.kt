@@ -28,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -50,7 +51,9 @@ import com.householdbudget.app.ui.settings.SettingsActionRow
 import com.householdbudget.app.ui.settings.SettingsGroupPanel
 import com.householdbudget.app.ui.settings.SettingsRowDivider
 import com.householdbudget.app.ui.theme.Space
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AutoEntrySettingsScreen(
@@ -73,7 +76,7 @@ fun AutoEntrySettingsScreen(
     val pendingCount by repo.observePendingCount().collectAsStateWithLifecycle(initialValue = 0)
     val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
     val rules by repo.observeRules().collectAsStateWithLifecycle(initialValue = emptyList())
-    val apps = remember(context) { loadSelectableApps(context) }
+    val apps by produceState(emptyList<AppInfo>()) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
     val watched = WatchedApps.effective(stored, context)
 
     LazyColumn(
@@ -148,8 +151,10 @@ fun AutoEntrySettingsScreen(
                         Switch(
                             checked = app.packageName in watched,
                             onCheckedChange = { on ->
-                                val next = if (on) watched + app.packageName else watched - app.packageName
-                                scope.launch { prefs.setWatchedPackages(next) }
+                                scope.launch {
+                                    val defaults = withContext(Dispatchers.IO) { WatchedApps.defaults(context) }
+                                    prefs.toggleWatchedPackage(app.packageName, on, defaults)
+                                }
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

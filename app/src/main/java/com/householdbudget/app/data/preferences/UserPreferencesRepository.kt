@@ -87,6 +87,14 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[WATCHED_PACKAGES] = value }
     }
 
+    /** 읽고-고치고-쓰기를 한 트랜잭션에서 해 연속 토글이 서로 덮어쓰지 않게 한다. */
+    suspend fun toggleWatchedPackage(pkg: String, on: Boolean, defaults: Set<String>) {
+        dataStore.edit {
+            val current = it[WATCHED_PACKAGES] ?: defaults
+            it[WATCHED_PACKAGES] = if (on) current + pkg else current - pkg
+        }
+    }
+
     companion object {
         private val WATCHED_PACKAGES = stringSetPreferencesKey("auto_entry_watched_packages")
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
