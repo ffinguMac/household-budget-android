@@ -34,10 +34,13 @@ object NotificationParsers {
     private val SPACES = Regex("""\s+""")
     private const val PIECE_TRIM = "[]()·,.:-"
 
+    const val TITLE_CAP = 200
+    const val BODY_CAP = 2000
+
     /** body = bigText가 비어 있지 않으면 bigText, 아니면 text. 금액을 못 찾으면 null. */
     fun parse(packageName: String, rawTitle: String, rawBody: String): ParsedNotification? {
-        val title = rawTitle.take(200)
-        val body = rawBody.take(2000)
+        val title = rawTitle.take(TITLE_CAP)
+        val body = rawBody.take(BODY_CAP)
         if (packageName == KBANK_PACKAGE) parseKbankDeposit(title, body)?.let { return it }
         return parseGeneric(title, body)
     }

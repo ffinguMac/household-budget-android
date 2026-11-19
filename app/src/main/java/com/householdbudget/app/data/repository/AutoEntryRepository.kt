@@ -76,13 +76,14 @@ class AutoEntryRepository(
 
         val parsed = NotificationParsers.parse(pkg, n.title, body) ?: return HandleOutcome.LOGGED_ONLY
         // 같은 알림이 제자리에서 갱신(잔액 덧붙음 등)되면 해시가 달라도 같은 거래로 본다.
-        if (entryDao.countSameNotificationKey(
-                pkg, n.key, parsed.amountMinor, parsed.direction.name,
-                n.postTimeMs - CROSS_APP_WINDOW_MS, n.postTimeMs + CROSS_APP_WINDOW_MS,
-            ) > 0
-        ) {
-            return HandleOutcome.DUPLICATE
-        }
+        // 앞 문구를 품지 않으면 알림 id를 하나만 쓰는 앱의 다른 결제일 수 있어 확인 필요로 보낸다.
+        // shortcut: id 고정 앱이 똑같은 문구를 10초~5분 간격으로 두 번 보내면 재게시와 구분 못 해 DUPLICATE로 본다, 원본 로그에서 이런 일이 보이면 고친다.
+        val sameKeyTexts = entryDao.textsWithSameNotificationKey(
+            pkg, n.key, parsed.amountMinor, parsed.direction.name,
+            n.postTimeMs - CROSS_APP_WINDOW_MS, n.postTimeMs + CROSS_APP_WINDOW_MS,
+        )
+        val newText = "${n.title.take(NotificationParsers.TITLE_CAP)}\n${body.take(NotificationParsers.BODY_CAP)}"
+        if (sameKeyTexts.any { it in newText }) return HandleOutcome.DUPLICATE
         val key = MerchantNormalizer.normalize(parsed.merchant)
         val learned = if (key.isEmpty()) null else learnedRule(key, parsed.direction.name)
         val decision = AutoClassifier.classify(parsed, "${n.title}\n$body", pkg, watched, learned)
@@ -93,6 +94,7 @@ class AutoEntryRepository(
             amountMinor = parsed.amountMinor, direction = parsed.direction.name,
             merchant = parsed.merchant, merchantKey = key, status = AutoEntryStatus.PENDING,
         )
+        if (sameKeyTexts.isNotEmpty()) return pending(entry, ReviewReason.DUP_REPOST)
         val leaf = when (decision) {
             Decision.Ignore -> {
                 entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED))

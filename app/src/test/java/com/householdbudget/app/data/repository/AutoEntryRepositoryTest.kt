@@ -137,6 +137,17 @@ class AutoEntryRepositoryTest {
         assertEquals(1, count("auto_entries"))
     }
 
+    @Test fun sameKeyDifferentPayment_within5Min_goesToReview() = runBlocking {
+        assertEquals(HandleOutcome.PENDING, kimOut(amount = "10,000"))
+        repo.resolvePending(pending().single().id, leafId("EXPENSE", "유동 지출", "기본"))
+        // 알림 id를 하나만 쓰는 앱: 키는 같지만 다른 결제다.
+        val lee = n(KBANK, "출금 10,000원", "이가짜 | 가짜통장(1234)", "k1", T0 + 30_000)
+        assertEquals(HandleOutcome.PENDING, handle(lee))
+        assertEquals(1, txCount())
+        assertEquals(2, count("auto_entries"))
+        assertEquals("DUP_REPOST", pending().single().reason)
+    }
+
     @Test fun differentKeySameText_afterEchoWindow_isStillTwoPayments() = runBlocking {
         handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피"))
         assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피", "k2", T0 + 30_000)))

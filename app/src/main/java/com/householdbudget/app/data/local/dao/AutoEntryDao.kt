@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.householdbudget.app.data.local.entity.AutoEntryEntity
+import com.householdbudget.app.domain.autoentry.NotificationParsers
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -38,14 +39,15 @@ interface AutoEntryDao {
     )
     suspend fun countCrossAppOut(amountMinor: Long, epochDay: Long, excludePackage: String, fromMs: Long, toMs: Long): Int
 
-    /** 같은 알림(앱·키)이 내용만 바뀌어 다시 올라온 경우를 찾는다. 상태와 상관없이 센다. */
+    /** 같은 알림(앱·키)으로 앞서 온 알림의 "제목\n본문"(파서와 같은 길이로 자름). 상태와 상관없이 찾는다. */
     @Query(
-        "SELECT COUNT(*) FROM auto_entries e JOIN notification_log l ON l.id = e.log_id " +
+        "SELECT substr(l.title, 1, ${NotificationParsers.TITLE_CAP}) || char(10) || " +
+            "substr(l.body, 1, ${NotificationParsers.BODY_CAP}) FROM auto_entries e JOIN notification_log l ON l.id = e.log_id " +
             "WHERE l.package_name = :packageName AND l.notification_key = :notificationKey " +
             "AND e.amount_minor = :amountMinor AND e.direction = :direction " +
             "AND e.posted_at_ms BETWEEN :fromMs AND :toMs",
     )
-    suspend fun countSameNotificationKey(
+    suspend fun textsWithSameNotificationKey(
         packageName: String, notificationKey: String, amountMinor: Long, direction: String, fromMs: Long, toMs: Long,
-    ): Int
+    ): List<String>
 }
