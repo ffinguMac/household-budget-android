@@ -28,4 +28,7 @@
     <string name="auto_reason_direction">입금인지 출금인지 몰라요</string>
     <string name="auto_reason_unclassified">어디에 쓴 돈인지 몰라요</string>
     <string name="auto_skip">기록 안 함</string>
+    <string name="auto_watched_more">다른 앱 추가</string>
+    <string name="auto_watched_less">다른 앱 접기</string>
+    <string name="auto_watched_none">설치된 금융 앱이 없어요</string>
 </resources>

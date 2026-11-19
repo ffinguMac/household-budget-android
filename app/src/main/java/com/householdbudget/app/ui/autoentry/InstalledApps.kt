@@ -15,6 +15,10 @@ fun sortSelectableApps(apps: List<AppInfo>, known: List<String>): List<AppInfo> 
     return knownApps.sortedBy { known.indexOf(it.packageName) } + others.sortedBy { it.label }
 }
 
+/** (기본으로 보일 앱, 나머지). 입력 순서를 유지한다. */
+fun splitWatchableApps(apps: List<AppInfo>, watched: Set<String>, known: List<String>): Pair<List<AppInfo>, List<AppInfo>> =
+    apps.partition { it.packageName in known || it.packageName in watched || it.packageName == WatchedApps.SHELL_PACKAGE }
+
 fun loadSelectableApps(context: Context): List<AppInfo> {
     val pm = context.packageManager
     val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
