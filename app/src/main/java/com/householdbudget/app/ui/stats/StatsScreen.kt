@@ -255,7 +255,7 @@ private data class WeekSpend(
     val expenseMinor: Long,
 )
 
-private data class ParentSpend(
+internal data class ParentSpend(
     val parentId: Long,
     val name: String,
     val currentMinor: Long,
