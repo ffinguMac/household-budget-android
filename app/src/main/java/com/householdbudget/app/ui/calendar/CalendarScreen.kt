@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -55,6 +56,7 @@ import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatDayLabel
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -80,8 +82,13 @@ fun CalendarScreen(
     // Sunday-first: SUN=7 → 7%7=0, MON=1 → 1%7=1, ..., SAT=6 → 6%7=6
     val offset = first.dayOfWeek.value % 7
     val daysInMonth = ym.lengthOfMonth()
-    // 월급 받는 날 (31일이 없는 달은 말일로 조정 — PeriodResolver 와 동일한 클램프 규칙)
-    val paydayDay = minOf(paydayDom, daysInMonth)
+    // 보정된 월급날. 월급일 1~5일은 앞 달 날짜가 이 달에 들어올 수 있어 이번·다음 달 것을 모두 본다.
+    val paydayDays = remember(ym, paydayDom) {
+        val r = PeriodResolver()
+        listOf(r.paydayInMonth(ym, paydayDom), r.paydayInMonth(ym.plusMonths(1), paydayDom))
+            .filter { YearMonth.from(it) == ym }
+            .map { it.dayOfMonth }
+    }
     val totalCells = ((offset + daysInMonth + 6) / 7) * 7
     val weekLabels = stringArrayResource(R.array.cal_weekdays)
 
@@ -186,7 +193,7 @@ fun CalendarScreen(
                                     inMonth = inMonth,
                                     isToday = isToday,
                                     isSelected = isSelected,
-                                    isPayday = inMonth && dayNum == paydayDay,
+                                    isPayday = inMonth && dayNum in paydayDays,
                                     hasIncome = (t?.incomeMinor ?: 0L) > 0L,
                                     hasExpense = (t?.expenseMinor ?: 0L) > 0L,
                                     hasSavings = (t?.savingsMinor ?: 0L) > 0L,
