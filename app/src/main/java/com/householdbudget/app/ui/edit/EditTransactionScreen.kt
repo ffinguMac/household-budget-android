@@ -87,6 +87,7 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.EditTransactionViewModel
+import com.householdbudget.app.ui.autoCategorySelection
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
@@ -146,23 +147,10 @@ fun EditTransactionScreen(
             .mapNotNull { id -> leavesById[id]?.takeIf { it.parentId != null } }
 
     // 최초 로드 또는 kind 변경 시 대분류/소분류 자동 선택.
-    LaunchedEffect(parents, leaves, ui.parentId, ui.categoryId, ui.loadFinished) {
+    LaunchedEffect(parents, childrenByParent, ui.parentId, ui.categoryId, ui.loadFinished) {
         if (!ui.loadFinished) return@LaunchedEffect
-        val currentParentId = ui.parentId
-        val pickedParent =
-            if (currentParentId != null && parents.any { it.id == currentParentId }) currentParentId
-            else parents.firstOrNull()?.id
-        if (pickedParent == null) return@LaunchedEffect
-        val leavesForPicked = childrenByParent[pickedParent].orEmpty()
-        val currentLeafId = ui.categoryId
-        val pickedLeaf =
-            if (currentLeafId != null && leavesForPicked.any { it.id == currentLeafId }) {
-                leavesForPicked.first { it.id == currentLeafId }
-            } else {
-                leavesForPicked.firstOrNull()
-            }
-        if (pickedParent != currentParentId || pickedLeaf?.id != currentLeafId) {
-            vm.setParent(pickedParent, pickedLeaf)
+        autoCategorySelection(parents, childrenByParent, ui.parentId, ui.categoryId)?.let { (p, leafId) ->
+            vm.setParent(p, childrenByParent[p]?.firstOrNull { it.id == leafId })
         }
     }
 
