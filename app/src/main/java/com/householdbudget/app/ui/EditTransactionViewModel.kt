@@ -178,6 +178,7 @@ class EditTransactionViewModel(
     }
 
     fun save(onSuccess: () -> Unit, onInvalid: () -> Unit) {
+        if (_uiState.value.isSaving) return
         val s = _uiState.value
         val amount = s.amountText.toLongOrNull() ?: 0L
         val categoryId = s.categoryId
@@ -185,8 +186,8 @@ class EditTransactionViewModel(
             onInvalid()
             return
         }
+        _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
             try {
                 if (transactionId == null) {
                     repository.insertTransaction(
@@ -204,22 +205,25 @@ class EditTransactionViewModel(
                         memo = s.memo,
                     )
                 }
-                onSuccess()
-            } finally {
+                onSuccess() // 성공 뒤에도 isSaving을 풀지 않는다: 화면이 닫히는 동안 중복 탭 방지
+            } catch (e: Throwable) {
                 _uiState.update { it.copy(isSaving = false) }
+                throw e
             }
         }
     }
 
     fun delete(onSuccess: () -> Unit) {
         val id = transactionId ?: return
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
             try {
                 repository.deleteTransaction(id)
                 onSuccess()
-            } finally {
+            } catch (e: Throwable) {
                 _uiState.update { it.copy(isSaving = false) }
+                throw e
             }
         }
     }
@@ -243,4 +247,17 @@ class EditTransactionViewModelFactory(
         }
         throw IllegalArgumentException("Unknown ViewModel: $modelClass")
     }
+}
+
+/** 자동으로 고를 (대분류 id, 소분류 id). null = 지금 선택을 그대로 둔다. */
+internal fun autoCategorySelection(
+    parents: List<CategoryEntity>,
+    childrenByParent: Map<Long, List<CategoryEntity>>,
+    parentId: Long?,
+    categoryId: Long?,
+): Pair<Long, Long?>? {
+    if (categoryId != null || parents.isEmpty() || childrenByParent.isEmpty()) return null
+    val parent = parentId?.takeIf { id -> parents.any { it.id == id } } ?: parents.first().id
+    val leaf = childrenByParent[parent]?.firstOrNull()?.id
+    return (parent to leaf).takeIf { it != (parentId to null) }
 }
