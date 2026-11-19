@@ -2,119 +2,94 @@ package com.householdbudget.app.ui.stats
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.householdbudget.app.R
+import com.householdbudget.app.ui.theme.categoryStyleOf
 import java.util.Locale
 
 // ──────────────────────────────────────────────────────────────────────────
-// 머니 맵: Finviz 스타일 squarified treemap.
-// 색은 데이터 시각화 전용(전월 대비 증감 구간)이라 예외적으로 여기서만 하드코딩한다.
+// 머니 맵: squarified treemap. 타일 색은 카테고리 색(categoryStyleOf),
+// 면적은 지출 금액. 전월 대비는 큰 타일에 글자(▲/▼)로만 보여준다.
 // ──────────────────────────────────────────────────────────────────────────
 
-/** 트리맵 타일 하나. [key]는 탭 콜백 식별자 (null = 탭 무시 대상). */
-data class MapTile(
-    val label: String,
-    val amountMinor: Long,
-    val color: Color,
-    val onColor: Color,
-    val key: Long?,
-)
+private data class PlacedTile(val tile: MapRow, val rect: Rect)
 
-/** [mergeSmallTiles] 결과: 최종 타일 목록 + "기타"로 합쳐진 원본 key 들. */
-data class MergedTiles(
-    val tiles: List<MapTile>,
-    val mergedKeys: List<Long?>,
-)
-
-/**
- * 전체 대비 [minFraction] 미만인 타일을 하나의 "기타" 타일로 합친다.
- * 합칠 대상이 1개뿐이면 그대로 둔다 (이름만 바뀌는 무의미한 병합 방지).
- *
- * @param totalMinor 비율 계산 기준 총액. null 이면 [tiles] 합계.
- */
-fun mergeSmallTiles(
-    tiles: List<MapTile>,
-    otherLabel: String,
-    otherColor: Color,
-    otherOnColor: Color,
-    otherKey: Long?,
-    totalMinor: Long? = null,
-    minFraction: Double = 0.015,
-): MergedTiles {
-    val total = (totalMinor ?: tiles.sumOf { it.amountMinor }).coerceAtLeast(1L)
-    val (small, big) = tiles.partition { it.amountMinor.toDouble() / total < minFraction }
-    if (small.size < 2) return MergedTiles(tiles = tiles, mergedKeys = emptyList())
-    val merged =
-        MapTile(
-            label = otherLabel,
-            amountMinor = small.sumOf { it.amountMinor },
-            color = otherColor,
-            onColor = otherOnColor,
-            key = otherKey,
-        )
-    return MergedTiles(tiles = big + merged, mergedKeys = small.map { it.key })
-}
-
-private data class PlacedTile(val tile: MapTile, val rect: Rect)
-
-private data class RenderTile(
+private class RenderTile(
+    /** 간격만큼 줄인 사각형. */
     val rect: Rect,
     val color: Color,
-    val onColor: Color,
-    val labelLayout: TextLayoutResult?,
-    val amountLayout: TextLayoutResult?,
+    /** 위에서부터 쌓을 줄들(타일 높이를 넘는 줄은 이미 뺐다). SMALL 타일은 가운데 놓을 이모지 하나. */
+    val lines: List<TextLayoutResult>,
+    val centered: Boolean,
 )
 
 /**
- * squarified treemap 캔버스. 값이 큰 타일부터 배치하며 각 행의 worst aspect ratio 를
- * 최소화한다 (Bruls et al.). amountMinor <= 0 인 타일은 그리지 않는다.
+ * 지출 대분류 트리맵. [rows]는 [buildMapRows] 결과(금액 > 0, 내림차순).
+ * 타일 크기(dp)에 따라 [tileTier]로 글자 양을 정한다.
  */
 @Composable
-fun MoneyMap(
-    tiles: List<MapTile>,
-    onTileClick: (Long?) -> Unit,
+internal fun MoneyMap(
+    rows: List<MapRow>,
+    onTileClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val labelStyle =
-        MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-    val amountStyle = MaterialTheme.typography.labelSmall
+    val typography = MaterialTheme.typography
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val deltas = rows.map { deltaDisplay(it.deltaPercent) }
+    val descriptions =
+        rows.map { row ->
+            val amount = compactAmountLabel(row.amountMinor)
+            val pct = row.deltaPercent
+            when {
+                pct == null -> stringResource(R.string.stats_map_tile_desc_flat, row.name, amount)
+                pct > 0 -> stringResource(R.string.stats_map_tile_desc_up, row.name, amount, pct)
+                else -> stringResource(R.string.stats_map_tile_desc_down, row.name, amount, -pct)
+            }
+        }
 
-    // 배치 + 텍스트 측정은 (타일, 크기) 가 바뀔 때만 다시 계산한다 — 리컴포지션마다
+    // 배치 + 텍스트 측정은 (행, 크기)가 바뀔 때만 다시 계산한다 — 리컴포지션마다
     // squarify/measure 를 반복하지 않는 것이 이 화면 성능의 핵심.
     val placements =
-        remember(tiles, canvasSize) {
+        remember(rows, canvasSize) {
             if (canvasSize.width > 0 && canvasSize.height > 0) {
                 squarifiedLayout(
-                    tiles = tiles,
+                    tiles = rows,
                     width = canvasSize.width.toFloat(),
                     height = canvasSize.height.toFloat(),
                 )
@@ -123,57 +98,73 @@ fun MoneyMap(
             }
         }
     val renderTiles =
-        remember(placements, textMeasurer, labelStyle, amountStyle, density) {
+        remember(placements, deltas, textMeasurer, typography, onSurface, onSurfaceVariant, density) {
+            fun TextStyle.on() = copy(color = onSurface)
+            val bigEmoji = typography.titleMedium.on()
+            val bigName = typography.bodySmall.on()
+            val bigAmount = typography.titleMedium.copy(fontWeight = FontWeight.Bold).on()
+            val bigMeta = typography.labelSmall.on()
+            val midEmoji = typography.titleSmall.on()
+            val midName = typography.labelSmall.on()
+            val midAmount = typography.bodySmall.copy(fontWeight = FontWeight.Bold).on()
             with(density) {
-                val gap = 3.dp.toPx()
-                val minLabelW = 64.dp.toPx()
-                val minLabelH = 40.dp.toPx()
-                val pad = 6.dp.toPx()
-                placements.map { placed ->
+                val inset = 3.dp.toPx()
+                val pad = 8.dp.toPx()
+                placements.mapIndexed { index, placed ->
+                    val row = placed.tile
+                    val style = categoryStyleOf(row.name)
                     val inner =
-                        if (placed.rect.width > gap && placed.rect.height > gap) {
-                            placed.rect.deflate(gap / 2f)
+                        if (placed.rect.width > inset * 2 && placed.rect.height > inset * 2) {
+                            placed.rect.deflate(inset)
                         } else {
                             placed.rect
                         }
-                    val showLabel = inner.width >= minLabelW && inner.height >= minLabelH
                     val maxTextWidth = (inner.width - pad * 2).toInt().coerceAtLeast(0)
-                    RenderTile(
-                        rect = inner,
-                        color = placed.tile.color,
-                        onColor = placed.tile.onColor,
-                        labelLayout =
-                            if (showLabel && maxTextWidth > 0) {
-                                measureSingleLine(
-                                    textMeasurer,
-                                    placed.tile.label,
-                                    labelStyle,
-                                    maxTextWidth,
-                                )
-                            } else {
-                                null
-                            },
-                        amountLayout =
-                            if (showLabel && maxTextWidth > 0) {
-                                measureSingleLine(
-                                    textMeasurer,
-                                    compactAmountLabel(placed.tile.amountMinor),
-                                    amountStyle,
-                                    maxTextWidth,
-                                )
-                            } else {
-                                null
-                            },
-                    )
+                    fun line(text: AnnotatedString, textStyle: TextStyle) =
+                        measureSingleLine(textMeasurer, text, textStyle, maxTextWidth)
+                    val tier = tileTier(placed.rect.width.toDp().value, placed.rect.height.toDp().value)
+                    if (tier == TileTier.SMALL || maxTextWidth == 0) {
+                        val emoji =
+                            measureSingleLine(
+                                textMeasurer,
+                                AnnotatedString(style.emoji),
+                                midEmoji,
+                                inner.width.toInt(),
+                            )
+                        val fits = minOf(inner.width, inner.height) >=
+                            maxOf(emoji.size.width, emoji.size.height)
+                        RenderTile(inner, style.color, if (fits) listOf(emoji) else emptyList(), true)
+                    } else {
+                        val big = tier == TileTier.BIG
+                        val amount = AnnotatedString(compactAmountLabel(row.amountMinor))
+                        val layouts = buildList {
+                            add(line(AnnotatedString(style.emoji), if (big) bigEmoji else midEmoji))
+                            add(line(AnnotatedString(row.name), if (big) bigName else midName))
+                            add(line(amount, if (big) bigAmount else midAmount))
+                            if (big) {
+                                val (deltaText, deltaTint) = deltas[index]
+                                val meta = buildAnnotatedString {
+                                    withStyle(SpanStyle(color = onSurfaceVariant)) {
+                                        append("${row.sharePercent}% ")
+                                    }
+                                    withStyle(SpanStyle(color = deltaTint)) { append(deltaText) }
+                                }
+                                add(line(meta, bigMeta))
+                            }
+                        }
+                        // 다음 줄이 타일 높이를 넘으면 그 줄부터 생략한다.
+                        var y = pad
+                        val fitted = layouts.takeWhile { layout ->
+                            (y + layout.size.height <= inner.height).also { if (it) y += layout.size.height }
+                        }
+                        RenderTile(inner, style.color, fitted, false)
+                    }
                 }
             }
         }
     val mapDescription =
-        remember(tiles) {
-            tiles
-                .filter { it.amountMinor > 0 }
-                .sortedByDescending { it.amountMinor }
-                .joinToString(", ") { "${it.label} ${compactAmountLabel(it.amountMinor)}" }
+        remember(rows, descriptions) {
+            rows.indices.sortedByDescending { rows[it].amountMinor }.joinToString(", ") { descriptions[it] }
         }
 
     Canvas(
@@ -189,35 +180,38 @@ fun MoneyMap(
                     }
                 },
     ) {
-        val corner = CornerRadius(4.dp.toPx())
-        val pad = 6.dp.toPx()
+        val corner = CornerRadius(14.dp.toPx())
+        val strokeWidth = 1.5.dp.toPx()
+        val pad = 8.dp.toPx()
         renderTiles.forEach { tile ->
+            val topLeft = Offset(tile.rect.left, tile.rect.top)
+            val size = Size(tile.rect.width, tile.rect.height)
+            drawRoundRect(tile.color.copy(alpha = 0.15f), topLeft, size, corner)
+            // 테두리는 사각형 안쪽에 그려지도록 선 두께 절반만큼 들인다.
+            val half = strokeWidth / 2f
             drawRoundRect(
-                color = tile.color,
-                topLeft = Offset(tile.rect.left, tile.rect.top),
-                size = Size(tile.rect.width, tile.rect.height),
-                cornerRadius = corner,
+                color = tile.color.copy(alpha = 0.5f),
+                topLeft = Offset(topLeft.x + half, topLeft.y + half),
+                size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                cornerRadius = CornerRadius(corner.x - half),
+                style = Stroke(strokeWidth),
             )
-            val label = tile.labelLayout
-            if (label != null) {
-                drawText(
-                    textLayoutResult = label,
-                    color = tile.onColor,
-                    topLeft = Offset(tile.rect.left + pad, tile.rect.top + pad),
-                )
-                val amount = tile.amountLayout
-                if (amount != null &&
-                    pad + label.size.height + amount.size.height <= tile.rect.height
-                ) {
+            if (tile.centered) {
+                tile.lines.firstOrNull()?.let { emoji ->
                     drawText(
-                        textLayoutResult = amount,
-                        color = tile.onColor.copy(alpha = 0.8f),
+                        textLayoutResult = emoji,
                         topLeft =
                             Offset(
-                                tile.rect.left + pad,
-                                tile.rect.top + pad + label.size.height,
+                                tile.rect.center.x - emoji.size.width / 2f,
+                                tile.rect.center.y - emoji.size.height / 2f,
                             ),
                     )
+                }
+            } else {
+                var y = tile.rect.top + pad
+                tile.lines.forEach { layout ->
+                    drawText(textLayoutResult = layout, topLeft = Offset(tile.rect.left + pad, y))
+                    y += layout.size.height
                 }
             }
         }
@@ -226,12 +220,12 @@ fun MoneyMap(
 
 private fun measureSingleLine(
     measurer: TextMeasurer,
-    text: String,
+    text: AnnotatedString,
     style: TextStyle,
     maxWidthPx: Int,
 ): TextLayoutResult =
     measurer.measure(
-        text = AnnotatedString(text),
+        text = text,
         style = style,
         overflow = TextOverflow.Ellipsis,
         softWrap = false,
@@ -259,7 +253,7 @@ internal fun compactAmountLabel(minor: Long): String =
  * 행의 worst aspect ratio 가 나빠지기 직전까지 타일을 채워 넣는다.
  */
 private fun squarifiedLayout(
-    tiles: List<MapTile>,
+    tiles: List<MapRow>,
     width: Float,
     height: Float,
 ): List<PlacedTile> {
