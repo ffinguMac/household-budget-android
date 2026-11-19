@@ -18,13 +18,6 @@ class AppLockGateTest {
         assertEquals(LockGateState.OPEN, lockGateState(false, false, true))
     }
 
-    @Test fun shouldComposeContent_keepsContentWhileRelocked() {
-        assertTrue(shouldComposeContent(LockGateState.OPEN, everUnlocked = false))
-        assertFalse(shouldComposeContent(LockGateState.LOCKED, everUnlocked = false)) // 첫 잠금: 내용 없음
-        assertTrue(shouldComposeContent(LockGateState.LOCKED, everUnlocked = true)) // 다시 잠김: 상태 보존
-        assertFalse(shouldComposeContent(LockGateState.LOADING, everUnlocked = true))
-    }
-
     @Test fun shouldRelockAfterBackground_onlyFromSixtySeconds() {
         assertEquals(60_000L, RELOCK_AFTER_BACKGROUND_MILLIS)
         assertFalse(shouldRelockAfterBackground(0L))

@@ -2,8 +2,8 @@ package com.householdbudget.app.security
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import android.os.SystemClock
-import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,12 +27,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -58,20 +57,12 @@ internal fun lockGateState(lockEnabled: Boolean?, unlocked: Boolean, canAuthenti
         else -> LockGateState.OPEN
     }
 
-/** 잠금 화면 뒤에 앱 내용을 컴포지션에 둘지. 한 번도 안 풀렸으면 두지 않는다. */
-internal fun shouldComposeContent(state: LockGateState, everUnlocked: Boolean): Boolean =
-    when (state) {
-        LockGateState.LOADING -> false
-        LockGateState.LOCKED -> everUnlocked
-        LockGateState.OPEN -> true
-    }
-
 /**
  * 화면 잠금 게이트. [UserPreferencesRepository.appLockEnabled] 가 켜져 있으면
  * 생체 인증(또는 기기 잠금 자격 증명) 성공 전까지 잠금 화면을 보여준다.
  * 기기가 인증을 지원하지 않으면 잠그지 않고 바로 [content] 를 렌더한다.
- * 백그라운드에 [RELOCK_AFTER_BACKGROUND_MILLIS] 이상 있다 돌아오면 다시 잠근다. 한 번 풀린 뒤에는
- * 입력 중이던 내용·화면 위치를 지키려고 [content] 를 그대로 두고 불투명한 잠금 화면으로 덮는다.
+ * 백그라운드에 [RELOCK_AFTER_BACKGROUND_MILLIS] 이상 있다 돌아오면 다시 잠근다. 잠긴 동안 [content] 는
+ * 컴포지션에서 빠지고(별도 창인 다이얼로그·메뉴도 닫힘), 저장 가능한 상태·내비게이션·ViewModel 은 유지된다.
  */
 @Composable
 fun AppLockGate(
@@ -80,7 +71,6 @@ fun AppLockGate(
 ) {
     val lockEnabled by preferences.appLockEnabled.collectAsState(initial = null)
     var unlocked by remember { mutableStateOf(false) }
-    var everUnlocked by remember { mutableStateOf(false) }
     // 다시 잠글 때마다 올려서, 이미 잠긴 채 오래 나갔다 와도 프롬프트를 다시 띄운다.
     var relockCount by remember { mutableIntStateOf(0) }
     var stoppedAtMillis by remember { mutableStateOf<Long?>(null) }
@@ -88,7 +78,7 @@ fun AppLockGate(
 
     LifecycleStartEffect(Unit) {
         val stoppedAt = stoppedAtMillis
-        if (stoppedAt != null && shouldRelockAfterBackground(SystemClock.elapsedRealtime() - stoppedAt)) {
+        if (lockEnabled == true && stoppedAt != null && shouldRelockAfterBackground(SystemClock.elapsedRealtime() - stoppedAt)) {
             unlocked = false
             relockCount++
             focusManager.clearFocus(force = true) // 키보드가 잠금 화면 위에 남지 않게
@@ -108,6 +98,14 @@ fun AppLockGate(
                 BiometricManager.BIOMETRIC_SUCCESS
         }
 
+    // 잠금 중 최근 앱 화면에 내용이 비치지 않게 한다. 스크린샷은 막지 않으려고 FLAG_SECURE 는 쓰지 않는다.
+    LaunchedEffect(activity, lockEnabled) {
+        val enabled = lockEnabled ?: return@LaunchedEffect
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity?.setRecentsScreenshotEnabled(!enabled)
+        }
+    }
+
     val state = lockGateState(lockEnabled, unlocked, canAuthenticate)
     val background = MaterialTheme.colorScheme.background
     if (state == LockGateState.LOADING) {
@@ -116,10 +114,7 @@ fun AppLockGate(
     }
 
     val promptTitle = stringResource(R.string.app_lock_prompt_title)
-    val onUnlocked = {
-        unlocked = true
-        everUnlocked = true
-    }
+    val onUnlocked = { unlocked = true }
     val launchPrompt = launchPrompt@{
         // FragmentActivity 를 못 찾으면 프롬프트 없이 버튼 fallback 으로 해제 (크래시 금지).
         val fragmentActivity = activity ?: run {
@@ -154,35 +149,29 @@ fun AppLockGate(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        if (shouldComposeContent(state, everUnlocked)) {
-            // 호출 위치가 잠김/열림에서 같아야 상태가 유지된다. 잠긴 동안 TalkBack 이 뒤 내용을 읽지 못하게 한다.
-            Box(if (state == LockGateState.LOCKED) Modifier.clearAndSetSemantics { } else Modifier) {
-                content()
-            }
-        }
-        if (state == LockGateState.LOCKED) {
-            // content() 뒤에 둬서 잠긴 동안 뒤로 가기가 뒤 화면을 조작하지 못하게 한다.
-            BackHandler(enabled = true) { activity?.moveTaskToBack(true) }
-            // Surface 가 뒤 내용으로 가는 터치를 막는다.
-            Surface(Modifier.fillMaxSize(), color = background) {
-                Box(contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Filled.Lock,
-                            contentDescription = stringResource(R.string.app_lock_icon_description),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp),
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Button(
-                            onClick = launchPrompt,
-                            modifier = Modifier.heightIn(min = 48.dp),
-                        ) {
-                            Text(text = stringResource(R.string.app_lock_unlock_button))
-                        }
-                    }
-                }
+    // 잠금 해제 사이에 content 의 rememberSaveable 상태(내비게이션 위치 포함)를 보관한다.
+    val contentState = rememberSaveableStateHolder()
+    if (state == LockGateState.OPEN) {
+        contentState.SaveableStateProvider("content") { content() }
+        return
+    }
+    Box(
+        modifier = Modifier.fillMaxSize().background(background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Filled.Lock,
+                contentDescription = stringResource(R.string.app_lock_icon_description),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp),
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = launchPrompt,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(text = stringResource(R.string.app_lock_unlock_button))
             }
         }
     }
