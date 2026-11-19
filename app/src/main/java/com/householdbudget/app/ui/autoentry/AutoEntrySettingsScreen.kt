@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
 import com.householdbudget.app.autoentry.WatchedApps
+import com.householdbudget.app.domain.autoentry.KnownApps
 import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -76,8 +78,11 @@ fun AutoEntrySettingsScreen(
     val pendingCount by remember(repo) { repo.observePendingCount() }.collectAsStateWithLifecycle(initialValue = 0)
     val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
     val rules by remember(repo) { repo.observeRules() }.collectAsStateWithLifecycle(initialValue = emptyList())
-    val apps by produceState(emptyList<AppInfo>()) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
+    val apps by produceState<List<AppInfo>?>(null) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
     val watched = WatchedApps.effective(stored, context)
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    // 토글 직후 행이 사라지거나 자리를 옮기지 않게, 펼침 상태가 바뀔 때만 다시 나눈다.
+    val pinned = remember(apps, expanded, stored == null) { watched }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -135,35 +140,33 @@ fun AutoEntrySettingsScreen(
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
-                apps.forEachIndexed { i, app ->
+                val loaded = apps
+                val (primary, others) = if (loaded == null) Pair(emptyList(), emptyList())
+                    else splitWatchableApps(loaded, pinned, KnownApps.FINANCE_PACKAGES)
+                val shown = if (expanded) primary + others else primary
+                if (loaded != null && shown.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.auto_watched_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Space.lg, vertical = Space.md),
+                    )
+                }
+                shown.forEachIndexed { i, app ->
                     if (i > 0) SettingsRowDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = Space.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Space.lg),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(app.label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                            Text(
-                                app.packageName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                    WatchedAppRow(app, app.packageName in watched) { on ->
+                        scope.launch {
+                            val defaults = withContext(Dispatchers.IO) { WatchedApps.defaults(context) }
+                            prefs.toggleWatchedPackage(app.packageName, on, defaults)
                         }
-                        Switch(
-                            checked = app.packageName in watched,
-                            onCheckedChange = { on ->
-                                scope.launch {
-                                    val defaults = withContext(Dispatchers.IO) { WatchedApps.defaults(context) }
-                                    prefs.toggleWatchedPackage(app.packageName, on, defaults)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
                     }
+                }
+                if (others.isNotEmpty()) {
+                    if (shown.isNotEmpty()) SettingsRowDivider()
+                    TextButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.sm),
+                    ) { Text(stringResource(if (expanded) R.string.auto_watched_less else R.string.auto_watched_more)) }
                 }
             }
             Spacer(Modifier.height(Space.sm))
@@ -226,5 +229,31 @@ fun AutoEntrySettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WatchedAppRow(app: AppInfo, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = Space.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.lg),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(app.label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                app.packageName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+            ),
+        )
     }
 }
