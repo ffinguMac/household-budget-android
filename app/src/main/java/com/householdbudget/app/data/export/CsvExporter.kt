@@ -44,12 +44,12 @@ object CsvExporter {
             val kind = kindLabel(row.kind)
             val parent = row.parentCategoryName ?: row.categoryName
             val leaf = if (row.parentCategoryName == null) "" else row.categoryName
-            sb.append(escape(date)).append(',')
-                .append(escape(kind)).append(',')
-                .append(escape(parent)).append(',')
-                .append(escape(leaf)).append(',')
+            sb.append(csvCell(date)).append(',')
+                .append(csvCell(kind)).append(',')
+                .append(csvCell(parent)).append(',')
+                .append(csvCell(leaf)).append(',')
                 .append(row.amountMinor.toString()).append(',')
-                .append(escape(row.memo))
+                .append(csvCell(row.memo))
                 .append("\r\n")
         }
 
@@ -79,11 +79,18 @@ object CsvExporter {
             CategoryKind.SAVINGS -> "저축"
         }
 
-    /** RFC 4180: 콤마/따옴표/개행 포함 시 따옴표로 감싸고 내부 따옴표는 이중화. */
-    private fun escape(value: String): String =
-        if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
+    /**
+     * 엑셀 수식 주입 방지: = + - @ 로 시작하면 ' 를 붙인다.
+     * 그 뒤 RFC 4180: 콤마/따옴표/개행 포함 시 따옴표로 감싸고 내부 따옴표는 이중화.
+     */
+    internal fun csvCell(raw: String): String {
+        val value = if (raw.firstOrNull() in FORMULA_TRIGGERS) "'$raw" else raw
+        return if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
             "\"" + value.replace("\"", "\"\"") + "\""
         } else {
             value
         }
+    }
+
+    private val FORMULA_TRIGGERS = setOf('=', '+', '-', '@')
 }

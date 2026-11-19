@@ -84,7 +84,7 @@ fun BudgetSettingsScreen(
     val scope = rememberCoroutineScope()
 
     val monthlyBudgetMinor by prefs.monthlyBudgetMinor.collectAsStateWithLifecycle(initialValue = null)
-    val categoryBudgetRows by repository.observeCategoryBudgets()
+    val categoryBudgetRows by remember(repository) { repository.observeCategoryBudgets() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
     val transactions by budgetViewModel.transactions.collectAsStateWithLifecycle()

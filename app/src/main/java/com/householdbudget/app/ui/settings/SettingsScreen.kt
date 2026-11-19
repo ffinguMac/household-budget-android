@@ -68,8 +68,7 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatMonthDayWeekday
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.domain.PeriodResolver
-import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,8 +92,9 @@ fun SettingsScreen(
         .collectAsStateWithLifecycle(initialValue = 0)
 
     val payday by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
-    val nextPayday = remember(payday) {
-        PeriodResolver().periodContaining(LocalDate.now(ZoneId.of("Asia/Seoul")), payday).endExclusive
+    val today by repository.today.collectAsStateWithLifecycle()
+    val nextPayday = remember(payday, today) {
+        PeriodResolver().periodContaining(today, payday).endExclusive
     }
     val monthlyBudgetMinor by prefs.monthlyBudgetMinor.collectAsStateWithLifecycle(initialValue = null)
     val reminderEnabled by prefs.reminderEnabled.collectAsStateWithLifecycle(initialValue = false)
@@ -144,7 +144,9 @@ fun SettingsScreen(
         exportFailed = false
         scope.launch {
             runCatching {
-                val period = budgetViewModel.homeSummary.value.period
+                // 내보내는 순간의 기간을 쓴다(자정을 넘겨 켜 둔 경우 대비).
+                repository.refreshToday()
+                val period = repository.currentPeriod.first()
                 val intent =
                     CsvExporter.exportTransactionsCsv(
                         context = context,

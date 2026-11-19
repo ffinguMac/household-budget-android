@@ -50,6 +50,12 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // shortcut: 앱을 켠 채 자정을 넘기면 다음 복귀 때 갱신된다, 자정 틱이 필요해지면 추가
+        (application as BudgetApplication).container.budgetRepository.refreshToday()
+    }
 }
 
 @Composable
