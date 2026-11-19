@@ -129,6 +129,20 @@ class AutoEntryRepositoryTest {
         assertEquals(2, txCount())
     }
 
+    @Test fun sameKeyUpdatedText_within5Min_isDuplicate() = runBlocking {
+        assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피")))
+        assertEquals(HandleOutcome.DUPLICATE, handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피 잔액 10,000원", "k1", T0 + 30_000)))
+        assertEquals(1, txCount())
+        assertEquals(2, count("notification_log"))
+        assertEquals(1, count("auto_entries"))
+    }
+
+    @Test fun differentKeySameText_afterEchoWindow_isStillTwoPayments() = runBlocking {
+        handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피"))
+        assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피", "k2", T0 + 30_000)))
+        assertEquals(2, txCount())
+    }
+
     @Test fun unknownMerchant_goesPending_thenLearnsRule() = runBlocking {
         assertEquals(HandleOutcome.PENDING, kimOut())
         assertEquals(0, txCount())

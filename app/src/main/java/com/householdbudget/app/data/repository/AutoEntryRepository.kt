@@ -75,6 +75,14 @@ class AutoEntryRepository(
         if (n.isGroupSummary) return HandleOutcome.LOGGED_ONLY
 
         val parsed = NotificationParsers.parse(pkg, n.title, body) ?: return HandleOutcome.LOGGED_ONLY
+        // 같은 알림이 제자리에서 갱신(잔액 덧붙음 등)되면 해시가 달라도 같은 거래로 본다.
+        if (entryDao.countSameNotificationKey(
+                pkg, n.key, parsed.amountMinor, parsed.direction.name,
+                n.postTimeMs - CROSS_APP_WINDOW_MS, n.postTimeMs + CROSS_APP_WINDOW_MS,
+            ) > 0
+        ) {
+            return HandleOutcome.DUPLICATE
+        }
         val key = MerchantNormalizer.normalize(parsed.merchant)
         val learned = if (key.isEmpty()) null else learnedRule(key, parsed.direction.name)
         val decision = AutoClassifier.classify(parsed, "${n.title}\n$body", pkg, watched, learned)
