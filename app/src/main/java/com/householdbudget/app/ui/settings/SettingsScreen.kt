@@ -85,7 +85,7 @@ fun SettingsScreen(
     val prefs = container.userPreferencesRepository
     val repository = container.budgetRepository
     val scope = rememberCoroutineScope()
-    val pendingCount by container.autoEntryRepository.observePendingCount()
+    val pendingCount by remember(container) { container.autoEntryRepository.observePendingCount() }
         .collectAsStateWithLifecycle(initialValue = 0)
 
     val payday by budgetViewModel.paydayDom.collectAsStateWithLifecycle()

@@ -73,9 +73,9 @@ fun AutoEntrySettingsScreen(
         onPauseOrDispose {}
     }
 
-    val pendingCount by repo.observePendingCount().collectAsStateWithLifecycle(initialValue = 0)
+    val pendingCount by remember(repo) { repo.observePendingCount() }.collectAsStateWithLifecycle(initialValue = 0)
     val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
-    val rules by repo.observeRules().collectAsStateWithLifecycle(initialValue = emptyList())
+    val rules by remember(repo) { repo.observeRules() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val apps by produceState(emptyList<AppInfo>()) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
     val watched = WatchedApps.effective(stored, context)
 
@@ -110,7 +110,9 @@ fun AutoEntrySettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     TextButton(onClick = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        // 일부 기기에는 알림 접근 설정 화면이 없어서 일반 설정으로 대신 연다.
+                        runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                            .onFailure { runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) } }
                     }) { Text(stringResource(R.string.auto_access_open)) }
                 }
                 SettingsRowDivider()

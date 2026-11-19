@@ -74,7 +74,7 @@ fun PendingReviewScreen(
 ) {
     val context = LocalContext.current
     val repo = remember(context) { (context.applicationContext as BudgetApplication).container.autoEntryRepository }
-    val entries by repo.observePending().collectAsStateWithLifecycle(initialValue = emptyList())
+    val entries by remember(repo) { repo.observePending() }.collectAsStateWithLifecycle(initialValue = emptyList())
     var selected by remember { mutableStateOf<AutoEntryEntity?>(null) }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
