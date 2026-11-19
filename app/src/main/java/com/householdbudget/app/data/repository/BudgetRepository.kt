@@ -99,7 +99,7 @@ class BudgetRepository(
         repeat(ARCHIVE_MAX_STEPS) {
             val startEx = candidate.startInclusive.toEpochDay()
             val endEx = candidate.endExclusive.toEpochDay()
-            if (startEx < lastSeen) return@repeat
+            if (endEx <= lastSeen) return@repeat
             if (archivedPeriodDao.countByBounds(startEx, endEx) > 0) {
                 candidate = periodResolver.previousPeriod(candidate, dom)
                 return@repeat
