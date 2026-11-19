@@ -21,6 +21,11 @@ import java.time.YearMonth
 import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 
@@ -35,8 +40,37 @@ class BudgetRepository(
     private val periodResolver: PeriodResolver = PeriodResolver(),
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
     private val onAutoRecategorized: suspend (transactionId: Long, categoryId: Long) -> Unit = { _, _ -> },
+    private val todayProvider: () -> LocalDate = { LocalDate.now(zoneId) },
 ) {
     val paydayDom: Flow<Int> = userPreferencesRepository.paydayDom
+
+    private val _today = MutableStateFlow(todayProvider())
+
+    /** 앱 전체의 "오늘". 화면 복귀 때 [refreshToday]로 갱신한다. */
+    val today: StateFlow<LocalDate> = _today.asStateFlow()
+
+    fun refreshToday() {
+        _today.value = todayProvider()
+    }
+
+    /** (월급일, 오늘)로 정한 현재 회계월. */
+    val currentPeriod: Flow<BudgetPeriod> =
+        combine(paydayDom, today) { dom, day -> periodResolver.periodContaining(day, dom) }
+            .distinctUntilChanged()
+
+    /** 0 = 현재 기간, -1 = 직전 기간. */
+    fun observeSummaryAtOffset(offset: Int): Flow<HomeSummary> =
+        combine(paydayDom, today) { dom, day ->
+            var period = periodResolver.periodContaining(day, dom)
+            repeat(-offset) { period = periodResolver.previousPeriod(period, dom) }
+            period
+        }
+            .distinctUntilChanged()
+            .flatMapLatest { period ->
+                transactionDao
+                    .observeBetween(period.startInclusive.toEpochDay(), period.endExclusive.toEpochDay())
+                    .map { rows -> HomeSummary(period = period, transactions = rows) }
+            }
 
     /** 월 총 예산 (minor). null = 미설정. */
     val monthlyBudgetMinor: Flow<Long?> = userPreferencesRepository.monthlyBudgetMinor
@@ -81,8 +115,8 @@ class BudgetRepository(
      */
     suspend fun tryArchiveCompletedPeriods() {
         val dom = userPreferencesRepository.getPaydayDomSnapshot()
-        val today = LocalDate.now(zoneId)
-        val current = periodResolver.periodContaining(today, dom)
+        refreshToday()
+        val current = periodResolver.periodContaining(today.value, dom)
         val currentStartEx = current.startInclusive.toEpochDay()
 
         val lastSeen = userPreferencesRepository.getLastSeenPeriodStartSnapshot()
@@ -124,26 +158,14 @@ class BudgetRepository(
     fun observeCategories(): Flow<List<CategoryEntity>> = categoryDao.observeAll()
 
     fun observeTransactionsInCurrentPeriod(): Flow<List<TransactionWithCategoryRow>> =
-        userPreferencesRepository.paydayDom.flatMapLatest { dom ->
-            val today = LocalDate.now(zoneId)
-            val period = periodResolver.periodContaining(today, dom)
+        currentPeriod.flatMapLatest { period ->
             transactionDao.observeBetween(
                 period.startInclusive.toEpochDay(),
                 period.endExclusive.toEpochDay(),
             )
         }
 
-    fun observeHomeSummary(): Flow<HomeSummary> =
-        userPreferencesRepository.paydayDom.flatMapLatest { dom ->
-            val today = LocalDate.now(zoneId)
-            val period = periodResolver.periodContaining(today, dom)
-            transactionDao
-                .observeBetween(
-                    period.startInclusive.toEpochDay(),
-                    period.endExclusive.toEpochDay(),
-                )
-                .map { rows -> HomeSummary(period = period, transactions = rows) }
-        }
+    fun observeHomeSummary(): Flow<HomeSummary> = observeSummaryAtOffset(0)
 
     fun observeDayTotalsInMonth(yearMonth: YearMonth): Flow<List<DayTotalRow>> {
         val minEx = yearMonth.atDay(1).toEpochDay()
@@ -216,16 +238,15 @@ data class HomeSummary(
     val period: BudgetPeriod,
     val transactions: List<TransactionWithCategoryRow>,
 ) {
-    val totalIncomeMinor: Long
-        get() = transactions.filter { it.kind == CategoryKind.INCOME.storage }.sumOf { it.amountMinor }
+    val totalIncomeMinor: Long =
+        transactions.filter { it.kind == CategoryKind.INCOME.storage }.sumOf { it.amountMinor }
 
-    val totalExpenseMinor: Long
-        get() = transactions.filter { it.kind == CategoryKind.EXPENSE.storage }.sumOf { it.amountMinor }
+    val totalExpenseMinor: Long =
+        transactions.filter { it.kind == CategoryKind.EXPENSE.storage }.sumOf { it.amountMinor }
 
-    val totalSavingsMinor: Long
-        get() = transactions.filter { it.kind == CategoryKind.SAVINGS.storage }.sumOf { it.amountMinor }
+    val totalSavingsMinor: Long =
+        transactions.filter { it.kind == CategoryKind.SAVINGS.storage }.sumOf { it.amountMinor }
 
     /** 순잉여 = 수입 − 지출 − 저축. */
-    val netMinor: Long
-        get() = totalIncomeMinor - totalExpenseMinor - totalSavingsMinor
+    val netMinor: Long = totalIncomeMinor - totalExpenseMinor - totalSavingsMinor
 }

@@ -12,13 +12,12 @@ import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -38,7 +37,7 @@ class BudgetViewModel(
                     period =
                         PeriodResolver()
                             .periodContaining(
-                                LocalDate.now(ZoneId.of("Asia/Seoul")),
+                                repository.today.value,
                                 DEFAULT_PAYDAY,
                             ),
                     transactions = emptyList(),
@@ -118,15 +117,16 @@ class BudgetViewModel(
                 initialValue = emptyMap(),
             )
 
+    /** 앱 전체의 "오늘" (저장소가 단일 출처). */
+    val today: StateFlow<LocalDate> = repository.today
+
     /** 현재 회계월의 남은 일수 (오늘 포함, 최소 0). 피드/통계 공용. */
     val daysRemainingInPeriod: StateFlow<Int> =
-        repository.observeHomeSummary()
-            .map { summary ->
-                val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
-                (summary.period.endExclusive.toEpochDay() - today.toEpochDay())
-                    .coerceAtLeast(0L)
-                    .toInt()
-            }
+        combine(repository.currentPeriod, repository.today) { period, today ->
+            (period.endExclusive.toEpochDay() - today.toEpochDay())
+                .coerceAtLeast(0L)
+                .toInt()
+        }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
@@ -143,7 +143,7 @@ class BudgetViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val ledgerSummary: StateFlow<HomeSummary?> =
         _ledgerPeriodOffset
-            .flatMapLatest { offset -> observeSummaryAtOffset(offset) }
+            .flatMapLatest(repository::observeSummaryAtOffset)
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
@@ -172,25 +172,6 @@ class BudgetViewModel(
     fun resetPeriod() {
         _ledgerPeriodOffset.value = 0
     }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeSummaryAtOffset(offset: Int): Flow<HomeSummary> =
-        if (offset == 0) {
-            repository.observeHomeSummary()
-        } else {
-            repository.paydayDom.flatMapLatest { dom ->
-                val resolver = PeriodResolver()
-                var period =
-                    resolver.periodContaining(LocalDate.now(ZoneId.of("Asia/Seoul")), dom)
-                repeat(-offset) { period = resolver.previousPeriod(period, dom) }
-                repository
-                    .observeTransactionsInRange(
-                        period.startInclusive.toEpochDay(),
-                        period.endExclusive.toEpochDay(),
-                    )
-                    .map { rows -> HomeSummary(period = period, transactions = rows) }
-            }
-        }
 
     fun setPaydayDom(day: Int) {
         viewModelScope.launch { repository.setPaydayDom(day) }
