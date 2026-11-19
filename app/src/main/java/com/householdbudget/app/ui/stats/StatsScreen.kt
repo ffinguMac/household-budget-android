@@ -53,26 +53,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.householdbudget.app.R
-import com.householdbudget.app.data.local.entity.RecurringRuleEntity
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.kindAccent
-import com.householdbudget.app.ui.theme.kindSignPrefix
 import com.householdbudget.app.ui.util.formatAmountGrouped
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
@@ -111,7 +108,6 @@ fun StatsScreen(
         viewModel(factory = remember(repository) { StatsViewModelFactory(repository) })
 
     val periodData by statsViewModel.periodData.collectAsStateWithLifecycle()
-    val recurringRules by statsViewModel.recurringRules.collectAsStateWithLifecycle()
     val monthlyBudget by budgetViewModel.monthlyBudgetMinor.collectAsStateWithLifecycle()
     val categoryBudgets by budgetViewModel.categoryBudgets.collectAsStateWithLifecycle()
 
@@ -185,13 +181,6 @@ fun StatsScreen(
                                 rows = expenseRowsOfParent(currentData.current, parent.parentId),
                             )
                     },
-                    modifier = cardItemModifier(),
-                )
-            }
-            item(key = "upcoming") {
-                UpcomingRulesCard(
-                    rules = recurringRules,
-                    today = today,
                     modifier = cardItemModifier(),
                 )
             }
@@ -1022,99 +1011,6 @@ private fun DeltaLabel(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 리포트: 다가오는 자동이체
-// ──────────────────────────────────────────────────────────────────────────
-
-private fun nextOccurrence(rule: RecurringRuleEntity, today: LocalDate): LocalDate {
-    val ym = YearMonth.from(today)
-    val thisMonth = ym.atDay(minOf(rule.dayOfMonth, ym.lengthOfMonth()))
-    if (!thisMonth.isBefore(today)) return thisMonth
-    val next = ym.plusMonths(1)
-    return next.atDay(minOf(rule.dayOfMonth, next.lengthOfMonth()))
-}
-
-@Composable
-private fun UpcomingRulesCard(
-    rules: List<RecurringRuleEntity>,
-    today: LocalDate,
-    modifier: Modifier = Modifier,
-) {
-    val upcoming =
-        remember(rules, today) {
-            rules
-                .filter { it.enabled }
-                .map { rule -> rule to nextOccurrence(rule, today) }
-                .sortedBy { (_, date) -> date }
-                .take(2)
-        }
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(Space.xl),
-            verticalArrangement = Arrangement.spacedBy(Space.md),
-        ) {
-            Text(
-                text = stringResource(R.string.stats_upcoming_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            if (upcoming.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.stats_upcoming_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            upcoming.forEach { (rule, date) ->
-                val kind = CategoryKind.fromStorage(rule.kind)
-                val daysUntil = ChronoUnit.DAYS.between(today, date).toInt()
-                val relative =
-                    when (daysUntil) {
-                        0 -> stringResource(R.string.stats_upcoming_today)
-                        1 -> stringResource(R.string.stats_upcoming_tomorrow)
-                        else -> stringResource(R.string.stats_upcoming_in_days, daysUntil)
-                    }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(Space.xxs),
-                    ) {
-                        Text(
-                            text = rule.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = date.formatShortDayLabel() + " · " + relative,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        text = kindSignPrefix(kind) + rule.amountMinor.formatWon(),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = kindAccent(kind),
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ──────────────────────────────────────────────────────────────────────────
 // 맵 범례 + 상세 바텀시트 + 스켈레톤
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -1203,6 +1099,7 @@ private fun TransactionsSheet(
                         categoryName = row.categoryName,
                         parentCategoryName = row.parentCategoryName,
                         memo = row.memo,
+                        isAuto = row.source == TransactionSource.AUTO,
                         amountMinor = row.amountMinor,
                         kind = CategoryKind.fromStorage(row.kind),
                         dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),

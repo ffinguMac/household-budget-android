@@ -28,13 +28,6 @@
     <string name="stats_delta_down">▼%1$d%%</string>
     <string name="stats_delta_flat">—</string>
 
-    <!-- 다가오는 자동이체 -->
-    <string name="stats_upcoming_title">다가오는 자동이체</string>
-    <string name="stats_upcoming_empty">예정된 자동이체가 없어요</string>
-    <string name="stats_upcoming_today">오늘</string>
-    <string name="stats_upcoming_tomorrow">내일</string>
-    <string name="stats_upcoming_in_days">%1$d일 후</string>
-
     <!-- 머니 맵 -->
     <string name="stats_map_other">기타</string>
     <string name="stats_map_leftover">남은 돈</string>

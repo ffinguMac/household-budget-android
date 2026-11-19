@@ -147,7 +147,7 @@ fun BudgetSettingsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.recurring_back),
+                            contentDescription = stringResource(R.string.action_back),
                         )
                     }
                 },

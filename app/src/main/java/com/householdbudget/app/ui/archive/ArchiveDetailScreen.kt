@@ -37,6 +37,7 @@ import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -79,7 +80,7 @@ fun ArchiveDetailScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.recurring_back),
+                            contentDescription = stringResource(R.string.action_back),
                         )
                     }
                 },
@@ -175,6 +176,7 @@ fun ArchiveDetailScreen(
                         categoryName = row.categoryName,
                         parentCategoryName = row.parentCategoryName,
                         memo = row.memo,
+                        isAuto = row.source == TransactionSource.AUTO,
                         amountMinor = row.amountMinor,
                         kind = kind,
                         dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),
