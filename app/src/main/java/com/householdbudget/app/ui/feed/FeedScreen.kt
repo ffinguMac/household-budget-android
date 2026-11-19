@@ -55,7 +55,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.CategoryKind
-import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
@@ -411,7 +410,6 @@ fun FeedScreen(
                                 categoryName = row.categoryName,
                                 parentCategoryName = row.parentCategoryName,
                                 memo = row.memo,
-                                isAuto = row.source == TransactionSource.AUTO,
                                 amountMinor = row.amountMinor,
                                 kind = CategoryKind.fromStorage(row.kind),
                                 onClick = { onTransactionClick(row.id) },

@@ -57,7 +57,6 @@ import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
-import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -920,7 +919,6 @@ private fun TransactionsSheet(
                         categoryName = row.categoryName,
                         parentCategoryName = row.parentCategoryName,
                         memo = row.memo,
-                        isAuto = row.source == TransactionSource.AUTO,
                         amountMinor = row.amountMinor,
                         kind = CategoryKind.fromStorage(row.kind),
                         dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),

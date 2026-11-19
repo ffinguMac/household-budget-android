@@ -47,7 +47,6 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
-import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.KindSummaryRow
@@ -386,7 +385,6 @@ private fun DayDetailSection(
                             categoryName = row.categoryName,
                             parentCategoryName = row.parentCategoryName,
                             memo = row.memo,
-                            isAuto = row.source == TransactionSource.AUTO,
                             amountMinor = row.amountMinor,
                             kind = kind,
                             dateLabel = null,
