@@ -155,10 +155,12 @@ fun FeedScreen(
     val slidePx = with(LocalDensity.current) { 24.dp.toPx() }
     // 그리기 단계에서만 읽는다 → 프레임마다 재구성 없음.
     val periodEnter =
-        Modifier.graphicsLayer {
-            val p = enter.progress.value
-            alpha = p
-            translationX = (1f - p) * enter.direction * slidePx
+        remember(enter, slidePx) {
+            Modifier.graphicsLayer {
+                val p = enter.progress.value
+                alpha = p
+                translationX = (1f - p) * enter.direction * slidePx
+            }
         }
 
     LazyColumn(
@@ -458,7 +460,8 @@ fun FeedScreen(
 /**
  * 히어로 카드: 월 이동(‹ 9월 ›) + "다음 월급까지 N일" + 기간 + 남은 금액 + 예산 진행 바.
  * 지난 기간을 보는 중에는 카운트다운·예산 바 대신 "오늘로" 버튼을 보여준다.
- * 화살표 위치는 기간·글자 폭과 상관없이 고정된다(연타해도 손가락 밑에서 움직이지 않는다).
+ * 같은 해 안에서는 화살표 위치가 고정된다(연타해도 손가락 밑에서 움직이지 않는다).
+ * 라벨에 연도가 붙는 순간(올해 → 지난해)에만 한 번 옮겨진다.
  */
 @Composable
 private fun FeedHeroCard(
@@ -485,7 +488,7 @@ private fun FeedHeroCard(
     val absNet = if (summary.netMinor < 0) -summary.netMinor else summary.netMinor
     val start = period.startInclusive
     val monthLabel = archiveMonthTitle(start, today)
-    // 가장 넓은 "12월" 기준으로 라벨 폭을 고정한다.
+    // 같은 해 안에서 가장 넓은 "12월" 기준으로 라벨 폭을 고정한다(연도가 붙으면 폭이 한 번 바뀐다).
     val monthLabelFrame = archiveMonthTitle(start.withMonth(12), today)
     val daysRemaining =
         (period.endExclusive.toEpochDay() - today.toEpochDay())
