@@ -25,13 +25,12 @@ import androidx.compose.ui.unit.dp
 import com.householdbudget.app.R
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.categoryStyleOf
 import com.householdbudget.app.ui.theme.kindAccent
-import com.householdbudget.app.ui.theme.kindContainer
-import com.householdbudget.app.ui.theme.kindOnContainer
 import com.householdbudget.app.ui.util.formatSignedWon
 
 /**
- * 거래 한 줄. 아바타(카테고리 첫 글자) + 제목/보조텍스트 + 금액.
+ * 거래 한 줄. 아바타(대분류 이모지) + 제목/보조텍스트 + 금액.
  * Home / Ledger / Calendar 상세 / Archive 상세가 전부 이 하나를 쓴다.
  * 배경은 투명 — 호출자가 Surface/카드로 감싼다.
  *
@@ -77,34 +76,23 @@ fun TransactionRow(
         horizontalArrangement = Arrangement.spacedBy(Space.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 아바타 첫 글자는 장식 — 제목이 곧 카테고리명이라 스크린리더 중복 읽기를 막는다.
-        // EXPENSE 는 목록의 대다수라 레드 컨테이너가 시끄럽다 — 중립(surfaceVariant)으로 가라앉힌다(목업 기준).
-        val avatarBg =
-            if (kind == CategoryKind.EXPENSE) {
-                MaterialTheme.colorScheme.surfaceVariant
-            } else {
-                kindContainer(kind)
-            }
-        val avatarFg =
-            if (kind == CategoryKind.EXPENSE) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                kindOnContainer(kind)
-            }
+        // 아바타는 장식 — 제목이 곧 카테고리명이라 스크린리더 중복 읽기를 막는다.
+        // 소분류 이름만으로 조회하면 "기타"가 섞이므로 대분류로 조회한다.
+        val style = categoryStyleOf(parentCategoryName?.takeIf { it.isNotBlank() } ?: categoryName)
         Box(
             modifier =
                 Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(avatarBg)
+                    .background(style.color.copy(alpha = 0.18f))
                     .clearAndSetSemantics { },
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = categoryName.take(1),
+                text = style.emoji,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = avatarFg,
+                color = style.color,
             )
         }
         Column(
