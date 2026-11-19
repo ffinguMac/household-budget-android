@@ -30,6 +30,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
@@ -99,16 +100,21 @@ internal fun MoneyMap(
         }
     val renderTiles =
         remember(placements, deltas, textMeasurer, typography, onSurface, onSurfaceVariant, density) {
-            // 테마의 넉넉한 줄 높이로는 최소 크기 타일에 금액이 안 들어가서 타일 글자만 줄 높이를 줄인다.
-            // BIG 1.1배: 80×64dp 타일에 이모지·이름·금액, MID 1.0배: 54×40dp 타일에 이모지·금액이 들어간다.
-            fun TextStyle.tile(lineScale: Float) = copy(color = onSurface, lineHeight = fontSize * lineScale)
-            val bigEmoji = typography.titleMedium.tile(1.1f)
-            val bigName = typography.bodySmall.tile(1.1f)
-            val bigAmount = typography.titleMedium.copy(fontWeight = FontWeight.Bold).tile(1.1f)
-            val bigMeta = typography.labelSmall.tile(1.1f)
-            val midEmoji = typography.labelMedium.tile(1f)
-            val midName = typography.labelSmall.tile(1f)
-            val midAmount = typography.bodySmall.copy(fontWeight = FontWeight.Bold).tile(1f)
+            // 줄마다 따로 재는 한 줄 문단이라 기본 Trim.Both에선 lineHeight가 무시된다 → Trim.None으로
+            // 줄 높이를 글자 크기의 1.15배로 고정한다. 최소 BIG(80×64dp)엔 이모지·금액, 최소 MID(54×40dp)엔 금액만 들어간다.
+            fun TextStyle.tile() =
+                copy(
+                    color = onSurface,
+                    lineHeight = fontSize * 1.15f,
+                    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+                )
+            val bigEmoji = typography.titleMedium.tile()
+            val bigName = typography.bodySmall.tile()
+            val bigAmount = typography.titleMedium.copy(fontWeight = FontWeight.Bold).tile()
+            val bigMeta = typography.labelSmall.tile()
+            val midEmoji = typography.labelMedium.tile()
+            val midName = typography.labelSmall.tile()
+            val midAmount = typography.bodySmall.copy(fontWeight = FontWeight.Bold).tile()
             with(density) {
                 val inset = 3.dp.toPx()
                 val pad = 8.dp.toPx()
@@ -154,11 +160,11 @@ internal fun MoneyMap(
                                 add(line(meta, bigMeta))
                             }
                         }
-                        // 높이가 모자라면 우선순위(이모지 > 금액 > 이름 > 비율·증감)가 낮은 줄부터 뺀다.
+                        // 높이가 모자라면 우선순위가 낮은 줄부터 뺀다.
+                        // BIG: 이모지 > 금액 > 이름 > 비율·증감, MID: 금액 > 이모지 > 이름.
                         var used = pad
                         val kept =
-                            listOf(0, 2, 1, 3)
-                                .filter { it in layouts.indices }
+                            (if (big) listOf(0, 2, 1, 3) else listOf(2, 0, 1))
                                 .takeWhile { i ->
                                     val h = layouts[i].size.height
                                     (used + h <= inner.height).also { if (it) used += h }
