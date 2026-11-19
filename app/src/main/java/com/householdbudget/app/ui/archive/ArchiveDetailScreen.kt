@@ -35,9 +35,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
-import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -46,7 +46,6 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import java.time.LocalDate
-import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,15 +106,19 @@ fun ArchiveDetailScreen(
             return@Scaffold
         }
 
+        // null = 아직 로드 전. 합계는 스냅샷이 아니라 이 목록에서 낸다(지난 거래 수정 반영).
         val txs by
-            repository
-                .observeTransactionsInRange(h.startEpochDay, h.endEpochDay)
-                .collectAsStateWithLifecycle(initialValue = emptyList())
+            remember(repository, h.startEpochDay, h.endEpochDay) {
+                repository.observeTransactionsInRange(h.startEpochDay, h.endEpochDay)
+            }.collectAsStateWithLifecycle(initialValue = null)
+        val today by repository.today.collectAsStateWithLifecycle()
 
         val period = BudgetPeriod(
             startInclusive = LocalDate.ofEpochDay(h.startEpochDay),
             endExclusive = LocalDate.ofEpochDay(h.endEpochDay),
         )
+        val loaded = txs
+        val summary = remember(period, loaded) { loaded?.let { HomeSummary(period, it) } }
 
         LazyColumn(
             modifier = Modifier
@@ -126,7 +129,6 @@ fun ArchiveDetailScreen(
         ) {
             item {
                 // "8월 · 8.25 ~ 9.24 (월급날 기준)"
-                val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
                 val monthTitle = archiveMonthTitle(period.startInclusive, today)
                 val rangeText =
                     stringResource(R.string.archive_range_payday_based, period.formatRangeShort())
@@ -142,11 +144,13 @@ fun ArchiveDetailScreen(
                 )
             }
 
+            if (summary == null) return@LazyColumn
+
             item {
                 KindSummaryRow(
-                    incomeMinor = h.totalIncomeMinor,
-                    expenseMinor = h.totalExpenseMinor,
-                    savingsMinor = h.totalSavingsMinor,
+                    incomeMinor = summary.totalIncomeMinor,
+                    expenseMinor = summary.totalExpenseMinor,
+                    savingsMinor = summary.totalSavingsMinor,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = ScreenHorizontalPadding),
@@ -162,7 +166,7 @@ fun ArchiveDetailScreen(
                 Spacer(Modifier.height(Space.sm))
             }
 
-            items(txs, key = { it.id }) { row ->
+            items(summary.transactions, key = { it.id }) { row ->
                 val kind = CategoryKind.fromStorage(row.kind)
                 Surface(
                     modifier = Modifier
@@ -176,7 +180,6 @@ fun ArchiveDetailScreen(
                         categoryName = row.categoryName,
                         parentCategoryName = row.parentCategoryName,
                         memo = row.memo,
-                        isAuto = row.source == TransactionSource.AUTO,
                         amountMinor = row.amountMinor,
                         kind = kind,
                         dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),

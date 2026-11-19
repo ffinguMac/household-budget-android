@@ -47,7 +47,6 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
-import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.KindSummaryRow
@@ -57,7 +56,6 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatDayLabel
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -73,7 +71,7 @@ fun CalendarScreen(
     val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
     var selectedEpochDay by remember { mutableLongStateOf(Long.MIN_VALUE) }
 
-    val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+    val today by repository.today.collectAsStateWithLifecycle()
     val monthlyIncome = totals.values.sumOf { it.incomeMinor }
     val monthlyExpense = totals.values.sumOf { it.expenseMinor }
     val monthlySavings = totals.values.sumOf { it.savingsMinor }
@@ -327,7 +325,7 @@ private fun DayDetailSection(
     modifier: Modifier = Modifier,
 ) {
     val epoch = day.toEpochDay()
-    val txs by repository.observeTransactionsOnDay(epoch).collectAsStateWithLifecycle(initialValue = emptyList())
+    val txs by remember(repository, epoch) { repository.observeTransactionsOnDay(epoch) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val title = day.formatDayLabel(today)
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -386,7 +384,6 @@ private fun DayDetailSection(
                             categoryName = row.categoryName,
                             parentCategoryName = row.parentCategoryName,
                             memo = row.memo,
-                            isAuto = row.source == TransactionSource.AUTO,
                             amountMinor = row.amountMinor,
                             kind = kind,
                             dateLabel = null,

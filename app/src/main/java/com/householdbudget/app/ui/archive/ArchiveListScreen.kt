@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -64,7 +65,9 @@ fun ArchiveListScreen(
     onOpenDetail: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val rows by repository.observeArchivedPeriods().collectAsStateWithLifecycle(initialValue = emptyList())
+    val rows by remember(repository) { repository.observeArchivedPeriods() }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val today by repository.today.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = modifier
@@ -93,6 +96,7 @@ fun ArchiveListScreen(
             itemsIndexed(rows, key = { _, it -> it.id }) { _, row ->
                 ArchiveCard(
                     row = row,
+                    today = today,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Space.xs),
                     onClick = { onOpenDetail(row.id) },
                 )
@@ -104,6 +108,7 @@ fun ArchiveListScreen(
 @Composable
 private fun ArchiveCard(
     row: ArchivedPeriodEntity,
+    today: LocalDate,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -112,7 +117,6 @@ private fun ArchiveCard(
         endExclusive = LocalDate.ofEpochDay(row.endEpochDay),
     )
     val startDate = LocalDate.ofEpochDay(row.startEpochDay)
-    val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
     val periodLabel = archiveMonthTitle(startDate, today)
     val savedAt = Instant.ofEpochMilli(row.archivedAtEpochMs)
         .atZone(ZoneId.of("Asia/Seoul")).toLocalDate()

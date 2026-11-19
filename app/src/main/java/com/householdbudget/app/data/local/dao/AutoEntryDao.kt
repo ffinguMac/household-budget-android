@@ -28,6 +28,9 @@ interface AutoEntryDao {
     @Query("SELECT * FROM auto_entries WHERE status = :status ORDER BY posted_at_ms DESC")
     fun observeByStatus(status: String): Flow<List<AutoEntryEntity>>
 
+    @Query("DELETE FROM auto_entries WHERE status != 'PENDING' AND posted_at_ms < :cutoffMs")
+    suspend fun deleteResolvedOlderThan(cutoffMs: Long): Int
+
     @Query("SELECT COUNT(*) FROM auto_entries WHERE status = :status")
     fun observeCountByStatus(status: String): Flow<Int>
 

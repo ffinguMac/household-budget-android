@@ -64,7 +64,7 @@ fun BudgetNavHost(
                 budgetViewModel = budgetViewModel,
                 repository = repository,
                 transactionId = null,
-                onClose = { navController.popBackStack() },
+                onClose = { navController.popBackStack(BudgetRoutes.TABS, inclusive = false) },
             )
         }
         composable(
@@ -88,7 +88,7 @@ fun BudgetNavHost(
                 budgetViewModel = budgetViewModel,
                 repository = repository,
                 transactionId = transactionId,
-                onClose = { navController.popBackStack() },
+                onClose = { navController.popBackStack(BudgetRoutes.TABS, inclusive = false) },
             )
         }
     }

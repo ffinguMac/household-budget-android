@@ -8,12 +8,11 @@ import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.PeriodResolver
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
@@ -30,16 +29,15 @@ class StatsViewModel(
     repository: BudgetRepository,
 ) : ViewModel() {
 
-    private val zone = ZoneId.of("Asia/Seoul")
     private val resolver = PeriodResolver()
 
     /** DB에서 첫 값이 오기 전에는 null (스켈레톤 표시용). */
     val periodData: StateFlow<StatsPeriodData?> =
-        repository.paydayDom
-            .flatMapLatest { dom ->
-                val today = LocalDate.now(zone)
-                val period = resolver.periodContaining(today, dom)
-                val previous = resolver.previousPeriod(period, dom)
+        combine(repository.paydayDom, repository.currentPeriod) { dom, period ->
+            period to resolver.previousPeriod(period, dom)
+        }
+            .distinctUntilChanged()
+            .flatMapLatest { (period, previous) ->
                 combine(
                     repository.observeTransactionsInRange(
                         period.startInclusive.toEpochDay(),

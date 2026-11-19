@@ -18,6 +18,16 @@ interface NotificationLogDao {
     )
     suspend fun countSimilar(pkg: String, hash: String, fromMs: Long, toMs: Long): Int
 
+    @Query("UPDATE notification_log SET title = :title, body = :body WHERE id = :id")
+    suspend fun setText(id: Long, title: String, body: String)
+
+    /** 항목을 만들지 않은 로그와 보관 기간이 지난 로그의 원문을 비운다. */
+    @Query(
+        "UPDATE notification_log SET title = '', body = '' WHERE (title != '' OR body != '') " +
+            "AND (post_time_ms < :cutoffMs OR id NOT IN (SELECT log_id FROM auto_entries))",
+    )
+    suspend fun clearStaleText(cutoffMs: Long): Int
+
     @Query("DELETE FROM notification_log WHERE post_time_ms < :cutoffMs")
     suspend fun deleteOlderThan(cutoffMs: Long): Int
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 30 이하. DB는 클라이언트 측 암호화 백업일 때만. -->
+<full-backup-content>
+    <include domain="database" path="." requireFlags="clientSideEncryption" />
+    <include domain="file" path="." />
+    <include domain="sharedpref" path="." />
+</full-backup-content>

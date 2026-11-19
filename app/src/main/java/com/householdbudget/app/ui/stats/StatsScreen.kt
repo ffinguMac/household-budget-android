@@ -57,7 +57,6 @@ import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
-import com.householdbudget.app.data.local.entity.TransactionSource
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -72,15 +71,12 @@ import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
 // ── 모드 토글 (rememberSaveable 저장용) ────────────────────────────────────
 private const val MODE_REPORT = "report"
 private const val MODE_MAP = "map"
-
-private val statsZone = ZoneId.of("Asia/Seoul")
 
 @Composable
 fun StatsScreen(
@@ -96,7 +92,7 @@ fun StatsScreen(
     val monthlyBudget by budgetViewModel.monthlyBudgetMinor.collectAsStateWithLifecycle()
     val categoryBudgets by budgetViewModel.categoryBudgets.collectAsStateWithLifecycle()
 
-    val today = LocalDate.now(statsZone)
+    val today by repository.today.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf(MODE_REPORT) }
     var sheet by remember { mutableStateOf<SheetData?>(null) }
 
@@ -920,7 +916,6 @@ private fun TransactionsSheet(
                         categoryName = row.categoryName,
                         parentCategoryName = row.parentCategoryName,
                         memo = row.memo,
-                        isAuto = row.source == TransactionSource.AUTO,
                         amountMinor = row.amountMinor,
                         kind = CategoryKind.fromStorage(row.kind),
                         dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),

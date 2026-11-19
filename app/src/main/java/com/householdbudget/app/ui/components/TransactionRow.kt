@@ -17,12 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.householdbudget.app.R
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.categoryStyleOf
@@ -38,7 +36,6 @@ import com.householdbudget.app.ui.util.formatSignedWon
  * @param parentCategoryName 대분류 이름 (있으면 제목에 "대분류 · 소분류" 로 표시)
  * @param memo 비어 있으면 보조줄에 표시하지 않음
  * @param dateLabel null 이면 보조줄에 날짜 표시하지 않음 (날짜별 그룹 목록에서는 null)
- * @param isAuto true 면 보조줄 맨 앞에 "자동" 표시
  * @param onClick null 이면 클릭 불가 + ripple 없음
  */
 @Composable
@@ -49,7 +46,6 @@ fun TransactionRow(
     amountMinor: Long,
     kind: CategoryKind,
     dateLabel: String? = null,
-    isAuto: Boolean = false,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -61,7 +57,6 @@ fun TransactionRow(
         }
     val supporting =
         listOfNotNull(
-            stringResource(R.string.auto_badge).takeIf { isAuto },
             dateLabel?.takeIf { it.isNotBlank() },
             memo.takeIf { it.isNotBlank() },
         ).joinToString(" · ")
