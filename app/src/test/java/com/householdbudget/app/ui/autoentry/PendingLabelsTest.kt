@@ -17,5 +17,6 @@ class PendingLabelsTest {
         assertEquals(R.string.auto_reason_direction, reasonLabelRes("UNKNOWN_DIRECTION"))
         assertEquals(R.string.auto_reason_unclassified, reasonLabelRes("UNCLASSIFIED"))
         assertEquals(R.string.auto_reason_unclassified, reasonLabelRes(null))
+        assertEquals(R.string.auto_reason_restored, reasonLabelRes("RESTORED"))
     }
 }

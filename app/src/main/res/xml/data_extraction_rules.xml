@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 31+. 클라우드 백업은 종단간 암호화가 될 때만. 기기 간 이전은 기본값(전부) 그대로. -->
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <include domain="database" path="." />
+        <include domain="file" path="." />
+        <include domain="sharedpref" path="." />
+    </cloud-backup>
+</data-extraction-rules>

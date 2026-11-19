@@ -26,6 +26,10 @@
     <string name="auto_reason_duplicate">중복 같아요</string>
     <string name="auto_reason_direction">입금인지 출금인지 몰라요</string>
     <string name="auto_reason_unclassified">어디에 쓴 돈인지 몰라요</string>
+    <string name="auto_reason_restored">되살린 알림</string>
+    <string name="auto_ignored_title">기록하지 않은 알림</string>
+    <string name="auto_ignored_desc">결제 앱 충전처럼 건너뛴 알림이에요. 빠진 지출이 있으면 되살려서 기록하세요.</string>
+    <string name="auto_ignored_restore">되살리기</string>
     <string name="auto_skip">기록 안 함</string>
     <string name="auto_watched_more">다른 앱 추가</string>
     <string name="auto_watched_less">다른 앱 접기</string>
