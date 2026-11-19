@@ -160,6 +160,17 @@ class AutoEntryRepository(
 
     fun observePendingCount(): Flow<Int> = entryDao.observeCountByStatus(AutoEntryStatus.PENDING)
 
+    fun observeIgnored(): Flow<List<AutoEntryEntity>> = entryDao.observeByStatus(AutoEntryStatus.IGNORED)
+
+    /** 건너뛴 항목을 확인 필요로 되돌린다. RESTORED는 학습 대상이 아니라 충전 문구를 규칙으로 배우지 않는다. */
+    suspend fun restoreIgnored(entryId: Long) = mutex.withLock {
+        database.withTransaction {
+            val entry = entryDao.getById(entryId)?.takeIf { it.status == AutoEntryStatus.IGNORED }
+                ?: return@withTransaction
+            entryDao.update(entry.copy(status = AutoEntryStatus.PENDING, reason = ReviewReason.RESTORED.name))
+        }
+    }
+
     /** categoryId == null 이면 기록 안 함. */
     suspend fun resolvePending(entryId: Long, categoryId: Long?) = mutex.withLock {
         database.withTransaction {

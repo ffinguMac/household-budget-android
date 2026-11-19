@@ -53,6 +53,9 @@ import com.householdbudget.app.ui.settings.SettingsActionRow
 import com.householdbudget.app.ui.settings.SettingsGroupPanel
 import com.householdbudget.app.ui.settings.SettingsRowDivider
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.util.formatShortDayLabel
+import com.householdbudget.app.ui.util.formatWon
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,6 +81,7 @@ fun AutoEntrySettingsScreen(
     val pendingCount by remember(repo) { repo.observePendingCount() }.collectAsStateWithLifecycle(initialValue = 0)
     val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
     val rules by remember(repo) { repo.observeRules() }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val ignored by remember(repo) { repo.observeIgnored() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val apps by produceState<List<AppInfo>?>(null) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
     val watched = WatchedApps.effective(stored, context)
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -225,6 +229,48 @@ fun AutoEntrySettingsScreen(
                     }
                     IconButton(onClick = { scope.launch { repo.deleteRule(row.merchantKey, row.direction) } }) {
                         Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.auto_rule_delete))
+                    }
+                }
+            }
+        }
+
+        if (ignored.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(Space.xxl))
+                SectionHeader(
+                    title = stringResource(R.string.auto_ignored_title),
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                )
+                Spacer(Modifier.height(Space.sm))
+                Text(
+                    text = stringResource(R.string.auto_ignored_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                )
+            }
+            items(ignored, key = { "ignored_${it.id}" }) { e ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ScreenHorizontalPadding, vertical = Space.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                e.merchant.ifBlank { stringResource(R.string.auto_pending_no_name) },
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(e.amountMinor.formatWon(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            LocalDate.ofEpochDay(e.occurredEpochDay).formatShortDayLabel(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = { scope.launch { repo.restoreIgnored(e.id) } }) {
+                        Text(stringResource(R.string.auto_ignored_restore))
                     }
                 }
             }

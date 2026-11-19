@@ -372,6 +372,27 @@ class AutoEntryRepositoryTest {
         gate.complete(Unit); assertEquals(HandleOutcome.REGISTERED, held.await())
     }
 
+    @Test fun restoreIgnored_chargeGoesToReview_thenRegisters_withoutLearningRule() = runBlocking {
+        watched = setOf(KBANK, NPAY)
+        assertEquals(HandleOutcome.IGNORED, handle(n(KBANK, "출금 10,000원", "네이버페이 충전 | 가짜통장(1234)")))
+        val ignored = repo.observeIgnored().first().single()
+        repo.restoreIgnored(ignored.id)
+        assertEquals("RESTORED", pending().single().reason)
+        assertEquals(emptyList<AutoEntryEntity>(), repo.observeIgnored().first())
+        repo.resolvePending(ignored.id, leafId("EXPENSE", "쇼핑", "간편결제 충전"))
+        assertEquals(1, txCount()); assertEquals(10_000L, lastTx().amountMinor)
+        assertEquals(0, repo.observeRules().first().size)              // 충전 문구를 규칙으로 배우지 않는다
+        assertEquals(HandleOutcome.IGNORED,
+            handle(n(KBANK, "출금 10,000원", "네이버페이 충전 | 가짜통장(1234)", "k9", T0 + 86_400_000)))
+    }
+
+    @Test fun restoreIgnored_onRegisteredEntry_doesNothing() = runBlocking {
+        handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피"))
+        val id = db.openHelper.readableDatabase.query("SELECT id FROM auto_entries").use { it.moveToFirst(); it.getLong(0) }
+        repo.restoreIgnored(id)
+        assertEquals(0, pending().size); assertEquals(1, txCount())
+    }
+
     @Test fun learnFromCorrection_upsertsRuleForAutoTransaction() = runBlocking {
         handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피"))
         val snack = leafId("EXPENSE", "식비", "간식")
