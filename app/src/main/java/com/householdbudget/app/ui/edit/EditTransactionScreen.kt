@@ -90,6 +90,9 @@ import com.householdbudget.app.ui.EditTransactionViewModel
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.CategoryDot
+import com.householdbudget.app.ui.theme.categoryStyleOf
+import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.theme.kindAccent
 import com.householdbudget.app.ui.theme.kindContainer
 import com.householdbudget.app.ui.theme.kindOnContainer
@@ -457,7 +460,8 @@ fun EditTransactionScreen(
                                 val first = childrenByParent[parent.id]?.firstOrNull()
                                 vm.setParent(parent.id, first)
                             },
-                            label = { Text(parent.name) },
+                            label = { Text(categoryLabel(parent.name)) },
+                            leadingIcon = { CategoryDot(categoryStyleOf(parent.name).color) },
                             colors =
                                 FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -651,7 +655,7 @@ fun EditTransactionScreen(
                         sections.forEach { (parent, children) ->
                             item(key = "parent-${parent.id}") {
                                 Text(
-                                    text = parent.name,
+                                    text = categoryLabel(parent.name),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = Space.md, bottom = Space.xs),

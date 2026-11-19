@@ -62,6 +62,8 @@ import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.categoryStyleOf
+import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatAmountGrouped
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
@@ -767,7 +769,7 @@ private fun CategoryBudgetRow(
             horizontalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
             Text(
-                text = parent.name,
+                text = categoryLabel(parent.name),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -808,7 +810,7 @@ private fun CategoryBudgetRow(
                                         .coerceIn(0f, 1f),
                                 )
                                 .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary),
+                                .background(categoryStyleOf(parent.name).color),
                     )
                 } else {
                     // 초과: 바 전체 = 총지출, 뒤쪽 빨간 구간 = 예산 초과분.
@@ -818,7 +820,7 @@ private fun CategoryBudgetRow(
                                 Modifier
                                     .weight(budgetMinor.toFloat())
                                     .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(categoryStyleOf(parent.name).color),
                         )
                         Box(
                             modifier =
