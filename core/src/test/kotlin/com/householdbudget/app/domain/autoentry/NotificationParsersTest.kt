@@ -55,4 +55,12 @@ class NotificationParsersTest {
 
     @Test fun kbankDeposit_withoutPipe_fallsBackToGeneric() =
         assertEquals(ParsedNotification(2000, IN, "김가짜"), p("입금 2,000원", "김가짜", NotificationParsers.KBANK_PACKAGE))
+
+    @Test fun cardApprovalWithCashback_isOut() =
+        assertEquals(OUT, p("가짜카드", "체크카드 승인 4,500원 가짜커피 캐시백 45원")?.direction)
+
+    @Test fun cashbackDeposit_isIn() =
+        assertEquals(ParsedNotification(45, IN, "가짜카드 캐시백"), p("가짜은행", "입금 45원 | 가짜카드 캐시백"))
+
+    @Test fun hugeBodyWithoutAmount_returnsNull() = assertNull(p("가짜은행", "가".repeat(100_000)))
 }

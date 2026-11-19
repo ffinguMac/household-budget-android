@@ -54,6 +54,11 @@ class AutoClassifierTest {
         assertEquals(path(INCOME, "수입", "캐시백/이자"), c(120, IN, "캐시백", "입금 120원 캐시백"))
         assertEquals(path(INCOME, "수입", "캐시백/이자"), c(35, IN, "가짜은행", "입금 35원 예금이자"))
     }
+    @Test fun parsedCashbackDeposit_goesToCashbackIncome() {
+        val text = "입금 45원 | 가짜카드 캐시백"
+        val parsed = NotificationParsers.parse("com.fake.bank", "가짜은행", text)!!
+        assertEquals(path(INCOME, "수입", "캐시백/이자"), AutoClassifier.classify(parsed, "가짜은행\n" + text, "com.fake.bank", setOf(KBANK), null))
+    }
     @Test fun plainDeposit_needsReview() = assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(50000, IN, "김가짜", "입금 50,000원 김가짜"))
     @Test fun depositFromSenderNamedLikeInterest_needsReview() =
         assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(50000, IN, "이자영", "입금 50,000원 이자영"))

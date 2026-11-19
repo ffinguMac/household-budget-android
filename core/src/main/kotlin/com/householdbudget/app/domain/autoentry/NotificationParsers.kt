@@ -11,7 +11,8 @@ object NotificationParsers {
     private val KBANK_DEPOSIT_TITLE = Regex("""^입금\s+([\d,]+)원$""")
     private val AMOUNT_GUARDS = listOf("잔액", "누적", "한도", "잔여")
     private val REFUND_WORDS = listOf("취소", "환불")
-    private val IN_WORDS = listOf("입금", "받았", "받음", "캐시백")
+    // 캐시백은 카드 승인 문구에도 붙어서 방향 키워드로 쓰지 않는다. 실제 캐시백 입금은 "입금"으로 잡힌다.
+    private val IN_WORDS = listOf("입금", "받았", "받음")
 
     // 이자는 이자카야 때문에 방향 키워드로 쓰지 않는다.
     private val OUT_WORDS = listOf("승인", "결제", "출금", "이체", "송금", "보냈", "보냄", "충전", "납부")
@@ -34,7 +35,9 @@ object NotificationParsers {
     private const val PIECE_TRIM = "[]()·,.:-"
 
     /** body = bigText가 비어 있지 않으면 bigText, 아니면 text. 금액을 못 찾으면 null. */
-    fun parse(packageName: String, title: String, body: String): ParsedNotification? {
+    fun parse(packageName: String, rawTitle: String, rawBody: String): ParsedNotification? {
+        val title = rawTitle.take(200)
+        val body = rawBody.take(2000)
         if (packageName == KBANK_PACKAGE) parseKbankDeposit(title, body)?.let { return it }
         return parseGeneric(title, body)
     }
