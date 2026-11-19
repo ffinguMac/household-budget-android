@@ -18,11 +18,16 @@ private val periodFormatter: DateTimeFormatter =
 private val dayLabelFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("M월 d일 (E)").withLocale(Locale.KOREA)
 
+private val monthDayWeekdayFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("M월 d일(E)").withLocale(Locale.KOREA)
+
 private val shortDayLabelFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MM.dd (E)").withLocale(Locale.KOREA)
 
 private val shortRangeFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("M.d").withLocale(Locale.KOREA)
+
+fun LocalDate.formatMonthDayWeekday(): String = format(monthDayWeekdayFormatter)
 
 fun Long.formatWon(): String = "${wonFormatter.format(this)}원"
 

@@ -65,7 +65,11 @@ import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.util.formatMonthDayWeekday
 import com.householdbudget.app.ui.util.formatWon
+import com.householdbudget.app.domain.PeriodResolver
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +93,9 @@ fun SettingsScreen(
         .collectAsStateWithLifecycle(initialValue = 0)
 
     val payday by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
+    val nextPayday = remember(payday) {
+        PeriodResolver().periodContaining(LocalDate.now(ZoneId.of("Asia/Seoul")), payday).endExclusive
+    }
     val monthlyBudgetMinor by prefs.monthlyBudgetMinor.collectAsStateWithLifecycle(initialValue = null)
     val reminderEnabled by prefs.reminderEnabled.collectAsStateWithLifecycle(initialValue = false)
     val reminderHour by prefs.reminderHour.collectAsStateWithLifecycle(initialValue = 21)
@@ -177,7 +184,7 @@ fun SettingsScreen(
                     iconContainer = MaterialTheme.colorScheme.primaryContainer,
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     title = stringResource(R.string.settings_payday_title_v2),
-                    subtitle = stringResource(R.string.settings_payday_subtitle_v2, payday),
+                    subtitle = stringResource(R.string.settings_payday_subtitle_v2, payday, nextPayday.formatMonthDayWeekday()),
                     onClick = { showPaydaySheet = true },
                 )
                 if (onOpenBudget != null) {
@@ -350,6 +357,11 @@ fun SettingsScreen(
                 )
                 Text(
                     text = stringResource(R.string.settings_payday_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.settings_payday_adjust_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

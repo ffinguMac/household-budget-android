@@ -23,7 +23,8 @@
     <string name="settings_payday_value">매월 %d일</string>
     <string name="settings_payday_sheet_title">월급 받는 날</string>
     <string name="settings_payday_title_v2">월급 받는 날</string>
-    <string name="settings_payday_subtitle_v2">매월 %d일 · 이날 기준으로 한 달을 계산해요</string>
+    <string name="settings_payday_subtitle_v2">매월 %1$d일 · 다음 월급일 %2$s</string>
+    <string name="settings_payday_adjust_hint">주말·공휴일이면 앞 평일로 당겨요</string>
     <string name="settings_budget_title">예산 설정</string>
     <string name="settings_budget_subtitle_set">월 %s · 카테고리별 관리</string>
     <string name="settings_budget_subtitle_unset">아직 설정 전</string>
