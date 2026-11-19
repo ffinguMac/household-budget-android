@@ -78,8 +78,11 @@ fun AutoEntrySettingsScreen(
     val pendingCount by remember(repo) { repo.observePendingCount() }.collectAsStateWithLifecycle(initialValue = 0)
     val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
     val rules by remember(repo) { repo.observeRules() }.collectAsStateWithLifecycle(initialValue = emptyList())
-    val apps by produceState(emptyList<AppInfo>()) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
+    val apps by produceState<List<AppInfo>?>(null) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
     val watched = WatchedApps.effective(stored, context)
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    // 토글 직후 행이 사라지거나 자리를 옮기지 않게, 펼침 상태가 바뀔 때만 다시 나눈다.
+    val pinned = remember(apps, expanded, stored == null) { watched }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -137,10 +140,11 @@ fun AutoEntrySettingsScreen(
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
-                val (primary, others) = splitWatchableApps(apps, watched, KnownApps.FINANCE_PACKAGES)
-                var expanded by rememberSaveable { mutableStateOf(false) }
+                val loaded = apps
+                val (primary, others) = if (loaded == null) Pair(emptyList(), emptyList())
+                    else splitWatchableApps(loaded, pinned, KnownApps.FINANCE_PACKAGES)
                 val shown = if (expanded) primary + others else primary
-                if (shown.isEmpty()) {
+                if (loaded != null && shown.isEmpty()) {
                     Text(
                         text = stringResource(R.string.auto_watched_none),
                         style = MaterialTheme.typography.bodyMedium,
