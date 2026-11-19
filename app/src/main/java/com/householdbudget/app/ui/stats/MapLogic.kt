@@ -22,9 +22,23 @@ internal data class MapSummary(val incomeMinor: Long, val spentMinor: Long, val 
 
     fun barSegments(): List<BarSegment> {
         if (!hasIncome) return emptyList()
-        val last = if (isOver) BarSegment(BarPart.OVER, -leftoverMinor) else BarSegment(BarPart.LEFTOVER, leftoverMinor)
-        return listOf(BarSegment(BarPart.SPENT, spentMinor), BarSegment(BarPart.SAVINGS, savingsMinor), last)
-            .filter { it.weightMinor > 0 }
+        // 초과면 막대 전체 = 지출 + 저축, 끝쪽 초과분이 지출부터(넘치면 저축까지) 덮는다.
+        val parts =
+            if (isOver) {
+                val over = -leftoverMinor
+                listOf(
+                    BarSegment(BarPart.SPENT, maxOf(spentMinor - over, 0)),
+                    BarSegment(BarPart.SAVINGS, savingsMinor - maxOf(over - spentMinor, 0)),
+                    BarSegment(BarPart.OVER, over),
+                )
+            } else {
+                listOf(
+                    BarSegment(BarPart.SPENT, spentMinor),
+                    BarSegment(BarPart.SAVINGS, savingsMinor),
+                    BarSegment(BarPart.LEFTOVER, leftoverMinor),
+                )
+            }
+        return parts.filter { it.weightMinor > 0 }
     }
 }
 

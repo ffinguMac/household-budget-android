@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -180,6 +181,7 @@ internal fun MoneyMap(
             rows.indices.sortedByDescending { rows[it].amountMinor }.joinToString(", ") { descriptions[it] }
         }
 
+    val onClick by rememberUpdatedState(onTileClick)
     Canvas(
         modifier =
             modifier
@@ -189,7 +191,7 @@ internal fun MoneyMap(
                     detectTapGestures { position ->
                         placements
                             .firstOrNull { it.rect.contains(position) }
-                            ?.let { onTileClick(it.tile.key) }
+                            ?.let { onClick(it.tile.key) }
                     }
                 },
     ) {

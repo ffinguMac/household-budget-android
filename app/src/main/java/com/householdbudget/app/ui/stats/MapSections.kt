@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,7 +38,6 @@ import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.theme.categoryStyleOf
 import com.householdbudget.app.ui.util.formatWon
 
-private const val RANK_MAX_ROWS = 7
 
 // 막대 "지출" 색은 식비 색과 같은 데이터 시각화 고정값.
 private val SpentBarColor = Color(0xFFFF8A65)
@@ -121,8 +122,7 @@ private fun SummaryBar(summary: MapSummary) {
             BarPart.LEFTOVER to MaterialTheme.colorScheme.surfaceContainerHighest,
             BarPart.OVER to MaterialTheme.colorScheme.error,
         )
-    val over = segments.firstOrNull { it.part == BarPart.OVER }
-    Box(
+    Row(
         modifier =
             Modifier
                 .padding(top = Space.xs)
@@ -130,28 +130,15 @@ private fun SummaryBar(summary: MapSummary) {
                 .height(14.dp)
                 .clip(RoundedCornerShape(7.dp)),
     ) {
-        // 초과일 때 막대 전체 = 지출 + 저축, 끝쪽 빨간 구간 = 수입을 넘은 금액.
-        Row(modifier = Modifier.fillMaxSize()) {
-            segments.filter { it.part != BarPart.OVER }.forEach { segment ->
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(segment.weightMinor.toFloat())
-                            .fillMaxHeight()
-                            .background(colors.getValue(segment.part)),
-                )
-            }
-        }
-        if (over != null) {
+        segments.forEach { segment ->
+            // 초과 구간은 카테고리색과 구분되게 2dp 틈을 둔다.
+            if (segment.part == BarPart.OVER) Spacer(Modifier.width(2.dp).fillMaxHeight())
             Box(
                 modifier =
                     Modifier
-                        .align(Alignment.CenterEnd)
+                        .weight(segment.weightMinor.toFloat())
                         .fillMaxHeight()
-                        .fillMaxWidth(
-                            over.weightMinor.toFloat() / (summary.spentMinor + summary.savingsMinor),
-                        )
-                        .background(colors.getValue(BarPart.OVER)),
+                        .background(colors.getValue(segment.part)),
             )
         }
     }
@@ -185,7 +172,7 @@ private fun SummaryBar(summary: MapSummary) {
     }
 }
 
-/** 지출 대분류 순위(최대 [RANK_MAX_ROWS]행). 행을 누르면 그 대분류 거래 목록. */
+/** 지출 대분류 순위. 행을 누르면 그 대분류 거래 목록. */
 @Composable
 internal fun MapRankList(
     rows: List<MapRow>,
@@ -194,7 +181,7 @@ internal fun MapRankList(
 ) {
     MapCard(modifier) {
         Column(modifier = Modifier.padding(horizontal = Space.sm, vertical = Space.sm)) {
-            rows.take(RANK_MAX_ROWS).forEach { row -> RankRow(row, onClick = { onRowClick(row.key) }) }
+            rows.forEach { row -> RankRow(row, onClick = { onRowClick(row.key) }) }
         }
     }
 }

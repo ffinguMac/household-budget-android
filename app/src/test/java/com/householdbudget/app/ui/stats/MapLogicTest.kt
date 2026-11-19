@@ -48,7 +48,10 @@ class MapLogicTest {
     @Test fun overIncome_showsOverSegment() {
         val s = MapSummary(incomeMinor = 1_000_000, spentMinor = 900_000, savingsMinor = 300_000)
         assertTrue(s.isOver); assertEquals(-200_000L, s.leftoverMinor); assertEquals(90, s.spentPercent)
-        assertEquals(BarSegment(BarPart.OVER, 200_000), s.barSegments().last())
+        assertEquals(
+            listOf(BarSegment(BarPart.SPENT, 700_000), BarSegment(BarPart.SAVINGS, 300_000), BarSegment(BarPart.OVER, 200_000)),
+            s.barSegments(),
+        )
         assertTrue(s.barSegments().all { it.weightMinor > 0 })
     }
 
