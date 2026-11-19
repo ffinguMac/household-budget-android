@@ -40,6 +40,8 @@ enum class HandleOutcome { NOT_WATCHED, DUPLICATE, LOGGED_ONLY, IGNORED, PENDING
 class AutoEntryRepository(
     private val database: AppDatabase,
     private val watchedPackages: suspend () -> Set<String>,
+    // 뮤텍스 앞의 값싼 사전 검사. 금융 앱이 아닌 알림이 결제 처리를 기다리지 않게 한다.
+    private val isCandidate: suspend (String) -> Boolean = { true },
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
 ) {
     private val logDao = database.notificationLogDao()
@@ -51,10 +53,15 @@ class AutoEntryRepository(
     // 알림 콜백이 겹쳐 와도 "있는지 확인 → 넣기"가 끼어들지 않게 한다.
     private val mutex = Mutex()
 
-    suspend fun handleNotification(n: IncomingNotification): HandleOutcome = mutex.withLock {
+    suspend fun handleNotification(n: IncomingNotification): HandleOutcome {
+        if (!isCandidate(n.packageName)) return HandleOutcome.NOT_WATCHED
+        return mutex.withLock { handleLocked(n) }
+    }
+
+    private suspend fun handleLocked(n: IncomingNotification): HandleOutcome {
         val watched = watchedPackages()
-        if (n.packageName !in watched) return@withLock HandleOutcome.NOT_WATCHED
-        database.withTransaction { process(n, watched) }
+        if (n.packageName !in watched) return HandleOutcome.NOT_WATCHED
+        return database.withTransaction { process(n, watched) }
     }
 
     private suspend fun process(n: IncomingNotification, watched: Set<String>): HandleOutcome {
@@ -68,7 +75,8 @@ class AutoEntryRepository(
         val logId = logDao.insert(
             NotificationLogEntity(
                 packageName = pkg, notificationKey = n.key, postTimeMs = n.postTimeMs,
-                title = n.title, body = body, contentHash = hash,
+                // 원문은 항목을 만드는 알림만 남긴다(아래 setText).
+                title = "", body = "", contentHash = hash,
             ),
         )
         if (logId == -1L) return HandleOutcome.DUPLICATE
@@ -84,6 +92,8 @@ class AutoEntryRepository(
         )
         val newText = "${n.title.take(NotificationParsers.TITLE_CAP)}\n${body.take(NotificationParsers.BODY_CAP)}"
         if (sameKeyTexts.any { it in newText }) return HandleOutcome.DUPLICATE
+        // 여기부터는 모든 경로가 auto_entries 행을 만든다.
+        logDao.setText(logId, n.title.take(NotificationParsers.TITLE_CAP), body.take(NotificationParsers.BODY_CAP))
         val key = MerchantNormalizer.normalize(parsed.merchant)
         val learned = if (key.isEmpty()) null else learnedRule(key, parsed.direction.name)
         val decision = AutoClassifier.classify(parsed, "${n.title}\n$body", pkg, watched, learned)
@@ -186,8 +196,13 @@ class AutoEntryRepository(
         if (entry.merchantKey.isNotEmpty()) upsertRule(entry, newCategoryId)
     }
 
-    suspend fun purgeOldLogs(nowMs: Long = System.currentTimeMillis()): Int =
-        logDao.deleteOlderThan(nowMs - TimeUnit.DAYS.toMillis(LOG_RETENTION_DAYS))
+    /** 반환값은 지운 로그 수. 거래는 건드리지 않는다. */
+    suspend fun purgeOldLogs(nowMs: Long = System.currentTimeMillis()): Int = database.withTransaction {
+        val cutoff = nowMs - TimeUnit.DAYS.toMillis(LOG_RETENTION_DAYS)
+        entryDao.deleteResolvedOlderThan(cutoff)
+        logDao.clearStaleText(nowMs - LOG_TEXT_RETENTION_MS)
+        logDao.deleteOlderThan(cutoff)
+    }
 
     private fun sha256Hex(s: String): String =
         MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
@@ -196,6 +211,8 @@ class AutoEntryRepository(
         const val ECHO_WINDOW_MS = 10_000L
         const val CROSS_APP_WINDOW_MS = 5 * 60_000L
         const val LOG_RETENTION_DAYS = 90L
+        // 파서 조정용으로 항목을 만든 알림의 원문을 30일 남긴다(재게시 판별은 ±5분만 읽는다).
+        const val LOG_TEXT_RETENTION_MS = 30 * 24 * 60 * 60_000L
 
         private val LEARNABLE_REASONS = setOf(ReviewReason.UNCLASSIFIED.name, ReviewReason.UNKNOWN_DIRECTION.name)
     }

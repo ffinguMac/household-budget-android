@@ -14,11 +14,15 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -55,6 +59,13 @@ class AutoEntryRepositoryTest {
         db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $table").use { it.moveToFirst(); it.getInt(0) }
 
     private fun txCount() = count("transactions")
+
+    private fun strings(sql: String): List<String> =
+        db.openHelper.readableDatabase.query(sql).use { c -> List(c.count) { c.moveToNext(); c.getString(0) } }
+
+    private fun logTexts() = strings("SELECT title || body FROM notification_log")
+
+    private fun logHashes() = strings("SELECT content_hash FROM notification_log")
 
     private suspend fun pending(): List<AutoEntryEntity> = repo.observePending().first()
 
@@ -306,6 +317,59 @@ class AutoEntryRepositoryTest {
         }
         assertEquals(1, repo.purgeOldLogs(now))
         assertEquals(1, count("notification_log"))
+    }
+
+    @Test fun unparsedNotification_storesHashOnly() = runBlocking {
+        assertEquals(HandleOutcome.LOGGED_ONLY, handle(n(KBANK, "가짜 이벤트", "금액 없는 광고 문구")))
+        assertEquals(listOf(""), logTexts())
+        assertEquals(64, logHashes().single().length)
+    }
+
+    @Test fun groupSummary_storesHashOnly() = runBlocking {
+        handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피").copy(isGroupSummary = true))
+        assertEquals(listOf(""), logTexts())
+    }
+
+    @Test fun purge_keepsEntryTextFor30Days_thenClears() = runBlocking {
+        handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피"))
+        repo.purgeOldLogs(T0 + 60_000)
+        assertEquals(HandleOutcome.DUPLICATE,
+            handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피 잔액 10,000원", "k1", T0 + 90_000)))
+        repo.purgeOldLogs(T0 + TimeUnit.DAYS.toMillis(29))                 // 파서 조정용으로 원문 유지
+        assertEquals(listOf("가짜카드승인 4,500원 가짜커피"), logTexts().filter { it.isNotEmpty() })
+        repo.purgeOldLogs(T0 + AutoEntryRepository.LOG_TEXT_RETENTION_MS + 1)
+        assertEquals(setOf(""), logTexts().toSet())
+        assertEquals(1, txCount())                                       // 거래는 건드리지 않는다
+    }
+
+    @Test fun purge_clearsLegacyTextOfLogsWithoutEntry() = runBlocking {
+        db.notificationLogDao().insert(
+            NotificationLogEntity(
+                packageName = KBANK, notificationKey = "old", postTimeMs = T0,
+                title = "가짜 광고", body = "옛 원문", contentHash = "h",
+            ),
+        )
+        repo.purgeOldLogs(T0 + 60_000)
+        assertEquals(listOf(""), logTexts())
+    }
+
+    @Test fun purge_deletesResolvedEntriesAfter90Days_keepsPendingAndTransactions() = runBlocking {
+        handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피"))
+        kimOut("k2")
+        repo.purgeOldLogs(T0 + TimeUnit.DAYS.toMillis(91))
+        assertEquals(1, count("auto_entries")); assertEquals(1, pending().size); assertEquals(1, txCount())
+    }
+
+    @Test fun notCandidate_returnsWithoutWaitingForMutex() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val exactCalls = AtomicInteger()
+        repo = AutoEntryRepository(db, { exactCalls.incrementAndGet(); gate.await(); watched }, { it in watched })
+        val held = async(Dispatchers.Default) { handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피")) }
+        while (exactCalls.get() == 0) delay(5)
+        assertEquals(HandleOutcome.NOT_WATCHED,
+            withTimeout(1_000) { handle(n("com.other.app", "가짜", "승인 4,500원\n가짜커피")) })
+        assertEquals(1, exactCalls.get())
+        gate.complete(Unit); assertEquals(HandleOutcome.REGISTERED, held.await())
     }
 
     @Test fun learnFromCorrection_upsertsRuleForAutoTransaction() = runBlocking {
