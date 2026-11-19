@@ -10,8 +10,9 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.shareIn
 
@@ -24,9 +25,14 @@ class AppContainer(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val debuggable = appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    // DataStore를 알림마다 다시 읽지 않는다. 읽기 실패는 "저장한 적 없음"으로 본다.
+    // DataStore를 알림마다 다시 읽지 않는다. 읽기 실패는 "저장한 적 없음"으로 보고, 1초부터 최대 1분 간격으로 다시 읽는다.
     private val storedWatched = userPreferencesRepository.watchedPackagesOrNull
-        .catch { emit(null) }.shareIn(scope, SharingStarted.Eagerly, replay = 1)
+        .retryWhen { _, attempt ->
+            emit(null)
+            delay(minOf(1_000L shl attempt.coerceAtMost(6L).toInt(), 60_000L))
+            true
+        }
+        .shareIn(scope, SharingStarted.Eagerly, replay = 1)
 
     // 인스턴스는 하나만 둔다(Mutex가 인스턴스별이다).
     val autoEntryRepository = AutoEntryRepository(

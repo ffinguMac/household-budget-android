@@ -91,7 +91,8 @@ class AutoEntryRepository(
             n.postTimeMs - CROSS_APP_WINDOW_MS, n.postTimeMs + CROSS_APP_WINDOW_MS,
         )
         val newText = "${n.title.take(NotificationParsers.TITLE_CAP)}\n${body.take(NotificationParsers.BODY_CAP)}"
-        if (sameKeyTexts.any { it in newText }) return HandleOutcome.DUPLICATE
+        // 원문을 비운 로그("\n")는 아무 문구에나 들어 있는 것으로 보이므로 빼고 견준다.
+        if (sameKeyTexts.any { it.isNotBlank() && it in newText }) return HandleOutcome.DUPLICATE
         // 여기부터는 모든 경로가 auto_entries 행을 만든다.
         logDao.setText(logId, n.title.take(NotificationParsers.TITLE_CAP), body.take(NotificationParsers.BODY_CAP))
         val key = MerchantNormalizer.normalize(parsed.merchant)
@@ -204,6 +205,8 @@ class AutoEntryRepository(
 
     suspend fun learnFromCorrection(transactionId: Long, newCategoryId: Long) {
         val entry = entryDao.findByTransactionId(transactionId) ?: return
+        // 되살린 충전을 배우면 이후 충전이 모두 등록되어 이중 기록된다.
+        if (entry.reason == ReviewReason.RESTORED.name) return
         if (entry.merchantKey.isNotEmpty()) upsertRule(entry, newCategoryId)
     }
 

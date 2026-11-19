@@ -386,6 +386,26 @@ class AutoEntryRepositoryTest {
             handle(n(KBANK, "출금 10,000원", "네이버페이 충전 | 가짜통장(1234)", "k9", T0 + 86_400_000)))
     }
 
+    @Test fun restoredCharge_correctingCategory_doesNotLearnRule() = runBlocking {
+        watched = setOf(KBANK, NPAY)
+        handle(n(KBANK, "출금 10,000원", "네이버페이 충전 | 가짜통장(1234)"))
+        val id = repo.observeIgnored().first().single().id
+        repo.restoreIgnored(id)
+        repo.resolvePending(id, leafId("EXPENSE", "쇼핑", "간편결제 충전"))
+        repo.learnFromCorrection(lastTx().id, leafId("EXPENSE", "식비", "간식"))
+        assertEquals(0, repo.observeRules().first().size)
+        assertEquals(HandleOutcome.IGNORED,
+            handle(n(KBANK, "출금 10,000원", "네이버페이 충전 | 가짜통장(1234)", "k9", T0 + 86_400_000)))
+    }
+
+    @Test fun blankedSameKeyLog_isNotTreatedAsContained() = runBlocking {
+        handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피"))
+        repo.purgeOldLogs(T0 + AutoEntryRepository.LOG_TEXT_RETENTION_MS + 1)   // 원문만 비고 행은 남는다
+        assertEquals(HandleOutcome.PENDING,
+            handle(n(CARD, "가짜카드", "승인 4,500원 가짜커피 잔액 10,000원", "k1", T0 + 90_000)))
+        assertEquals("DUP_REPOST", pending().single().reason)
+    }
+
     @Test fun restoreIgnored_onRegisteredEntry_doesNothing() = runBlocking {
         handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피"))
         val id = db.openHelper.readableDatabase.query("SELECT id FROM auto_entries").use { it.moveToFirst(); it.getLong(0) }
