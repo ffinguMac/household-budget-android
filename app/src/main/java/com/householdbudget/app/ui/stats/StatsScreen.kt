@@ -3,7 +3,6 @@ package com.householdbudget.app.ui.stats
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,6 +64,8 @@ import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.categoryStyleOf
+import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatAmountGrouped
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
@@ -72,28 +74,11 @@ import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 // ── 모드 토글 (rememberSaveable 저장용) ────────────────────────────────────
 private const val MODE_REPORT = "report"
 private const val MODE_MAP = "map"
-
-// ── 머니 맵 특수 타일 key ──────────────────────────────────────────────────
-private const val SAVINGS_TILE_KEY = -1L
-private const val OTHER_TILE_KEY = -2L
-
-// ── 머니 맵 색 구간 (전월 대비 증감). 데이터 시각화 전용이라 하드코딩 허용. ──
-private val MapDeepGreen = Color(0xFF1FA66F) // 델타 ≤ −20%
-private val MapGreen = Color(0xFF2E6B52) // 델타 < 0%
-private val MapNeutral = Color(0xFF3A4356) // ±5% 또는 전월 데이터 없음
-private val MapRed = Color(0xFF8F3A44) // 델타 > 0%
-private val MapDeepRed = Color(0xFFC2434E) // 델타 ≥ +20%
-private val MapMint = Color(0xFF5EE8B5) // 남은 돈
-private val MapOnMint = Color(0xFF06281A)
-private val MapSavingsBlue = Color(0xFF2B5CA8) // 저축
-private val MapOnSavings = Color(0xFFBDD7FF)
-private val MapOnDelta = Color(0xFFEDF1F7)
 
 private val statsZone = ZoneId.of("Asia/Seoul")
 
@@ -118,16 +103,7 @@ fun StatsScreen(
     // 집계는 (periodData) 가 바뀔 때만 다시 계산한다.
     val stats = remember(periodData) { periodData?.let(::computePeriodStats) }
 
-    val otherLabel = stringResource(R.string.stats_map_other)
-    val leftoverLabel = stringResource(R.string.stats_map_leftover)
-    val overspentLabel = stringResource(R.string.stats_map_overspent)
-    val savingsLabel = stringResource(R.string.stats_map_savings)
-    val mapData =
-        remember(stats, otherLabel, leftoverLabel, overspentLabel, savingsLabel) {
-            stats?.let {
-                buildMapTiles(it, otherLabel, leftoverLabel, overspentLabel, savingsLabel)
-            }
-        }
+    val mapRows = remember(stats) { stats?.let { buildMapRows(it.parents) }.orEmpty() }
 
     LazyColumn(
         modifier =
@@ -185,8 +161,7 @@ fun StatsScreen(
                 )
             }
         } else {
-            val tiles = mapData?.tiles.orEmpty()
-            if (tiles.isEmpty()) {
+            if (mapRows.isEmpty()) {
                 item(key = "map_empty") {
                     EmptyState(
                         icon = Icons.Outlined.PieChart,
@@ -196,6 +171,21 @@ fun StatsScreen(
                     )
                 }
             } else {
+                val openParent: (Long) -> Unit = { key ->
+                    sheet = sheetForParent(key = key, stats = currentStats, rows = currentData.current)
+                }
+                item(key = "map_summary") {
+                    MapSummaryCard(
+                        month = currentStats.period.startInclusive.monthValue,
+                        summary =
+                            MapSummary(
+                                currentStats.incomeMinor,
+                                currentStats.expenseMinor,
+                                currentStats.savingsMinor,
+                            ),
+                        modifier = cardItemModifier(),
+                    )
+                }
                 item(key = "map") {
                     Surface(
                         modifier = cardItemModifier(),
@@ -204,27 +194,19 @@ fun StatsScreen(
                         tonalElevation = 0.dp,
                     ) {
                         MoneyMap(
-                            tiles = tiles,
-                            onTileClick = { key ->
-                                sheet =
-                                    sheetForTileKey(
-                                        key = key,
-                                        stats = currentStats,
-                                        rows = currentData.current,
-                                        mergedParentIds = mapData?.mergedParentIds.orEmpty(),
-                                        savingsLabel = savingsLabel,
-                                        otherLabel = otherLabel,
-                                    )
-                            },
+                            rows = mapRows,
+                            onTileClick = openParent,
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(400.dp)
+                                    .height(230.dp)
                                     .padding(Space.md),
                         )
                     }
                 }
-                item(key = "legend") { MapLegendRow(modifier = cardItemModifier()) }
+                item(key = "map_rank") {
+                    MapRankList(rows = mapRows, onRowClick = openParent, modifier = cardItemModifier())
+                }
             }
         }
     }
@@ -255,7 +237,7 @@ private data class WeekSpend(
     val expenseMinor: Long,
 )
 
-private data class ParentSpend(
+internal data class ParentSpend(
     val parentId: Long,
     val name: String,
     val currentMinor: Long,
@@ -342,134 +324,15 @@ private fun expenseRowsOfParent(
         .filter { it.kind == CategoryKind.EXPENSE.storage && parentKeyOf(it) == parentId }
         .sortedByDescending { it.occurredEpochDay }
 
-// ──────────────────────────────────────────────────────────────────────────
-// 머니 맵 데이터
-// ──────────────────────────────────────────────────────────────────────────
-
-private data class MapData(
-    val tiles: List<MapTile>,
-    /** "기타" 타일로 합쳐진 대분류 id — 바텀시트 필터용. */
-    val mergedParentIds: Set<Long>,
-)
-
-private fun deltaColor(currentMinor: Long, previousMinor: Long): Color {
-    if (previousMinor <= 0L) return MapNeutral
-    val delta = (currentMinor - previousMinor).toDouble() / previousMinor
-    return when {
-        abs(delta) <= 0.05 -> MapNeutral
-        delta <= -0.20 -> MapDeepGreen
-        delta < 0.0 -> MapGreen
-        delta >= 0.20 -> MapDeepRed
-        else -> MapRed
-    }
-}
-
-private fun buildMapTiles(
-    stats: PeriodStats,
-    otherLabel: String,
-    leftoverLabel: String,
-    overspentLabel: String,
-    savingsLabel: String,
-): MapData {
-    val expenseTiles =
-        stats.parents
-            .filter { it.currentMinor > 0 }
-            .map { parent ->
-                MapTile(
-                    label = parent.name,
-                    amountMinor = parent.currentMinor,
-                    color = deltaColor(parent.currentMinor, parent.previousMinor),
-                    onColor = MapOnDelta,
-                    key = parent.parentId,
-                )
-            }
-    val leftoverMinor = stats.incomeMinor - stats.expenseMinor - stats.savingsMinor
-    val specialTiles = buildList {
-        if (stats.savingsMinor > 0) {
-            add(
-                MapTile(
-                    label = savingsLabel,
-                    amountMinor = stats.savingsMinor,
-                    color = MapSavingsBlue,
-                    onColor = MapOnSavings,
-                    key = SAVINGS_TILE_KEY,
-                ),
-            )
-        }
-        if (leftoverMinor > 0) {
-            add(
-                MapTile(
-                    label = leftoverLabel,
-                    amountMinor = leftoverMinor,
-                    color = MapMint,
-                    onColor = MapOnMint,
-                    key = null,
-                ),
-            )
-        } else if (leftoverMinor < 0) {
-            add(
-                MapTile(
-                    label = overspentLabel,
-                    amountMinor = -leftoverMinor,
-                    color = MapDeepRed,
-                    onColor = MapOnDelta,
-                    key = null,
-                ),
-            )
-        }
-    }
-    val totalShown =
-        expenseTiles.sumOf { it.amountMinor } + specialTiles.sumOf { it.amountMinor }
-    val merged =
-        mergeSmallTiles(
-            tiles = expenseTiles,
-            otherLabel = otherLabel,
-            otherColor = MapNeutral,
-            otherOnColor = MapOnDelta,
-            otherKey = OTHER_TILE_KEY,
-            totalMinor = totalShown,
-        )
-    return MapData(
-        tiles = merged.tiles + specialTiles,
-        mergedParentIds = merged.mergedKeys.filterNotNull().toSet(),
-    )
-}
-
-private fun sheetForTileKey(
-    key: Long?,
+private fun sheetForParent(
+    key: Long,
     stats: PeriodStats,
     rows: List<TransactionWithCategoryRow>,
-    mergedParentIds: Set<Long>,
-    savingsLabel: String,
-    otherLabel: String,
-): SheetData? =
-    when {
-        key == null -> null
-        key == SAVINGS_TILE_KEY ->
-            SheetData(
-                title = savingsLabel,
-                rows =
-                    rows
-                        .filter { it.kind == CategoryKind.SAVINGS.storage }
-                        .sortedByDescending { it.occurredEpochDay },
-            )
-        key == OTHER_TILE_KEY ->
-            SheetData(
-                title = otherLabel,
-                rows =
-                    rows
-                        .filter {
-                            it.kind == CategoryKind.EXPENSE.storage &&
-                                parentKeyOf(it) in mergedParentIds
-                        }
-                        .sortedByDescending { it.occurredEpochDay },
-            )
-        else ->
-            SheetData(
-                title = stats.parents.firstOrNull { it.parentId == key }?.name ?: "",
-                rows = expenseRowsOfParent(rows, key),
-            )
-    }
+): SheetData =
+    SheetData(
+        title = stats.parents.firstOrNull { it.parentId == key }?.name ?: "",
+        rows = expenseRowsOfParent(rows, key),
+    )
 
 // ──────────────────────────────────────────────────────────────────────────
 // 헤더 + 모드 토글
@@ -908,7 +771,7 @@ private fun CategoryBudgetRow(
             horizontalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
             Text(
-                text = parent.name,
+                text = categoryLabel(parent.name),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -929,7 +792,7 @@ private fun CategoryBudgetRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
-            DeltaLabel(currentMinor = parent.currentMinor, previousMinor = parent.previousMinor)
+            DeltaLabel(deltaPercent(parent.currentMinor, parent.previousMinor))
         }
         if (budgetMinor != null && budgetMinor > 0) {
             Box(
@@ -949,7 +812,7 @@ private fun CategoryBudgetRow(
                                         .coerceIn(0f, 1f),
                                 )
                                 .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary),
+                                .background(categoryStyleOf(parent.name).color),
                     )
                 } else {
                     // 초과: 바 전체 = 총지출, 뒤쪽 빨간 구간 = 예산 초과분.
@@ -959,8 +822,9 @@ private fun CategoryBudgetRow(
                                 Modifier
                                     .weight(budgetMinor.toFloat())
                                     .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(categoryStyleOf(parent.name).color),
                         )
+                        Spacer(Modifier.width(2.dp).fillMaxHeight())
                         Box(
                             modifier =
                                 Modifier
@@ -975,32 +839,26 @@ private fun CategoryBudgetRow(
     }
 }
 
-/** 전월 대비 델타: ▲12% 레드 / ▼3% 민트 / — (전월 0원 또는 동일). */
+/** 전월 대비 표기(문구, 색): ▲n% 빨강 / ▼n% 초록 / — 회색. 맵 타일·순위 목록·리포트가 함께 쓴다. */
 @Composable
-private fun DeltaLabel(
-    currentMinor: Long,
-    previousMinor: Long,
+internal fun deltaDisplay(deltaPercent: Int?): Pair<String, Color> =
+    when {
+        deltaPercent == null ->
+            stringResource(R.string.stats_delta_flat) to MaterialTheme.colorScheme.onSurfaceVariant
+        deltaPercent > 0 ->
+            stringResource(R.string.stats_delta_up, deltaPercent) to MaterialTheme.colorScheme.error
+        else ->
+            stringResource(R.string.stats_delta_down, -deltaPercent) to
+                MaterialTheme.colorScheme.primary
+    }
+
+/** 값은 `deltaPercent()` 결과(±5% 이내 = null → "—"). */
+@Composable
+internal fun DeltaLabel(
+    deltaPercent: Int?,
     modifier: Modifier = Modifier,
 ) {
-    val (text, color) =
-        if (previousMinor <= 0L) {
-            stringResource(R.string.stats_delta_flat) to
-                MaterialTheme.colorScheme.onSurfaceVariant
-        } else {
-            val pct =
-                ((currentMinor - previousMinor) * 100.0 / previousMinor).roundToInt()
-            when {
-                pct > 0 ->
-                    stringResource(R.string.stats_delta_up, pct) to
-                        MaterialTheme.colorScheme.error
-                pct < 0 ->
-                    stringResource(R.string.stats_delta_down, -pct) to
-                        MaterialTheme.colorScheme.primary
-                else ->
-                    stringResource(R.string.stats_delta_flat) to
-                        MaterialTheme.colorScheme.onSurfaceVariant
-            }
-        }
+    val (text, color) = deltaDisplay(deltaPercent)
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
@@ -1011,45 +869,8 @@ private fun DeltaLabel(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 맵 범례 + 상세 바텀시트 + 스켈레톤
+// 상세 바텀시트 + 스켈레톤
 // ──────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun MapLegendRow(modifier: Modifier = Modifier) {
-    val entries =
-        listOf(
-            MapGreen to stringResource(R.string.stats_legend_less),
-            MapNeutral to stringResource(R.string.stats_legend_same),
-            MapRed to stringResource(R.string.stats_legend_more),
-            MapMint to stringResource(R.string.stats_map_leftover),
-            MapSavingsBlue to stringResource(R.string.stats_map_savings),
-        )
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Space.md),
-    ) {
-        entries.forEach { (color, label) ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Space.xs),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(10.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(color),
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
 
 private data class SheetData(
     val title: String,

@@ -56,6 +56,7 @@ import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatDigitsGrouped
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.stripDigits
@@ -268,7 +269,7 @@ fun BudgetSettingsScreen(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = parent.name,
+                                            text = categoryLabel(parent.name),
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface,

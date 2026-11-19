@@ -50,6 +50,9 @@ import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
+import com.householdbudget.app.ui.theme.CategoryDot
+import com.householdbudget.app.ui.theme.categoryStyleOf
+import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
@@ -151,7 +154,10 @@ private fun ResolveSheet(
                 }
             }
             parentsByKind[kind].orEmpty().forEach { parent ->
-                Text(parent.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    CategoryDot(categoryStyleOf(parent.name).color)
+                    Text(categoryLabel(parent.name), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                     childrenByParent[parent.id].orEmpty().forEach { leaf ->
                         FilterChip(selected = false, onClick = { onResolve(leaf.id) }, label = { Text(leaf.name) })
