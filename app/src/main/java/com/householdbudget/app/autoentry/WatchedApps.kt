@@ -17,7 +17,7 @@ object WatchedApps {
         return installed
     }
 
-    /** 알림을 읽을 수 있는 앱은 정해 둔 금융 앱(+debug 빌드의 shell)뿐이다. 그 밖의 앱은 저장돼 있어도 무시한다. */
+    /** 알림을 읽을 수 있는 앱은 정해 둔 금융 앱(+debug 빌드의 shell)뿐이다. 그 밖의 앱 알림은 읽지 않는다. */
     fun isAllowed(pkg: String, debuggable: Boolean): Boolean =
         pkg in KnownApps.FINANCE_PACKAGES || (debuggable && pkg == SHELL_PACKAGE)
 }

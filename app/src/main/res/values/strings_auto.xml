@@ -25,7 +25,7 @@
     <string name="auto_reason_unclassified">어디에 쓴 돈인지 몰라요</string>
     <string name="auto_reason_restored">되살린 알림</string>
     <string name="auto_ignored_title">기록하지 않은 알림</string>
-    <string name="auto_ignored_desc">결제 앱 충전처럼 건너뛴 알림이에요. 빠진 지출이 있으면 되살려서 기록하세요.</string>
+    <string name="auto_ignored_desc">결제 앱 충전처럼 건너뛴 알림이에요. 빠진 지출이 있으면 되살려서 기록하세요. 결제 앱 알림이 꺼져 있으면 충전한 돈이 지출에서 빠질 수 있어요.</string>
     <string name="auto_ignored_restore">되살리기</string>
     <string name="auto_skip">기록 안 함</string>
 </resources>
