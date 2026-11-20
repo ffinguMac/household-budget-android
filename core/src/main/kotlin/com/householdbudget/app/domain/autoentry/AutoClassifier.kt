@@ -38,6 +38,8 @@ object AutoClassifier {
     // 이자카야, 발신자 이자영 같은 이름을 이자 수입으로 오인하지 않게 한다.
     private val INTEREST = Regex("이자(?![가-힣])")
 
+    private val TRADE = Regex("체결|매수|매도")
+
     // 스마트스토어·스마트로 같은 가맹점이 마트로 잡히지 않게 한다.
     private val MART = Regex("(?<!스)마트")
 
@@ -54,11 +56,15 @@ object AutoClassifier {
         if (learned != null) {
             return learned.categoryId?.let { Decision.RegisterById(it) } ?: Decision.Ignore
         }
+        val text = MerchantNormalizer.normalize(fullText)
+        // 토스·카카오페이 안의 증권 주문 체결 알림은 계좌 안의 이동이라 기록하지 않는다(실제 돈은 은행 이체로 잡힌다).
+        if (TRADE.containsMatchIn(text)) return Decision.Ignore
         if (parsed.direction == Direction.UNKNOWN) return Decision.NeedsReview(ReviewReason.UNKNOWN_DIRECTION)
         val key = MerchantNormalizer.normalize(parsed.merchant)
-        val text = MerchantNormalizer.normalize(fullText)
 
         if (parsed.direction == Direction.OUT) {
+            // 증권 계좌로 보낸 돈은 지출이 아니라 투자 저축. "카카오페이증권"이 충전으로 잡히지 않게 충전 판별보다 먼저 본다.
+            if (text.contains("증권")) return Decision.RegisterByPath(INVEST_PATH)
             KnownApps.CHARGE_APPS.firstOrNull { text.contains(it.keyword) }?.let { app ->
                 if (sourcePackage in app.packages) {
                     if (text.contains("충전")) return Decision.Ignore
@@ -67,8 +73,6 @@ object AutoClassifier {
                     else Decision.RegisterByPath(CHARGE_PATH)
                 }
             }
-            // 증권 계좌로 보낸 돈은 지출이 아니라 투자 저축. 증권사 앱 알림(체결 등)은 읽지 않는다.
-            if (text.contains("증권")) return Decision.RegisterByPath(INVEST_PATH)
             MERCHANT_RULES.firstOrNull { (words, _) -> words.any { matches(key, it) } }
                 ?.let { return Decision.RegisterByPath(it.second) }
         }
