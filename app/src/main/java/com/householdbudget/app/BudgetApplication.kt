@@ -30,7 +30,7 @@ class BudgetApplication : Application() {
             runCatching {
                 val prefs = container.userPreferencesRepository
                 if (prefs.reminderEnabled.first()) {
-                    ReminderScheduler.schedule(this@BudgetApplication, prefs.reminderHour.first())
+                    ReminderScheduler.schedule(this@BudgetApplication, prefs.reminderHour.first(), replace = false)
                 }
             }
         }

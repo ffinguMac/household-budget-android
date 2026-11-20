@@ -120,6 +120,8 @@ fun MainTabScaffold(
     repository: BudgetRepository,
     onNavigateAdd: () -> Unit,
     onNavigateEdit: (Long) -> Unit,
+    openPending: Boolean = false,
+    onOpenPendingHandled: () -> Unit = {},
 ) {
     // enum 은 기본 Saver 가 없어 ordinal 로 저장하고 파생시킨다.
     var selectedOrdinal by rememberSaveable { mutableIntStateOf(MainTab.FEED.ordinal) }
@@ -149,6 +151,14 @@ fun MainTabScaffold(
     LaunchedEffect(selected) {
         if (selected != MainTab.SETTINGS) {
             settingsPane = SettingsPane.Main
+        }
+    }
+    // 순서 중요: 위 LaunchedEffect(selected) 가 처음 컴포지션 때 settingsPane 을 Main 으로 되돌리므로 그 뒤에 둔다.
+    LaunchedEffect(openPending) {
+        if (openPending) {
+            selectedOrdinal = MainTab.SETTINGS.ordinal
+            settingsPane = SettingsPane.Pending
+            onOpenPendingHandled()
         }
     }
 

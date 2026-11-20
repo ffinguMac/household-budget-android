@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,8 +34,14 @@ fun BudgetNavHost(
     budgetViewModel: BudgetViewModel,
     calendarViewModel: CalendarViewModel,
     repository: BudgetRepository,
+    openPending: Boolean = false,
+    onOpenPendingHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    LaunchedEffect(openPending) {
+        // 알림으로 열면 편집 화면이 떠 있어도 탭 화면으로 돌아간다. 처리 완료는 탭 화면이 알린다.
+        if (openPending) navController.popBackStack(BudgetRoutes.TABS, inclusive = false)
+    }
     NavHost(navController = navController, startDestination = BudgetRoutes.TABS) {
         composable(
             route = BudgetRoutes.TABS,
@@ -47,6 +54,8 @@ fun BudgetNavHost(
                 repository = repository,
                 onNavigateAdd = { navController.navigate(BudgetRoutes.ADD) },
                 onNavigateEdit = { id -> navController.navigate(BudgetRoutes.edit(id)) },
+                openPending = openPending,
+                onOpenPendingHandled = onOpenPendingHandled,
             )
         }
         composable(

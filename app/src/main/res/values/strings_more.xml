@@ -29,11 +29,11 @@
     <string name="settings_budget_subtitle_set">월 %s · 카테고리별 관리</string>
     <string name="settings_budget_subtitle_unset">아직 설정 전</string>
     <string name="settings_reminder_title">기록 리마인더</string>
-    <string name="settings_reminder_subtitle_off">하루 한 번, 기록을 잊지 않게 알려드려요</string>
-    <string name="settings_reminder_subtitle_on">매일 %d시에 알림</string>
+    <string name="settings_reminder_subtitle_off">확인이 필요한 거래가 있을 때 알려드려요</string>
+    <string name="settings_reminder_subtitle_on">확인 필요가 있으면 매일 %d시에 알림</string>
     <string name="settings_reminder_denied">알림 권한이 꺼져 있어요. 시스템 설정에서 허용해 주세요.</string>
     <string name="settings_reminder_sheet_title">알림 시간</string>
-    <string name="settings_reminder_sheet_desc">매일 이 시간에 기록 알림을 보내드려요.</string>
+    <string name="settings_reminder_sheet_desc">확인이 필요한 거래가 있을 때만 이 시간에 알려드려요.</string>
     <string name="settings_reminder_hour_cell">%d시</string>
     <string name="settings_export_title">내보내기 (CSV)</string>
     <string name="settings_export_subtitle">이번 월급 주기 내역을 파일로 공유해요</string>
