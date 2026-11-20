@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +44,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
 import com.householdbudget.app.autoentry.WatchedApps
-import com.householdbudget.app.domain.autoentry.KnownApps
 import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -84,9 +82,6 @@ fun AutoEntrySettingsScreen(
     val ignored by remember(repo) { repo.observeIgnored() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val apps by produceState<List<AppInfo>?>(null) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
     val watched = WatchedApps.effective(stored, context)
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    // 토글 직후 행이 사라지거나 자리를 옮기지 않게, 펼침 상태가 바뀔 때만 다시 나눈다.
-    val pinned = remember(apps, expanded, stored == null) { watched }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -145,9 +140,7 @@ fun AutoEntrySettingsScreen(
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
                 val loaded = apps
-                val (primary, others) = if (loaded == null) Pair(emptyList(), emptyList())
-                    else splitWatchableApps(loaded, pinned, KnownApps.FINANCE_PACKAGES)
-                val shown = if (expanded) primary + others else primary
+                val shown = loaded.orEmpty()
                 if (loaded != null && shown.isEmpty()) {
                     Text(
                         text = stringResource(R.string.auto_watched_none),
@@ -164,13 +157,6 @@ fun AutoEntrySettingsScreen(
                             prefs.toggleWatchedPackage(app.packageName, on, defaults)
                         }
                     }
-                }
-                if (others.isNotEmpty()) {
-                    if (shown.isNotEmpty()) SettingsRowDivider()
-                    TextButton(
-                        onClick = { expanded = !expanded },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.sm),
-                    ) { Text(stringResource(if (expanded) R.string.auto_watched_less else R.string.auto_watched_more)) }
                 }
             }
             Spacer(Modifier.height(Space.sm))

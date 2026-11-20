@@ -9,15 +9,11 @@ import com.householdbudget.app.domain.autoentry.KnownApps
 
 data class AppInfo(val packageName: String, val label: String)
 
-fun sortSelectableApps(apps: List<AppInfo>, known: List<String>): List<AppInfo> {
-    val unique = apps.distinctBy { it.packageName }
-    val (knownApps, others) = unique.partition { it.packageName in known }
-    return knownApps.sortedBy { known.indexOf(it.packageName) } + others.sortedBy { it.label }
-}
-
-/** (기본으로 보일 앱, 나머지). 입력 순서를 유지한다. */
-fun splitWatchableApps(apps: List<AppInfo>, watched: Set<String>, known: List<String>): Pair<List<AppInfo>, List<AppInfo>> =
-    apps.partition { it.packageName in known || it.packageName in watched || it.packageName == WatchedApps.SHELL_PACKAGE }
+/** 정해 둔 금융 앱만 [known] 순서로 남긴다. 그 밖의 앱은 고를 수 없다(shell 은 debug 테스트용으로 끝에). */
+fun selectableFinanceApps(apps: List<AppInfo>, known: List<String>): List<AppInfo> =
+    apps.distinctBy { it.packageName }
+        .filter { it.packageName in known || it.packageName == WatchedApps.SHELL_PACKAGE }
+        .sortedBy { known.indexOf(it.packageName).let { i -> if (i < 0) Int.MAX_VALUE else i } }
 
 fun loadSelectableApps(context: Context): List<AppInfo> {
     val pm = context.packageManager
@@ -29,5 +25,5 @@ fun loadSelectableApps(context: Context): List<AppInfo> {
     if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
         apps += AppInfo(WatchedApps.SHELL_PACKAGE, context.getString(R.string.auto_shell_label))
     }
-    return sortSelectableApps(apps, KnownApps.FINANCE_PACKAGES)
+    return selectableFinanceApps(apps, KnownApps.FINANCE_PACKAGES)
 }

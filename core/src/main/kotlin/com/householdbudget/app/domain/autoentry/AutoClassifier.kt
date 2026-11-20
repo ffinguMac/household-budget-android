@@ -2,6 +2,7 @@ package com.householdbudget.app.domain.autoentry
 
 import com.householdbudget.app.domain.CategoryKind.EXPENSE
 import com.householdbudget.app.domain.CategoryKind.INCOME
+import com.householdbudget.app.domain.CategoryKind.SAVINGS
 import com.householdbudget.app.domain.category.CategoryPath
 
 enum class ReviewReason { UNKNOWN_DIRECTION, UNCLASSIFIED, DUP_CROSS_APP, DUP_MANUAL, DUP_REPOST, RESTORED }
@@ -20,6 +21,7 @@ object AutoClassifier {
     internal val CHARGE_PATH = CategoryPath(EXPENSE, "쇼핑", "간편결제 충전")
     internal val CASHBACK_INTEREST_PATH = CategoryPath(INCOME, "수입", "캐시백/이자")
     internal val REFUND_PATH = CategoryPath(INCOME, "수입", "기타")
+    internal val INVEST_PATH = CategoryPath(SAVINGS, "저축", "투자")
 
     /** 정규화한 이름에 키워드가 들어 있으면 일치, 위에서부터 첫 일치. */
     internal val MERCHANT_RULES: List<Pair<List<String>, CategoryPath>> = listOf(
@@ -65,6 +67,8 @@ object AutoClassifier {
                     else Decision.RegisterByPath(CHARGE_PATH)
                 }
             }
+            // 증권 계좌로 보낸 돈은 지출이 아니라 투자 저축. 증권사 앱 알림(체결 등)은 읽지 않는다.
+            if (text.contains("증권")) return Decision.RegisterByPath(INVEST_PATH)
             MERCHANT_RULES.firstOrNull { (words, _) -> words.any { matches(key, it) } }
                 ?.let { return Decision.RegisterByPath(it.second) }
         }

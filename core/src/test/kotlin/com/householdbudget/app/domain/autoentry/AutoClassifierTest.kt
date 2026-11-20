@@ -66,8 +66,12 @@ class AutoClassifierTest {
 
     @Test fun everyBuiltinPath_existsInFixedTree() {
         val paths = AutoClassifier.MERCHANT_RULES.map { it.second } +
-            listOf(AutoClassifier.CHARGE_PATH, AutoClassifier.CASHBACK_INTEREST_PATH, AutoClassifier.REFUND_PATH)
+            listOf(AutoClassifier.CHARGE_PATH, AutoClassifier.CASHBACK_INTEREST_PATH, AutoClassifier.REFUND_PATH, AutoClassifier.INVEST_PATH)
         val tree = FixedCategories.TREE.flatMap { p -> p.children.map { CategoryPath(p.kind, p.name, it) } }.toSet()
         paths.forEach { assertTrue("missing in TREE: $it", it in tree) }
     }
+
+    @Test fun bankTransferToSecurities_isInvestSaving() = assertEquals(
+        Decision.RegisterByPath(AutoClassifier.INVEST_PATH),
+        AutoClassifier.classify(ParsedNotification(500_000, Direction.OUT, "가짜증권"), "출금 500,000원 | 가짜증권", "com.kbankwith.smartbank", emptySet(), null))
 }
