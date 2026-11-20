@@ -7,7 +7,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.householdbudget.app.data.repository.BudgetRepository
@@ -21,8 +21,8 @@ import com.householdbudget.app.ui.theme.HouseholdBudgetTheme
 
 // BiometricPrompt(AppLockGate)가 FragmentActivity 를 요구해 ComponentActivity 대신 상속한다.
 class MainActivity : FragmentActivity() {
-    /** 리마인더 알림으로 열릴 때마다 1씩 늘려 "확인 필요" 화면으로 보낸다. */
-    private val openPendingSignal = mutableIntStateOf(0)
+    /** 리마인더 알림으로 열렸으면 true. "확인 필요" 화면으로 옮긴 뒤 false 로 되돌린다(1회성). */
+    private val openPending = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,7 +51,8 @@ class MainActivity : FragmentActivity() {
                                 factory = CalendarViewModelFactory(app.container.budgetRepository),
                             ),
                         repository = app.container.budgetRepository,
-                        openPendingSignal = openPendingSignal.intValue,
+                        openPending = openPending.value,
+                        onOpenPendingHandled = { openPending.value = false },
                     )
                 }
             }
@@ -64,9 +65,11 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun consumeOpenPending(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_OPEN_PENDING, false) == true) {
+        // 최근 앱에서 다시 열면 예전 인텐트가 그대로 오므로 무시한다.
+        val fromHistory = (intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (!fromHistory && intent?.getBooleanExtra(EXTRA_OPEN_PENDING, false) == true) {
             intent.removeExtra(EXTRA_OPEN_PENDING)
-            openPendingSignal.intValue++
+            openPending.value = true
         }
     }
 
@@ -86,12 +89,14 @@ private fun BudgetApp(
     budgetViewModel: BudgetViewModel,
     calendarViewModel: CalendarViewModel,
     repository: BudgetRepository,
-    openPendingSignal: Int,
+    openPending: Boolean,
+    onOpenPendingHandled: () -> Unit,
 ) {
     BudgetNavHost(
         budgetViewModel = budgetViewModel,
         calendarViewModel = calendarViewModel,
         repository = repository,
-        openPendingSignal = openPendingSignal,
+        openPending = openPending,
+        onOpenPendingHandled = onOpenPendingHandled,
     )
 }

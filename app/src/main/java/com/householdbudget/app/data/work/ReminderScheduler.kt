@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 object ReminderScheduler {
     private const val UNIQUE_NAME = "record_reminder"
 
-    fun schedule(context: Context, hourOfDay: Int) {
+    fun schedule(context: Context, hourOfDay: Int, replace: Boolean = true) {
         require(hourOfDay in 0..23)
         val now = LocalDateTime.now()
         var next = now.toLocalDate().atTime(hourOfDay, 0)
@@ -27,7 +27,8 @@ object ReminderScheduler {
         WorkManager.getInstance(context.applicationContext)
             .enqueueUniquePeriodicWork(
                 UNIQUE_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                // 앱 시작 때는 KEEP: 리마인더 시각에 WorkManager 가 프로세스를 깨워도 오늘 실행이 내일로 밀리지 않게.
+                if (replace) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
                 request,
             )
     }

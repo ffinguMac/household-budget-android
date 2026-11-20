@@ -32,12 +32,15 @@ class ReminderWorker(
         ) {
             return Result.success()
         }
-        val pending =
-            (context as BudgetApplication).container.autoEntryRepository.observePendingCount().first()
-        if (pending <= 0) return Result.success()
-
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val pending =
+            (context as BudgetApplication).container.autoEntryRepository.observePendingCount().first()
+        if (pending <= 0) {
+            notificationManager.cancel(NOTIFICATION_ID) // 어제 알림의 오래된 건수를 지운다
+            return Result.success()
+        }
+
         notificationManager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,

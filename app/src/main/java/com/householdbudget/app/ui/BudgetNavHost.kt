@@ -34,12 +34,13 @@ fun BudgetNavHost(
     budgetViewModel: BudgetViewModel,
     calendarViewModel: CalendarViewModel,
     repository: BudgetRepository,
-    openPendingSignal: Int = 0,
+    openPending: Boolean = false,
+    onOpenPendingHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
-    LaunchedEffect(openPendingSignal) {
-        // 알림으로 열면 편집 화면이 떠 있어도 탭 화면으로 돌아간다.
-        if (openPendingSignal > 0) navController.popBackStack(BudgetRoutes.TABS, inclusive = false)
+    LaunchedEffect(openPending) {
+        // 알림으로 열면 편집 화면이 떠 있어도 탭 화면으로 돌아간다. 처리 완료는 탭 화면이 알린다.
+        if (openPending) navController.popBackStack(BudgetRoutes.TABS, inclusive = false)
     }
     NavHost(navController = navController, startDestination = BudgetRoutes.TABS) {
         composable(
@@ -53,7 +54,8 @@ fun BudgetNavHost(
                 repository = repository,
                 onNavigateAdd = { navController.navigate(BudgetRoutes.ADD) },
                 onNavigateEdit = { id -> navController.navigate(BudgetRoutes.edit(id)) },
-                openPendingSignal = openPendingSignal,
+                openPending = openPending,
+                onOpenPendingHandled = onOpenPendingHandled,
             )
         }
         composable(
