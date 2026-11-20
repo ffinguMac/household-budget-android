@@ -27,6 +27,7 @@ object ReminderScheduler {
         WorkManager.getInstance(context.applicationContext)
             .enqueueUniquePeriodicWork(
                 UNIQUE_NAME,
+                // shortcut: KEEP 이면 Doze·시간대 변경으로 밀린 시각이 설정에서 다시 저장할 때까지 유지됨, 정시가 중요해지면 시작 때 재정렬 추가
                 // 앱 시작 때는 KEEP: 리마인더 시각에 WorkManager 가 프로세스를 깨워도 오늘 실행이 내일로 밀리지 않게.
                 if (replace) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
                 request,
