@@ -31,7 +31,5 @@
     <string name="auto_ignored_desc">결제 앱 충전처럼 건너뛴 알림이에요. 빠진 지출이 있으면 되살려서 기록하세요.</string>
     <string name="auto_ignored_restore">되살리기</string>
     <string name="auto_skip">기록 안 함</string>
-    <string name="auto_watched_more">다른 앱 추가</string>
-    <string name="auto_watched_less">다른 앱 접기</string>
     <string name="auto_watched_none">설치된 금융 앱이 없어요</string>
 </resources>

@@ -47,9 +47,17 @@ class WatchedAppsTest {
             WatchedApps.effective(setOf(NotificationParsers.KBANK_PACKAGE, "viva.republica.toss"), ctx))
     }
 
-    @Test fun isCandidate_storedSetWins_elseKnownFinanceApps() {
-        assertTrue(WatchedApps.isCandidate("x", setOf("x"), false))
-        assertFalse(WatchedApps.isCandidate(NotificationParsers.KBANK_PACKAGE, setOf("x"), false))
+    @Test fun effective_dropsStoredNonFinanceApp() {
+        shadowOf(ctx.packageManager).installPackage(PackageInfo().apply { packageName = NotificationParsers.KBANK_PACKAGE })
+        shadowOf(ctx.packageManager).installPackage(PackageInfo().apply { packageName = "com.fake.chat" })
+        assertEquals(setOf(NotificationParsers.KBANK_PACKAGE),
+            WatchedApps.effective(setOf(NotificationParsers.KBANK_PACKAGE, "com.fake.chat"), ctx))
+    }
+
+    @Test fun isCandidate_onlyFinanceApps_storedSetNarrows() {
+        assertFalse(WatchedApps.isCandidate("x", setOf("x"), false))
+        assertTrue(WatchedApps.isCandidate(NotificationParsers.KBANK_PACKAGE, setOf(NotificationParsers.KBANK_PACKAGE), false))
+        assertFalse(WatchedApps.isCandidate(NotificationParsers.KBANK_PACKAGE, setOf("viva.republica.toss"), false))
         assertTrue(WatchedApps.isCandidate(NotificationParsers.KBANK_PACKAGE, null, false))
         assertFalse(WatchedApps.isCandidate(WatchedApps.SHELL_PACKAGE, null, false))
         assertTrue(WatchedApps.isCandidate(WatchedApps.SHELL_PACKAGE, null, true))

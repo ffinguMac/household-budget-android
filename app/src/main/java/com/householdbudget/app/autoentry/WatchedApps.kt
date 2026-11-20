@@ -17,9 +17,13 @@ object WatchedApps {
         return installed
     }
 
+    /** 알림을 읽을 수 있는 앱은 정해 둔 금융 앱(+debug 빌드의 shell)뿐이다. 그 밖의 앱은 저장돼 있어도 무시한다. */
+    fun isAllowed(pkg: String, debuggable: Boolean): Boolean =
+        pkg in KnownApps.FINANCE_PACKAGES || (debuggable && pkg == SHELL_PACKAGE)
+
     /** 뮤텍스 앞 사전 검사. PackageManager를 부르지 않는다. */
     fun isCandidate(pkg: String, stored: Set<String>?, debuggable: Boolean): Boolean =
-        if (stored != null) pkg in stored else pkg in KnownApps.FINANCE_PACKAGES || (debuggable && pkg == SHELL_PACKAGE)
+        isAllowed(pkg, debuggable) && (stored == null || pkg in stored)
 
     // shell은 런처가 없어 <queries> 가시성 밖이라 debuggable 빌드에서는 설치 확인 없이 둔다.
     fun filterInstalled(packages: Set<String>, debuggable: Boolean, isInstalled: (String) -> Boolean): Set<String> =
@@ -30,6 +34,7 @@ object WatchedApps {
         if (stored == null) return defaults(context)
         val pm = context.packageManager
         val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-        return filterInstalled(stored, debuggable) { runCatching { pm.getPackageInfo(it, 0) }.isSuccess }
+        val allowed = stored.filterTo(mutableSetOf()) { isAllowed(it, debuggable) }
+        return filterInstalled(allowed, debuggable) { runCatching { pm.getPackageInfo(it, 0) }.isSuccess }
     }
 }

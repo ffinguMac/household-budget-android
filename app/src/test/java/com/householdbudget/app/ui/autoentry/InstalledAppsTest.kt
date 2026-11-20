@@ -6,23 +6,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class InstalledAppsTest {
-    @Test fun knownAppsComeFirst_thenLabelOrder() = assertEquals(
-        listOf("com.kbankwith.smartbank", "viva.republica.toss", "com.fake.a", "com.fake.b"),
-        sortSelectableApps(
-            listOf(AppInfo("com.fake.b", "나"), AppInfo("viva.republica.toss", "토스"), AppInfo("com.fake.a", "가"),
-                AppInfo("com.kbankwith.smartbank", "케이뱅크"), AppInfo("com.fake.a", "가")),
+    @Test fun onlyKnownFinanceApps_inKnownOrder_shellLast() = assertEquals(
+        listOf("com.kbankwith.smartbank", "viva.republica.toss", WatchedApps.SHELL_PACKAGE),
+        selectableFinanceApps(
+            listOf(AppInfo("com.fake.b", "나"), AppInfo(WatchedApps.SHELL_PACKAGE, "셸"), AppInfo("viva.republica.toss", "토스"),
+                AppInfo("com.fake.a", "가"), AppInfo("com.kbankwith.smartbank", "케이뱅크"), AppInfo("com.kbankwith.smartbank", "케이뱅크")),
             KnownApps.FINANCE_PACKAGES).map { it.packageName })
-
-    @Test fun splitWatchableApps_primaryIsFinanceWatchedAndShell_othersRest() {
-        val apps = sortSelectableApps(
-            listOf(AppInfo("com.fake.b", "나"), AppInfo("viva.republica.toss", "토스"), AppInfo("com.fake.a", "가"),
-                AppInfo("com.kbankwith.smartbank", "케이뱅크"), AppInfo("com.fake.w", "다"),
-                AppInfo(WatchedApps.SHELL_PACKAGE, "셸")),
-            KnownApps.FINANCE_PACKAGES)
-        val (primary, others) = splitWatchableApps(apps, setOf("com.fake.w"), KnownApps.FINANCE_PACKAGES)
-        assertEquals(
-            listOf("com.kbankwith.smartbank", "viva.republica.toss", "com.fake.w", WatchedApps.SHELL_PACKAGE),
-            primary.map { it.packageName })
-        assertEquals(listOf("com.fake.a", "com.fake.b"), others.map { it.packageName })
-    }
 }
