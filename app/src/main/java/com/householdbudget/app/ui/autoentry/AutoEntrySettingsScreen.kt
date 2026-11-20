@@ -21,14 +21,11 @@ import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -43,7 +40,6 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
-import com.householdbudget.app.autoentry.WatchedApps
 import com.householdbudget.app.ui.components.ScreenHeader
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -54,9 +50,7 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun AutoEntrySettingsScreen(
@@ -67,7 +61,6 @@ fun AutoEntrySettingsScreen(
     val context = LocalContext.current
     val container = remember(context) { (context.applicationContext as BudgetApplication).container }
     val repo = container.autoEntryRepository
-    val prefs = container.userPreferencesRepository
     val scope = rememberCoroutineScope()
 
     var accessGranted by remember { mutableStateOf(false) }
@@ -77,11 +70,8 @@ fun AutoEntrySettingsScreen(
     }
 
     val pendingCount by remember(repo) { repo.observePendingCount() }.collectAsStateWithLifecycle(initialValue = 0)
-    val stored by prefs.watchedPackagesOrNull.collectAsStateWithLifecycle(initialValue = null)
     val rules by remember(repo) { repo.observeRules() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val ignored by remember(repo) { repo.observeIgnored() }.collectAsStateWithLifecycle(initialValue = emptyList())
-    val apps by produceState<List<AppInfo>?>(null) { value = withContext(Dispatchers.IO) { loadSelectableApps(context) } }
-    val watched = WatchedApps.effective(stored, context)
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -129,43 +119,6 @@ fun AutoEntrySettingsScreen(
                     onClick = onOpenPending,
                 )
             }
-            Spacer(Modifier.height(Space.xxl))
-        }
-
-        item {
-            SectionHeader(
-                title = stringResource(R.string.auto_watched_title),
-                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
-            )
-            Spacer(Modifier.height(Space.sm))
-            SettingsGroupPanel {
-                val loaded = apps
-                val shown = loaded.orEmpty()
-                if (loaded != null && shown.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.auto_watched_none),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = Space.lg, vertical = Space.md),
-                    )
-                }
-                shown.forEachIndexed { i, app ->
-                    if (i > 0) SettingsRowDivider()
-                    WatchedAppRow(app, app.packageName in watched) { on ->
-                        scope.launch {
-                            val defaults = withContext(Dispatchers.IO) { WatchedApps.defaults(context) }
-                            prefs.toggleWatchedPackage(app.packageName, on, defaults)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(Space.sm))
-            Text(
-                text = stringResource(R.string.auto_watched_pay_warning),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
-            )
             Spacer(Modifier.height(Space.xxl))
         }
 
@@ -261,31 +214,5 @@ fun AutoEntrySettingsScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun WatchedAppRow(app: AppInfo, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = Space.md),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Space.lg),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(app.label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Text(
-                app.packageName,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-            ),
-        )
     }
 }

@@ -3,6 +3,7 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- WatchedApps.defaults() 의 getPackageInfo 가 Android 11+ 에서 금융 앱을 보려면 필요하다. 지우면 자동 기록이 멈춘다. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
