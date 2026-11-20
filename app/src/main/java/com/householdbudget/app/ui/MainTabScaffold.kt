@@ -120,6 +120,7 @@ fun MainTabScaffold(
     repository: BudgetRepository,
     onNavigateAdd: () -> Unit,
     onNavigateEdit: (Long) -> Unit,
+    openPendingSignal: Int = 0,
 ) {
     // enum 은 기본 Saver 가 없어 ordinal 로 저장하고 파생시킨다.
     var selectedOrdinal by rememberSaveable { mutableIntStateOf(MainTab.FEED.ordinal) }
@@ -130,6 +131,12 @@ fun MainTabScaffold(
     }.collectAsStateWithLifecycle(initialValue = 0)
     // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
+    LaunchedEffect(openPendingSignal) {
+        if (openPendingSignal > 0) {
+            selectedOrdinal = MainTab.SETTINGS.ordinal
+            settingsPane = SettingsPane.Pending
+        }
+    }
 
     // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
     // 스크롤 상태를 여기(바깥)에서 만들어 내려보내 탭 전환 후에도 위치를 보존한다.
