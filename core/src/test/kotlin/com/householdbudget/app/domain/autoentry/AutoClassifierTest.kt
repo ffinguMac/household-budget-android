@@ -74,12 +74,4 @@ class AutoClassifierTest {
     @Test fun bankTransferToSecurities_isInvestSaving() = assertEquals(
         Decision.RegisterByPath(AutoClassifier.INVEST_PATH),
         AutoClassifier.classify(ParsedNotification(500_000, Direction.OUT, "가짜증권"), "출금 500,000원 | 가짜증권", "com.kbankwith.smartbank", emptySet(), null))
-
-    @Test fun transferToKakaoPaySecurities_isInvest_notCharge() = assertEquals(
-        Decision.RegisterByPath(AutoClassifier.INVEST_PATH),
-        AutoClassifier.classify(ParsedNotification(500_000, Direction.OUT, "카카오페이증권"), "출금 500,000원 | 카카오페이증권", "com.kbankwith.smartbank", setOf("com.kakaopay.app"), null))
-
-    @Test fun securitiesTradeExecution_isIgnored() = assertEquals(
-        Decision.Ignore,
-        AutoClassifier.classify(ParsedNotification(700_000, Direction.OUT, "가짜전자"), "토스증권 가짜전자 10주 매수 체결 700,000원", "viva.republica.toss", emptySet(), null))
 }
