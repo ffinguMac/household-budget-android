@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.mutableStateOf
@@ -129,6 +130,7 @@ fun ArchiveListScreen(
     DeleteOldRecordsDialogs(
         repository = repository,
         defaultDate = period?.startInclusive,
+        today = today,
         pickDate = pickDate,
         onPickDateChange = { pickDate = it },
         confirm = confirm,
@@ -142,6 +144,7 @@ fun ArchiveListScreen(
 private fun DeleteOldRecordsDialogs(
     repository: BudgetRepository,
     defaultDate: LocalDate?,
+    today: LocalDate,
     pickDate: Boolean,
     onPickDateChange: (Boolean) -> Unit,
     confirm: Triple<LocalDate, Int, Int>?,
@@ -150,8 +153,13 @@ private fun DeleteOldRecordsDialogs(
 ) {
     if (pickDate && defaultDate != null) {
         // DatePicker 는 UTC 자정 millis 기준
+        val todayMillis = today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         val state = rememberDatePickerState(
             initialSelectedDateMillis = defaultDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            // 미래 날짜를 고르면 오늘 기록까지 지워지므로 막는다.
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayMillis
+            },
         )
         DatePickerDialog(
             onDismissRequest = { onPickDateChange(false) },

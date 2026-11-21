@@ -101,4 +101,12 @@ class BudgetRepositoryTest {
         assertEquals(7_000L, left.single().totalExpenseMinor)
         assertEquals(0 to 0, repo.countRecordsBefore(LocalDate.ofEpochDay(E)))
     }
+
+    @Test fun deleteRecordsBefore_keepsStraddlingArchive() = runBlocking {
+        archive(S, E)
+        tx(S + 1, 1_000, "EXPENSE"); tx(S + 12, 5_000, "EXPENSE")
+        assertEquals(1 to 0, repo.countRecordsBefore(LocalDate.ofEpochDay(S + 10)))
+        repo.deleteRecordsBefore(LocalDate.ofEpochDay(S + 10))
+        assertEquals(5_000L, repo.observeArchivedPeriods().first().single().totalExpenseMinor)
+    }
 }

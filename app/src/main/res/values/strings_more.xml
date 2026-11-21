@@ -60,10 +60,10 @@
     <string name="archive_empty_desc">다음 월급날이 지나면 이전 달이 자동 저장돼요.</string>
     <string name="archive_open_detail">자세히 보기</string>
     <string name="archive_delete_old">이전 기록 지우기</string>
-    <string name="archive_delete_pick_title">이 날짜 이전 기록을 지워요</string>
+    <string name="archive_delete_pick_title">이 날짜부터 남기고 그 전 기록을 지워요</string>
     <string name="archive_delete_next">다음</string>
     <string name="archive_delete_confirm_title">이전 기록을 지울까요?</string>
-    <string name="archive_delete_confirm_body">%1$d월 %2$d일 이전 거래 %3$d건과 지난 기록 %4$d개가 지워져요. 되돌릴 수 없어요. 학습한 규칙과 설정은 그대로 남아요.</string>
+    <string name="archive_delete_confirm_body">%1$d월 %2$d일부터 남기고, 그 전 거래 %3$d건과 지난 기록 %4$d개를 지워요. 되돌릴 수 없어요. 학습한 규칙과 설정은 그대로 남아요.</string>
     <string name="archive_delete_confirm_ok">지우기</string>
     <string name="archive_month_label">%d월</string>
     <string name="archive_month_label_with_year">%1$d년 %2$d월</string>
