@@ -8,7 +8,9 @@ object KnownApps {
         "com.naverfin.payapp", "kvp.jjy.MispAndroid320", "com.nhnent.payapp", "com.kbstar.kbbank",
         "com.shinhan.sbanking", "com.shcard.smartpay", "com.hyundaicard.appcard", "com.kbcard.cxh.appcard",
         "com.lcacApp", "com.wooribank.smart.npib", "com.wooricard.smartapp", "com.kebhana.hanapush",
-        "com.hanaskcard.paycla", "nh.smart.banking",
+        "com.hanaskcard.paycla", "nh.smart.banking", "com.hanabank.oqf", "net.ib.android.smcard",
+        "com.samsung.android.spay", "com.ibk.android.ionebank", "com.smg.spbs", "com.epost.psf.sdsi",
+        "com.nonghyup.nhallonebank", "nh.smart.nhallonepay", "nh.smart.nhcok", "kr.co.cu.onbank",
     )
 
     val CHARGE_APPS: List<ChargeApp> = listOf(
