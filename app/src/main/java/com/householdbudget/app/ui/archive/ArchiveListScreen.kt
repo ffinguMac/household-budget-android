@@ -122,7 +122,10 @@ fun ArchiveListScreen(
             title = {
                 Text(stringResource(R.string.archive_delete_confirm_title, archiveMonthTitle(LocalDate.ofEpochDay(row.startEpochDay), today)))
             },
-            text = { Text(stringResource(R.string.archive_delete_confirm_body, count)) },
+            text = {
+                val range = BudgetPeriod(LocalDate.ofEpochDay(row.startEpochDay), LocalDate.ofEpochDay(row.endEpochDay)).formatRangeShort()
+                Text(stringResource(R.string.archive_delete_confirm_body, range, count))
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = null
