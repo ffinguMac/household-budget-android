@@ -26,6 +26,12 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE source = 'MANUAL' AND occurred_epoch_day = :epochDay AND amount_minor = :amountMinor AND kind = :kind")
     suspend fun countManualMatch(epochDay: Long, amountMinor: Long, kind: String): Int
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE occurred_epoch_day < :epochDay")
+    suspend fun countBefore(epochDay: Long): Int
+
+    @Query("DELETE FROM transactions WHERE occurred_epoch_day < :epochDay")
+    suspend fun deleteBefore(epochDay: Long): Int
+
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
