@@ -230,20 +230,16 @@ class BudgetRepository(
         transactionDao.delete(existing)
     }
 
-    /** [before] 이전 거래 수와 그 전에 끝난 지난 기록 수. 삭제 확인 문구용. */
-    suspend fun countRecordsBefore(before: LocalDate): Pair<Int, Int> =
-        transactionDao.countBefore(before.toEpochDay()) to
-            archivedPeriodDao.countEndingByOrBefore(before.toEpochDay())
+    /** 지난 기록 한 달(기간)의 거래 수. 삭제 확인 문구용. */
+    suspend fun countTransactionsIn(period: ArchivedPeriodEntity): Int =
+        transactionDao.countBetween(period.startEpochDay, period.endEpochDay)
 
-    /** [before] 이전 거래·지난 기록·자동 기록 항목을 지운다. 되돌릴 수 없다. 학습한 규칙과 설정은 남긴다. */
-    suspend fun deleteRecordsBefore(before: LocalDate) {
-        // 방금 끝난 기간이 나중에 0원짜리로 보관되지 않게, 보관을 먼저 맞춘다.
-        tryArchiveCompletedPeriods()
-        val day = before.toEpochDay()
+    /** 지난 기록 한 달(기간)의 거래·자동 기록 항목과 그 지난 기록을 지운다. 되돌릴 수 없다. 학습한 규칙과 설정은 남긴다. */
+    suspend fun deleteArchivedPeriod(period: ArchivedPeriodEntity) {
         database.withTransaction {
-            transactionDao.deleteBefore(day)
-            archivedPeriodDao.deleteEndingByOrBefore(day)
-            database.autoEntryDao().deleteBefore(day)
+            transactionDao.deleteBetween(period.startEpochDay, period.endEpochDay)
+            database.autoEntryDao().deleteBetween(period.startEpochDay, period.endEpochDay)
+            archivedPeriodDao.deleteById(period.id)
         }
     }
 

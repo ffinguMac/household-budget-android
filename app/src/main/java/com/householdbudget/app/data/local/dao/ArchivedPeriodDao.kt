@@ -35,12 +35,8 @@ interface ArchivedPeriodDao {
     )
     fun observeAll(): Flow<List<ArchivedPeriodEntity>>
 
-    // 기준일에 걸친 기간은 남긴다(합계는 남은 거래로 실시간 계산된다).
-    @Query("SELECT COUNT(*) FROM archived_periods WHERE end_epoch_day <= :epochDay")
-    suspend fun countEndingByOrBefore(epochDay: Long): Int
-
-    @Query("DELETE FROM archived_periods WHERE end_epoch_day <= :epochDay")
-    suspend fun deleteEndingByOrBefore(epochDay: Long): Int
+    @Query("DELETE FROM archived_periods WHERE id = :id")
+    suspend fun deleteById(id: Long): Int
 
     @Query("SELECT * FROM archived_periods WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): ArchivedPeriodEntity?

@@ -31,8 +31,8 @@ interface AutoEntryDao {
     @Query("DELETE FROM auto_entries WHERE status != 'PENDING' AND posted_at_ms < :cutoffMs")
     suspend fun deleteResolvedOlderThan(cutoffMs: Long): Int
 
-    @Query("DELETE FROM auto_entries WHERE occurred_epoch_day < :epochDay")
-    suspend fun deleteBefore(epochDay: Long): Int
+    @Query("DELETE FROM auto_entries WHERE occurred_epoch_day >= :startEx AND occurred_epoch_day < :endEx")
+    suspend fun deleteBetween(startEx: Long, endEx: Long): Int
 
     @Query("SELECT COUNT(*) FROM auto_entries WHERE status = :status")
     fun observeCountByStatus(status: String): Flow<Int>

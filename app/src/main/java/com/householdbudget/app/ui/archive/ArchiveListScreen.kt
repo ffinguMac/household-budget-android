@@ -15,18 +15,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import java.time.ZoneOffset
 import kotlinx.coroutines.launch
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,11 +77,9 @@ fun ArchiveListScreen(
     val rows by remember(repository) { repository.observeArchivedPeriods() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val today by repository.today.collectAsStateWithLifecycle()
-    val period by repository.currentPeriod.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
-    var pickDate by remember { mutableStateOf(false) }
-    // (기준 날짜, 거래 수, 지난 기록 수) — 삭제 확인 창에 보여 준다.
-    var confirm by remember { mutableStateOf<Triple<LocalDate, Int, Int>?>(null) }
+    // (지울 지난 기록, 그 기간의 거래 수) — 삭제 확인 창에 보여 준다.
+    var confirm by remember { mutableStateOf<Pair<ArchivedPeriodEntity, Int>?>(null) }
 
     LazyColumn(
         modifier = modifier
@@ -98,13 +93,6 @@ fun ArchiveListScreen(
                 subtitle = stringResource(R.string.archive_subtitle_short),
                 modifier = Modifier.fillMaxWidth(),
             )
-            TextButton(
-                onClick = { pickDate = true },
-                enabled = period != null,
-                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
-            ) {
-                Text(stringResource(R.string.archive_delete_old), color = MaterialTheme.colorScheme.error)
-            }
         }
 
         if (rows.isEmpty()) {
@@ -123,86 +111,26 @@ fun ArchiveListScreen(
                     today = today,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Space.xs),
                     onClick = { onOpenDetail(row.id) },
+                    onDelete = { scope.launch { confirm = row to repository.countTransactionsIn(row) } },
                 )
             }
         }
     }
-    DeleteOldRecordsDialogs(
-        repository = repository,
-        defaultDate = period?.startInclusive,
-        today = today,
-        pickDate = pickDate,
-        onPickDateChange = { pickDate = it },
-        confirm = confirm,
-        onConfirmChange = { confirm = it },
-        scope = scope,
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DeleteOldRecordsDialogs(
-    repository: BudgetRepository,
-    defaultDate: LocalDate?,
-    today: LocalDate,
-    pickDate: Boolean,
-    onPickDateChange: (Boolean) -> Unit,
-    confirm: Triple<LocalDate, Int, Int>?,
-    onConfirmChange: (Triple<LocalDate, Int, Int>?) -> Unit,
-    scope: kotlinx.coroutines.CoroutineScope,
-) {
-    if (pickDate && defaultDate != null) {
-        // DatePicker 는 UTC 자정 millis 기준
-        val todayMillis = today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = defaultDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            // 미래 날짜를 고르면 오늘 기록까지 지워지므로 막는다.
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayMillis
-            },
-        )
-        DatePickerDialog(
-            onDismissRequest = { onPickDateChange(false) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val millis = state.selectedDateMillis
-                    onPickDateChange(false)
-                    if (millis != null) {
-                        val date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                        scope.launch {
-                            val (tx, periods) = repository.countRecordsBefore(date)
-                            onConfirmChange(Triple(date, tx, periods))
-                        }
-                    }
-                }) { Text(stringResource(R.string.archive_delete_next)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { onPickDateChange(false) }) { Text(stringResource(R.string.edit_dismiss)) }
-            },
-        ) {
-            Text(
-                stringResource(R.string.archive_delete_pick_title),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = Space.xl, top = Space.lg),
-            )
-            DatePicker(state = state, title = null)
-        }
-    }
-    confirm?.let { (date, tx, periods) ->
+    confirm?.let { (row, count) ->
         AlertDialog(
-            onDismissRequest = { onConfirmChange(null) },
-            title = { Text(stringResource(R.string.archive_delete_confirm_title)) },
-            text = {
-                Text(stringResource(R.string.archive_delete_confirm_body, date.monthValue, date.dayOfMonth, tx, periods))
+            onDismissRequest = { confirm = null },
+            title = {
+                Text(stringResource(R.string.archive_delete_confirm_title, archiveMonthTitle(LocalDate.ofEpochDay(row.startEpochDay), today)))
             },
+            text = { Text(stringResource(R.string.archive_delete_confirm_body, count)) },
             confirmButton = {
                 TextButton(onClick = {
-                    onConfirmChange(null)
-                    scope.launch { repository.deleteRecordsBefore(date) }
+                    confirm = null
+                    scope.launch { repository.deleteArchivedPeriod(row) }
                 }) { Text(stringResource(R.string.archive_delete_confirm_ok), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { onConfirmChange(null) }) { Text(stringResource(R.string.edit_dismiss)) }
+                TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.edit_dismiss)) }
             },
         )
     }
@@ -213,6 +141,7 @@ private fun ArchiveCard(
     row: ArchivedPeriodEntity,
     today: LocalDate,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val period = BudgetPeriod(
@@ -247,11 +176,20 @@ private fun ArchiveCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Text(
-                    text = savedAtText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = savedAtText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = stringResource(R.string.archive_delete_month),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
             Text(
                 text = stringResource(R.string.archive_range_payday_based, period.formatRangeShort()),
