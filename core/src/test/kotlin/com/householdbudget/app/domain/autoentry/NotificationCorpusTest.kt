@@ -187,6 +187,49 @@ class NotificationCorpusTest {
     @Test fun n11() = noParse(HYUNDAI, "(광고)⟪현대카드⟫큰 지출 나눠내는 분할결제", "")
     @Test fun n12() = noParse(TOSS, "총 상금 2,000만원", "(광고) 홍*동님, 실전투자대회에 …")
 
+    // ---- 리뷰에서 나온 오탐·회귀 (코퍼스 밖, 가짜 문구)
+    @Test fun review_couponsAndNoticesAreNotAutoRegistered() = listOf(
+        "스타벅스 3,000원 쿠폰 사용 가능",
+        "카카오T 택시 5,000원 할인쿠폰을 사용해 보세요",
+        "스타벅스에서 사용 가능한 5,000원 쿠폰이 도착했어요",
+        "배달의민족 3,000원 할인쿠폰 지급",
+        "마트 할인쿠폰 3,000원 지급 완료",
+        "캐시백 3,000원 지급 스타벅스 이벤트",
+        "11/25 결제 예정 금액 523,400원\nSK텔레콤 외 12건",
+        "이번 달 결제예정금액 523,400원 주유 혜택",
+        "스타벅스 5,000원 승인거절",
+        "택시 요금 10% 할인! 30,000원 이상 결제 시",
+    ).forEach { notAutoRegistered(KBCARD, "알림", it) }
+
+    @Test fun review_insurancePayoutIsNotOut() =
+        assertFalse(NotificationParsers.parse(SHINHAN, "알림", "보험금 1,000,000원 지급 완료")?.direction == OUT)
+
+    @Test fun review_unitlessAmountNeedsThousandsComma() {
+        sms(SHINHAN, "출금\n1234\n30,000원\n가짜상점", 30000, OUT, ANY)
+        sms(SHINHAN, "신한 출금 1234 가짜상점 10,450원", 10450, OUT, ANY)
+        sms(SHINHAN, "출금 110 30,000원 가짜", 30000, OUT, ANY)
+        sms(SHINHAN, "출금 2026 년 30,000원", 30000, OUT, ANY)
+    }
+
+    @Test fun review_amountKeywordWordBoundary() {
+        sms(KAKAOBANK, "입출금 30,000원 입금 김가짜", 30000, IN, ANY)
+        assertEquals(Direction.UNKNOWN, NotificationParsers.parse(KAKAOBANK, "", "입출금 30,000원 김가짜")?.direction)
+        sms(SHCARD, "서울시세입금 6,100원 결제", 6100, OUT, ANY)
+        val text = "체크카드 승인 지방세입금 45,000원 캐시백 45원"
+        val p = NotificationParsers.parse(SHCARD, "알림", text)!!
+        assertEquals(OUT, p.direction)
+        val d = AutoClassifier.classify(p, "알림\n$text", SHCARD, setOf(SHCARD), null)
+        assertFalse(d == Decision.RegisterByPath(AutoClassifier.CASHBACK_INTEREST_PATH))
+    }
+
+    @Test fun review_bankShortNameIsNotMerchant() {
+        sms(WOORI, "우리 01/17 19:33  *123456  출금 7,580원  엄마  잔액 604,141원", 7580, OUT, "엄마")
+        sms(SHINHAN, "[Web발신] 신한11/14 22:42 110-123-456789 출금 10,450 잔액 136,269 CU", 10450, OUT, "CU")
+    }
+
+    @Test fun review_accountSentenceIsNotMerchant() =
+        ok(TOSS, "토스", "토스뱅크 통장에서 15,000원 출금했어요\n가짜택시", 15000, OUT, "가짜택시")
+
     private companion object {
         const val NON_BLANK = "<non-blank>"
         const val ANY = "<any>"

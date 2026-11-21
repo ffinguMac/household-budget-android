@@ -10,7 +10,7 @@ object NotificationParsers {
     private val AMOUNT = Regex("""(\d{1,3}(?:,\d{3})+|\d+)\s*(?:원|WON)""")
     // 금액 후보. 거래 키워드가 바로 앞에 붙어 있으면 "원" 없이도 금액으로 본다(은행 문자 "출금 10,450", "입금30,000").
     private val AMOUNT_CANDIDATE =
-        Regex("""(?:(입금|출금|지급|PAY|RCV|W/D:|Dep\.:)\s*)?([+-]?)(\d{1,3}(?:,\d{3})+|\d+)(\s*(?:원|WON))?""")
+        Regex("""(?:((?<!세)입금|(?<!입)출금|지급|PAY|RCV|W/D:|Dep\.:)\s*)?([+-]?)(\d{1,3}(?:,\d{3})+|\d+)(\s*(?:원|WON))?""")
     private val IN_AMOUNT_KEYWORDS = setOf("입금", "RCV", "Dep.:")
     private val KBANK_DEPOSIT_TITLE = Regex("""^입금\s+([\d,]+)원$""")
     private val AMOUNT_GUARDS = listOf("잔액", "누적", "한도", "잔여", "BAL", "Bal")
@@ -20,8 +20,10 @@ object NotificationParsers {
     private val IN_PATTERN = Regex("""(?<![가-힣])(?:전자금융|무통장|창구|타행|[A-Z]+)?입금|받았|받음|님이 [^\n]*보냈""")
 
     // 이자는 이자카야 때문에 방향 키워드로 쓰지 않는다. 일시불·할부는 승인 글자가 없는 카드 문구(롯데)용.
-    private val OUT_WORDS =
-        listOf("승인", "결제", "출금", "이체", "송금", "보냈", "보냄", "충전", "납부", "지급", "사용", "일시불", "할부")
+    // "사용"은 줄 끝(KB체크 "가맹점 사용")일 때만. "지급"은 금액에 붙은 "지급 N원"(AMOUNT_CANDIDATE)으로만 지출.
+    private val OUT_PATTERN = Regex("""(?m)승인|결제|출금|이체|송금|보냈|보냄|충전|납부|일시불|할부|사용[^\S\n]*$""")
+    // 쿠폰·예정·청구·거절 같은 안내 문구는 금액·키워드가 있어도 거래가 아니다 → 방향 UNKNOWN(검토함).
+    private val NOT_A_TRANSACTION = Regex("""예정|가능(?!\s*금?액)|쿠폰|혜택|청구|거절|실패|[하보가]세요|[하쓰]면|이상\s*(?:결제|사용|이용)""")
 
     // 가맹점이 아닌 조각. 지우지 않고 조각 경계로 바꿔서 한 줄짜리 문자도 토큰별로 나뉘게 한다.
     private val NAME_NOISE = listOf(
@@ -54,7 +56,7 @@ object NotificationParsers {
         Regex("""([^\s|]+?)님(?:에게|이|께) """),
     )
     // 카드 상품명·은행 이름 조각은 다른 조각이 없을 때만 가맹점으로 쓴다.
-    private val INSTITUTION = Regex("""카드|체크|은행|뱅크|금고|우체국|WOORI|HANABANK""")
+    private val INSTITUTION = Regex("""카드|체크|은행|뱅크|금고|우체국|WOORI|HANABANK|^(?:신한|우리|하나|농협|기업|국민|KB국민|KB|NH|IBK)$""")
     private val PIECE_SEPARATOR = Regex("""[|\n⎸║]| / """)
     private val SPACES = Regex("""[\s　]+""")
     private const val PIECE_TRIM = "[]<>·,.:-"
@@ -86,7 +88,9 @@ object NotificationParsers {
         val merchant = extractName(if (titleIsJustAppName) body else full)
         val keywordDirection = directionOf(full)
         val direction =
-            if (keywordDirection == Direction.REFUND || amountDirection == Direction.UNKNOWN) keywordDirection
+            if (keywordDirection == Direction.REFUND || amountDirection == Direction.UNKNOWN ||
+                NOT_A_TRANSACTION.containsMatchIn(full)
+            ) keywordDirection
             else amountDirection
         return ParsedNotification(amount, direction, merchant)
     }
@@ -96,7 +100,7 @@ object NotificationParsers {
         AMOUNT_CANDIDATE.findAll(text).firstNotNullOfOrNull { match ->
             val (keyword, sign, digits, unit) = match.destructured
             val next = text.getOrNull(match.range.last + 1)
-            if (unit.isEmpty() && (keyword.isEmpty() || (next != null && !next.isWhitespace()))) return@firstNotNullOfOrNull null
+            if (unit.isEmpty() && (keyword.isEmpty() || ',' !in digits || (next != null && !next.isWhitespace()))) return@firstNotNullOfOrNull null
             val before = text.substring(maxOf(0, match.range.first - 8), match.range.first).substringAfterLast('\n')
             if (AMOUNT_GUARDS.any { it in before }) return@firstNotNullOfOrNull null
             val value = digits.replace(",", "").toLongOrNull()?.takeIf { it != 0L } ?: return@firstNotNullOfOrNull null
@@ -112,15 +116,18 @@ object NotificationParsers {
     private fun directionOf(text: String): Direction {
         val t = text.replace("입출금", "") // 통장 이름 입출금통장이 출금으로 읽히지 않게
         return when {
+            NOT_A_TRANSACTION.containsMatchIn(t) -> Direction.UNKNOWN
             REFUND_WORDS.any { it in t } -> Direction.REFUND
             IN_PATTERN.containsMatchIn(t) -> Direction.IN
-            OUT_WORDS.any { it in t } -> Direction.OUT
+            OUT_PATTERN.containsMatchIn(t) -> Direction.OUT
             else -> Direction.UNKNOWN
         }
     }
 
     private fun extractName(text: String): String {
-        SENTENCE_NAMES.firstNotNullOfOrNull { it.find(text) }?.let { match ->
+        SENTENCE_NAMES.firstNotNullOfOrNull { regex ->
+            regex.find(text)?.takeUnless { "통장" in it.groupValues[1] || "계좌" in it.groupValues[1] }
+        }?.let { match ->
             cleanPiece(match.groupValues[1]).takeIf { name -> name.any { it.isLetter() } }?.let { return it }
         }
         val pieces = NAME_NOISE.fold(text) { acc, regex -> regex.replace(acc, "|") }
