@@ -90,4 +90,15 @@ class BudgetRepositoryTest {
         val S = LocalDate.of(2026, 9, 23).toEpochDay()
         val E = LocalDate.of(2026, 10, 23).toEpochDay()
     }
+
+    @Test fun deleteRecordsBefore_removesOnlyOlderTransactionsAndArchives() = runBlocking {
+        archive(S, E); archive(E, E + 30)
+        tx(S + 1, 1_000, "EXPENSE"); tx(E - 1, 2_000, "EXPENSE"); tx(E, 3_000, "EXPENSE"); tx(E + 5, 4_000, "EXPENSE")
+        assertEquals(2 to 1, repo.countRecordsBefore(LocalDate.ofEpochDay(E)))
+        repo.deleteRecordsBefore(LocalDate.ofEpochDay(E))
+        val left = repo.observeArchivedPeriods().first()
+        assertEquals(listOf(E), left.map { it.startEpochDay })
+        assertEquals(7_000L, left.single().totalExpenseMinor)
+        assertEquals(0 to 0, repo.countRecordsBefore(LocalDate.ofEpochDay(E)))
+    }
 }

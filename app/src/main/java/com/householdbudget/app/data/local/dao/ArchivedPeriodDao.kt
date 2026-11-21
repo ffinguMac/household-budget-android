@@ -35,6 +35,12 @@ interface ArchivedPeriodDao {
     )
     fun observeAll(): Flow<List<ArchivedPeriodEntity>>
 
+    @Query("SELECT COUNT(*) FROM archived_periods WHERE start_epoch_day < :epochDay")
+    suspend fun countStartingBefore(epochDay: Long): Int
+
+    @Query("DELETE FROM archived_periods WHERE start_epoch_day < :epochDay")
+    suspend fun deleteStartingBefore(epochDay: Long): Int
+
     @Query("SELECT * FROM archived_periods WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): ArchivedPeriodEntity?
 }
