@@ -54,7 +54,7 @@
     <string name="budget_settings_over">카테고리 예산이 한 달 예산보다 %s 많아요</string>
     <string name="budget_settings_set">예산 정하기</string>
     <string name="budget_settings_spent_none">아직 쓴 돈이 없어요</string>
-    <string name="budget_settings_spent_over"> · %s 초과</string>
+    <string name="budget_settings_spent_over">\u0020· %s 초과</string>
     <string name="budget_settings_monthly_row">한 달 전체 예산</string>
     <string name="budget_settings_category_section">카테고리별 예산</string>
     <string name="budget_settings_category_desc">정해 두면 통계에서 얼마나 썼는지 보여 드려요</string>
