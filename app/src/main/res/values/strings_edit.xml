@@ -7,14 +7,14 @@
     <string name="edit_date_yesterday">어제</string>
     <string name="edit_date_future_badge">예정</string>
     <string name="edit_discard_title">정말 취소할까요?</string>
-    <string name="edit_discard_body">입력한 내용이 사라집니다.</string>
+    <string name="edit_discard_body">입력한 내용이 사라져요.</string>
     <string name="edit_discard_confirm">나가기</string>
     <string name="edit_discard_dismiss">계속 작성</string>
     <string name="edit_keypad_backspace">한 자리 지우기, 길게 누르면 전체 삭제</string>
     <string name="edit_recent_categories">최근</string>
     <string name="edit_category_sheet_title">카테고리 선택</string>
     <string name="edit_category_search_hint">카테고리 검색</string>
-    <string name="edit_category_search_empty">검색 결과가 없습니다.</string>
+    <string name="edit_category_search_empty">검색 결과가 없어요.</string>
     <string name="edit_confirm_ok">확인</string>
     <string name="edit_date_pill">%1$s · %2$s</string>
     <string name="edit_category_selected">%1$s · %2$s</string>

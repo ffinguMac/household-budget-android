@@ -1,26 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">가계부</string>
-    <string name="nav_home">홈</string>
-    <string name="nav_ledger">내역</string>
     <string name="nav_calendar">달력</string>
-    <string name="nav_archive">아카이브</string>
     <string name="nav_settings">설정</string>
     <string name="fab_add_transaction">거래 추가</string>
-    <string name="home_title">이번 달</string>
-    <string name="home_income">수입</string>
-    <string name="home_expense">지출</string>
-    <string name="home_savings">저축</string>
-    <string name="home_net">남은 금액</string>
-    <string name="home_recent">최근 거래</string>
-    <string name="ledger_empty">이번 달에 등록된 거래가 없습니다.</string>
-    <string name="settings_payday_title">월급일</string>
-    <string name="settings_payday_hint">매월 1–31 중 하루를 선택하세요. (31일이 없는 달은 말일로 맞춰집니다)</string>
-    <string name="settings_payday_current">현재 매월 %d일</string>
-    <string name="settings_payday_select">선택하면 바로 적용됩니다.</string>
+    <string name="settings_payday_hint">월급날을 골라 주세요. 주말·공휴일이면 앞 평일로, 31일이 없는 달은 말일로 맞춰요.</string>
     <string name="action_back">뒤로</string>
-    <string name="settings_save">저장</string>
-    <string name="settings_saved">저장했습니다.</string>
     <string name="calendar_day_empty">이날은 쓴 돈이 없어요</string>
     <string name="cal_today">오늘</string>
     <string name="cal_period_basis">%s · 월급날 기준</string>
@@ -30,35 +15,21 @@
     <string name="cal_day_today">%s · 오늘</string>
     <string name="cal_day_summary">%1$d건 · %2$s</string>
     <string name="archive_title">지난 기록</string>
-    <string name="archive_subtitle">월급일 기준으로 끝난 달이 자동으로 보관됩니다. 거래 내역은 그대로 남아 있으며, 여기서는 요약과 당시 내역을 볼 수 있습니다.</string>
-    <string name="archive_empty">아직 보관된 기록이 없습니다. 다음 달로 넘어가면 이전 달이 자동 저장됩니다.</string>
-    <string name="archive_row_income">수입 %s</string>
-    <string name="archive_row_expense">지출 %s</string>
-    <string name="archive_row_savings">저축 %s</string>
-    <string name="archive_saved_at">보관 시각 %s</string>
-    <string name="archive_missing">보관 항목을 찾을 수 없습니다.</string>
+    <string name="archive_missing">보관 항목을 찾을 수 없어요.</string>
     <string name="archive_detail_totals">수입 %1$s · 지출 %2$s · 저축 %3$s</string>
-    <string name="archive_detail_transactions">당시 거래 내역</string>
-    <string name="edit_title_new">거래 추가</string>
-    <string name="edit_title_edit">거래 수정</string>
+    <string name="archive_detail_transactions">거래 내역</string>
     <string name="edit_amount">금액 (원)</string>
-    <string name="edit_memo">메모</string>
     <string name="edit_income">수입</string>
     <string name="edit_expense">지출</string>
     <string name="edit_savings">저축</string>
     <string name="edit_category">카테고리</string>
-    <string name="edit_category_parent">대분류</string>
-    <string name="edit_category_child">소분류</string>
-    <string name="edit_category_pick_parent_first">대분류를 먼저 선택하세요</string>
-    <string name="edit_date">날짜</string>
     <string name="edit_pick_date">날짜 선택</string>
     <string name="edit_save">저장</string>
     <string name="edit_delete">삭제</string>
     <string name="edit_delete_confirm_title">삭제할까요?</string>
-    <string name="edit_delete_confirm_body">이 거래를 삭제합니다.</string>
+    <string name="edit_delete_confirm_body">삭제하면 되돌릴 수 없어요.</string>
     <string name="edit_confirm">삭제</string>
     <string name="edit_dismiss">취소</string>
-    <string name="edit_invalid">금액과 카테고리를 확인해 주세요.</string>
     <string name="common_back">닫기</string>
 
 </resources>

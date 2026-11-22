@@ -8,8 +8,8 @@
     <string name="auto_access_off">꺼져 있어요</string>
     <string name="auto_access_open">알림 접근 설정 열기</string>
     <string name="auto_pending_row">확인이 필요한 거래 %d건</string>
-    <string name="auto_rules_title">학습한 규칙</string>
-    <string name="auto_rules_empty">아직 학습한 규칙이 없어요</string>
+    <string name="auto_rules_title">자동 분류 규칙</string>
+    <string name="auto_rules_empty">아직 자동 분류 규칙이 없어요</string>
     <string name="auto_rule_delete">규칙 삭제</string>
     <string name="auto_rule_no_record">기록 안 함</string>
     <string name="auto_dir_out">출금</string>

@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,8 +105,6 @@ fun AutoEntrySettingsScreen(
                 SettingsRowDivider()
                 SettingsActionRow(
                     icon = Icons.Filled.PendingActions,
-                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     title = stringResource(R.string.auto_pending_row, pendingCount),
                     subtitle = null,
                     onClick = onOpenPending,
@@ -127,7 +124,7 @@ fun AutoEntrySettingsScreen(
             item {
                 Text(
                     text = stringResource(R.string.auto_rules_empty),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
                 )
@@ -155,7 +152,6 @@ fun AutoEntrySettingsScreen(
                         Text(
                             "${row.displayName} · $dir",
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(target, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -191,10 +187,10 @@ fun AutoEntrySettingsScreen(
                         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 e.merchant.ifBlank { stringResource(R.string.auto_pending_no_name) },
-                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(e.amountMinor.formatWon(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(e.amountMinor.formatWon(), style = MaterialTheme.typography.titleMedium)
                         }
                         Text(
                             LocalDate.ofEpochDay(e.occurredEpochDay).formatShortDayLabel(),

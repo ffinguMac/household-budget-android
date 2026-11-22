@@ -361,7 +361,7 @@ private fun AppBottomBar(
             }
         }
 
-        // 중앙 + 버튼: 바 위로 살짝 돌출된 민트 원형.
+        // 중앙 + 버튼: 바 위로 살짝 돌출된 원형.
         Box(
             modifier =
                 Modifier

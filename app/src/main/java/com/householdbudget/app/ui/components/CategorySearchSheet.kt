@@ -78,7 +78,7 @@ fun CategorySearchSheet(
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
             )
             val trimmedQuery = query.trim()

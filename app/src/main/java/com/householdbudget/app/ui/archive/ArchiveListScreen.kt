@@ -2,10 +2,8 @@ package com.householdbudget.app.ui.archive
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,24 +13,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
@@ -41,21 +29,12 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.EmptyState
-import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import kotlinx.coroutines.launch
-
-private val savedAtFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyy.MM.dd 보관").withLocale(Locale.KOREA)
 
 /**
  * 아카이브 기간 제목: 시작일의 달 기준 "8월", 올해가 아니면 "2025년 8월".
@@ -79,9 +58,6 @@ fun ArchiveListScreen(
     val rows by remember(repository) { repository.observeArchivedPeriods() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val today by repository.today.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    // (지울 지난 기록, 그 기간의 거래 수) — 삭제 확인 창에 보여 준다.
-    var confirm by remember { mutableStateOf<Pair<ArchivedPeriodEntity, Int>?>(null) }
 
     LazyColumn(
         modifier = modifier
@@ -115,31 +91,9 @@ fun ArchiveListScreen(
                     today = today,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Space.xs),
                     onClick = { onOpenDetail(row.id) },
-                    onDelete = { scope.launch { confirm = row to repository.countTransactionsIn(row) } },
                 )
             }
         }
-    }
-    confirm?.let { (row, count) ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = {
-                Text(stringResource(R.string.archive_delete_confirm_title, archiveMonthTitle(LocalDate.ofEpochDay(row.startEpochDay), today)))
-            },
-            text = {
-                val range = BudgetPeriod(LocalDate.ofEpochDay(row.startEpochDay), LocalDate.ofEpochDay(row.endEpochDay)).formatRangeShort()
-                Text(stringResource(R.string.archive_delete_confirm_body, range, count))
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirm = null
-                    scope.launch { repository.deleteArchivedPeriod(row) }
-                }) { Text(stringResource(R.string.archive_delete_confirm_ok), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.edit_dismiss)) }
-            },
-        )
     }
 }
 
@@ -148,18 +102,17 @@ private fun ArchiveCard(
     row: ArchivedPeriodEntity,
     today: LocalDate,
     onClick: () -> Unit,
-    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val period = BudgetPeriod(
         startInclusive = LocalDate.ofEpochDay(row.startEpochDay),
         endExclusive = LocalDate.ofEpochDay(row.endEpochDay),
     )
-    val startDate = LocalDate.ofEpochDay(row.startEpochDay)
-    val periodLabel = archiveMonthTitle(startDate, today)
-    val savedAt = Instant.ofEpochMilli(row.archivedAtEpochMs)
-        .atZone(ZoneId.of("Asia/Seoul")).toLocalDate()
-    val savedAtText = savedAt.format(savedAtFormatter)
+    val periodLabel = stringResource(
+        R.string.archive_card_period,
+        archiveMonthTitle(period.startInclusive, today),
+        period.formatRangeShort(),
+    )
     val netMinor = row.totalIncomeMinor - row.totalExpenseMinor - row.totalSavingsMinor
 
     Surface(
@@ -171,71 +124,31 @@ private fun ArchiveCard(
         tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.padding(Space.xl)) {
-            // 기간 제목 + 보관 시각
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = periodLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = savedAtText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = stringResource(R.string.archive_delete_month),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
             Text(
-                text = stringResource(R.string.archive_range_payday_based, period.formatRangeShort()),
+                text = periodLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            Spacer(Modifier.height(Space.lg))
-
-            // 순액(수입 − 지출 − 저축) — "+N원 남김"(민트) / "−N원 초과"(레드)
+            Spacer(Modifier.height(Space.xs))
             Text(
                 text = if (netMinor >= 0) {
                     stringResource(R.string.archive_net_left, netMinor.formatWon())
                 } else {
                     stringResource(R.string.archive_net_over, (-netMinor).formatWon())
                 },
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = if (netMinor >= 0) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-
-            Spacer(Modifier.height(Space.md))
-
-            // 수입/지출/저축 3분할 요약
-            KindSummaryRow(
-                incomeMinor = row.totalIncomeMinor,
-                expenseMinor = row.totalExpenseMinor,
-                savingsMinor = row.totalSavingsMinor,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(Space.md))
-
+            Spacer(Modifier.height(Space.sm))
             Text(
-                text = stringResource(R.string.archive_open_detail),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                text = stringResource(
+                    R.string.archive_detail_totals,
+                    row.totalIncomeMinor.formatWon(),
+                    row.totalExpenseMinor.formatWon(),
+                    row.totalSavingsMinor.formatWon(),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
