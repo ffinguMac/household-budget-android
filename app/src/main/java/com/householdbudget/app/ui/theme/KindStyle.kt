@@ -30,22 +30,20 @@ fun kindDotColor(kind: CategoryKind): Color? =
         CategoryKind.EXPENSE -> null
     }
 
-/** 아바타/칩 배경: INCOME=secondaryContainer, EXPENSE=errorContainer, SAVINGS=tertiaryContainer */
+/** 아바타/칩 배경: INCOME=secondaryContainer, EXPENSE·SAVINGS=surfaceVariant */
 @Composable
 fun kindContainer(kind: CategoryKind): Color =
     when (kind) {
         CategoryKind.INCOME -> MaterialTheme.colorScheme.secondaryContainer
-        CategoryKind.EXPENSE -> MaterialTheme.colorScheme.errorContainer
-        CategoryKind.SAVINGS -> MaterialTheme.colorScheme.tertiaryContainer
+        CategoryKind.EXPENSE, CategoryKind.SAVINGS -> MaterialTheme.colorScheme.surfaceVariant
     }
 
-/** kindContainer 위의 전경색: 각각 onSecondaryContainer / onErrorContainer / onTertiaryContainer */
+/** kindContainer 위의 전경색: INCOME=onSecondaryContainer, EXPENSE·SAVINGS=onSurface */
 @Composable
 fun kindOnContainer(kind: CategoryKind): Color =
     when (kind) {
         CategoryKind.INCOME -> MaterialTheme.colorScheme.onSecondaryContainer
-        CategoryKind.EXPENSE -> MaterialTheme.colorScheme.onErrorContainer
-        CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onTertiaryContainer
+        CategoryKind.EXPENSE, CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onSurface
     }
 
 /** 부호 접두사: INCOME="+", EXPENSE="−"(U+2212), SAVINGS="↑" */
