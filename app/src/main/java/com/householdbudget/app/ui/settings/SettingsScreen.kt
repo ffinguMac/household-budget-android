@@ -69,6 +69,7 @@ import com.householdbudget.app.data.work.ReminderScheduler
 import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.AppTopBar
+import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatMonthDayWeekday
@@ -172,7 +173,7 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
         item {
             AppTopBar(title = stringResource(R.string.nav_settings))
@@ -382,12 +383,14 @@ fun SettingsScreen(
                                         .weight(1f)
                                         .height(48.dp)
                                         .clickable {
-                                            budgetViewModel.setPaydayDom(day)
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.settings_payday_changed, day),
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
+                                            if (day != payday) {
+                                                budgetViewModel.setPaydayDom(day)
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.settings_payday_changed, day),
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
                                             showPaydaySheet = false
                                         },
                                     contentAlignment = Alignment.Center,
@@ -499,7 +502,7 @@ fun SettingsScreen(
                                         .clip(MaterialTheme.shapes.small)
                                         .background(
                                             if (selected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surfaceContainer,
+                                            else MaterialTheme.colorScheme.surfaceVariant,
                                         )
                                         .clickable {
                                             scope.launch { prefs.setReminderHour(hour) }
