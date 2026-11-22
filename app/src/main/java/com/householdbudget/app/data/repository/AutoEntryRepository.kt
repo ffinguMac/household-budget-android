@@ -172,7 +172,7 @@ class AutoEntryRepository(
         }
     }
 
-    /** categoryId == null 이면 기록 안 함. 반환값은 이번에 정리된 항목(누른 항목 먼저). 대기 중이 아니면 빈 목록. */
+    /** categoryId == null 이면 기록 안 함. 반환값은 이번에 정리된 항목(누른 항목 먼저)의 정리 전 모습. 대기 중이 아니면 빈 목록. */
     suspend fun resolvePending(entryId: Long, categoryId: Long?): List<AutoEntryEntity> = mutex.withLock {
         database.withTransaction {
             val entry = entryDao.getById(entryId)?.takeIf { it.status == AutoEntryStatus.PENDING }

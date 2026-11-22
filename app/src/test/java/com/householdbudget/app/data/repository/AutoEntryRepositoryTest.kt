@@ -243,6 +243,19 @@ class AutoEntryRepositoryTest {
         assertEquals(0, pending().size)
     }
 
+    @Test fun resolvePending_skip_returnsCascadedToo() = runBlocking {
+        kimOut()
+        kimOut("k2", T0 + 86_400_000)
+        assertEquals(2, repo.resolvePending(pending().first().id, null).size)
+    }
+
+    @Test fun resolvePending_duplicateReason_returnsOnlyTarget() = runBlocking {
+        insertManualCoffee()
+        handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피"))
+        val p = pending().single()
+        assertEquals(listOf(p.id), repo.resolvePending(p.id, null).map { it.id })
+    }
+
     @Test fun resolvePending_notPending_returnsEmpty() = runBlocking {
         kimOut()
         val id = pending().single().id

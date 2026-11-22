@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -61,14 +60,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,9 +95,9 @@ import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.autoCategorySelection
 import com.householdbudget.app.ui.components.CategoryChip
 import com.householdbudget.app.ui.components.CategoryPicker
+import com.householdbudget.app.ui.components.CategorySearchSheet
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatDigitsGrouped
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
@@ -449,108 +444,16 @@ fun EditTransactionScreen(
     }
 
     if (showCategorySheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        var query by remember { mutableStateOf("") }
-        ModalBottomSheet(
-            onDismissRequest = { showCategorySheet = false },
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding)
-                    .navigationBarsPadding()
-                    .imePadding(),
-                verticalArrangement = Arrangement.spacedBy(Space.md),
-            ) {
-                Text(
-                    text = stringResource(R.string.edit_category_sheet_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text(stringResource(R.string.edit_category_search_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.small,
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        ),
-                )
-                val trimmedQuery = query.trim()
-                val sections =
-                    parents.mapNotNull { parent ->
-                        val children = childrenByParent[parent.id].orEmpty()
-                        val filtered =
-                            when {
-                                trimmedQuery.isEmpty() -> children
-                                parent.name.contains(trimmedQuery) -> children
-                                else -> children.filter { it.name.contains(trimmedQuery) }
-                            }
-                        if (filtered.isEmpty()) null else parent to filtered
-                    }
-                if (sections.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.edit_category_search_empty),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = Space.xl),
-                    )
-                } else {
-                    LazyColumn(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 440.dp),
-                    ) {
-                        sections.forEach { (parent, children) ->
-                            item(key = "parent-${parent.id}") {
-                                Text(
-                                    text = categoryLabel(parent.name),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = Space.md, bottom = Space.xs),
-                                )
-                            }
-                            items(children, key = { "leaf-${it.id}" }) { leaf ->
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clip(MaterialTheme.shapes.small)
-                                        .clickable {
-                                            vm.setParent(parent.id, leaf)
-                                            showCategorySheet = false
-                                        }
-                                        .heightIn(min = 48.dp)
-                                        .padding(horizontal = Space.sm),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = leaf.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    if (ui.categoryId == leaf.id) {
-                                        Icon(
-                                            Icons.Rounded.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(Space.lg))
-            }
-        }
+        CategorySearchSheet(
+            parents = parents,
+            childrenByParent = childrenByParent,
+            selectedLeafId = ui.categoryId,
+            onLeafSelected = { leaf ->
+                vm.setParent(leaf.parentId!!, leaf)
+                showCategorySheet = false
+            },
+            onDismiss = { showCategorySheet = false },
+        )
     }
 
     if (showDatePicker) {

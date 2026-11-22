@@ -30,7 +30,7 @@
     <string name="auto_pending_progress">%1$d건 중 %2$d번째</string>
     <string name="auto_pending_up_next">다음에 볼 거래</string>
     <string name="auto_pending_prompt">어디에 쓴 돈인가요?</string>
-    <string name="auto_pending_suggest">%s로 정리하기</string>
+    <string name="auto_pending_suggest">%1$s%2$s 정리하기</string>
     <string name="auto_pending_suggest_hint">지난번에 이렇게 정리했어요</string>
     <string name="auto_pending_kind_expense">지출이에요</string>
     <string name="auto_pending_kind_income">수입이에요</string>
@@ -40,5 +40,4 @@
     <string name="auto_pending_done_total">%s이 가계부에 들어갔어요</string>
     <string name="auto_pending_done_remaining">이번 달 남은 예산</string>
     <string name="auto_pending_done_back">가계부로 돌아가기</string>
-    <string name="auto_pending_back_to_grid">‹ %s</string>
 </resources>
