@@ -181,4 +181,19 @@ class PeriodResolverTest {
             }
         }
     }
+
+    // 월급일 20일, 2026-12-20은 일요일이라 12-18로 당겨진다
+    @Test
+    fun periodAtOffset_zeroPrevNext() {
+        val ref = LocalDate.of(2026, 11, 22)
+        assertEquals(BudgetPeriod(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 12, 18)), resolver.periodAtOffset(ref, 20, 0))
+        assertEquals(BudgetPeriod(LocalDate.of(2026, 10, 20), LocalDate.of(2026, 11, 20)), resolver.periodAtOffset(ref, 20, -1))
+        assertEquals(BudgetPeriod(LocalDate.of(2026, 12, 18), LocalDate.of(2027, 1, 20)), resolver.periodAtOffset(ref, 20, 1))
+    }
+
+    @Test
+    fun periodAtOffset_earlyPayday_pulledIntoPreviousMonth() { // 2027-01-01 신정 → 2026-12-31
+        val p = resolver.periodAtOffset(LocalDate.of(2026, 12, 31), 1, 0)
+        assertEquals(LocalDate.of(2026, 12, 31), p.startInclusive)
+    }
 }

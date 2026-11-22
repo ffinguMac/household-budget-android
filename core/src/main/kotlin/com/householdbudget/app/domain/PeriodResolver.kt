@@ -54,6 +54,14 @@ class PeriodResolver {
     fun nextPeriod(period: BudgetPeriod, paydayDom: Int): BudgetPeriod =
         periodContaining(period.endExclusive, paydayDom)
 
+    /** [reference]가 속한 구간에서 [offset]만큼 옮긴 구간. 0은 [periodContaining], 음수는 과거, 양수는 미래. */
+    fun periodAtOffset(reference: LocalDate, paydayDom: Int, offset: Int): BudgetPeriod {
+        var period = periodContaining(reference, paydayDom)
+        repeat(-offset) { period = previousPeriod(period, paydayDom) }
+        repeat(offset) { period = nextPeriod(period, paydayDom) }
+        return period
+    }
+
     private fun nominalPayday(yearMonth: YearMonth, paydayDom: Int): LocalDate =
         yearMonth.atDay(minOf(paydayDom, yearMonth.lengthOfMonth()))
 

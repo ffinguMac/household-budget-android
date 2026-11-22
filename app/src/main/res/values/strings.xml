@@ -21,8 +21,14 @@
     <string name="action_back">뒤로</string>
     <string name="settings_save">저장</string>
     <string name="settings_saved">저장했습니다.</string>
-    <string name="calendar_day_empty">이 날 등록된 거래가 없습니다.</string>
-    <string name="calendar_day_close">닫기</string>
+    <string name="calendar_day_empty">이날은 쓴 돈이 없어요</string>
+    <string name="cal_today">오늘</string>
+    <string name="cal_period_basis">%s · 월급날 기준</string>
+    <string name="cal_summary_expense">지출 %s</string>
+    <string name="cal_summary_rest">" · 수입 %1$s · 저축 %2$s"</string>
+    <string name="cal_payday">월급</string>
+    <string name="cal_day_today">%s · 오늘</string>
+    <string name="cal_day_summary">%1$d건 · %2$s</string>
     <string name="archive_title">지난 기록</string>
     <string name="archive_subtitle">월급일 기준으로 끝난 달이 자동으로 보관됩니다. 거래 내역은 그대로 남아 있으며, 여기서는 요약과 당시 내역을 볼 수 있습니다.</string>
     <string name="archive_empty">아직 보관된 기록이 없습니다. 다음 달로 넘어가면 이전 달이 자동 저장됩니다.</string>

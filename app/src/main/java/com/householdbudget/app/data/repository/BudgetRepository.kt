@@ -18,7 +18,6 @@ import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -59,14 +58,13 @@ class BudgetRepository(
         combine(paydayDom, today) { dom, day -> periodResolver.periodContaining(day, dom) }
             .distinctUntilChanged()
 
-    /** 0 = 현재 기간, -1 = 직전 기간. */
-    fun observeSummaryAtOffset(offset: Int): Flow<HomeSummary> =
-        combine(paydayDom, today) { dom, day ->
-            var period = periodResolver.periodContaining(day, dom)
-            repeat(-offset) { period = periodResolver.previousPeriod(period, dom) }
-            period
-        }
+    /** 0 = 현재 기간, -1 = 직전 기간, +1 = 다음 기간. */
+    fun observePeriodAtOffset(offset: Int): Flow<BudgetPeriod> =
+        combine(paydayDom, today) { dom, day -> periodResolver.periodAtOffset(day, dom, offset) }
             .distinctUntilChanged()
+
+    fun observeSummaryAtOffset(offset: Int): Flow<HomeSummary> =
+        observePeriodAtOffset(offset)
             .flatMapLatest { period ->
                 transactionDao
                     .observeBetween(period.startInclusive.toEpochDay(), period.endExclusive.toEpochDay())
@@ -168,11 +166,12 @@ class BudgetRepository(
 
     fun observeHomeSummary(): Flow<HomeSummary> = observeSummaryAtOffset(0)
 
-    fun observeDayTotalsInMonth(yearMonth: YearMonth): Flow<List<DayTotalRow>> {
-        val minEx = yearMonth.atDay(1).toEpochDay()
-        val maxEx = yearMonth.atEndOfMonth().toEpochDay()
-        return transactionDao.observeDayTotalsBetween(minEx, maxEx)
-    }
+    // DAO 경계는 양쪽 포함이라 마지막 포함일(endExclusive − 1)을 넘긴다.
+    fun observeDayTotalsIn(period: BudgetPeriod): Flow<List<DayTotalRow>> =
+        transactionDao.observeDayTotalsBetween(
+            period.startInclusive.toEpochDay(),
+            period.endExclusive.toEpochDay() - 1,
+        )
 
     fun observeTransactionsOnDay(epochDay: Long): Flow<List<TransactionWithCategoryRow>> =
         transactionDao.observeBetween(epochDay, epochDay + 1)

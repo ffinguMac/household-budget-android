@@ -6,13 +6,13 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
 import com.householdbudget.app.data.local.model.DayTotalRow
 import com.householdbudget.app.data.repository.BudgetRepository
-import java.time.YearMonth
-import java.time.ZoneId
+import com.householdbudget.app.domain.BudgetPeriod
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -23,17 +23,21 @@ class CalendarViewModel(
     private val repository: BudgetRepository,
 ) : ViewModel() {
 
-    private val zone = ZoneId.of("Asia/Seoul")
+    private val _offset = MutableStateFlow(0)
 
-    private val _visibleMonth = MutableStateFlow(YearMonth.now(zone))
-    val visibleMonth: StateFlow<YearMonth> = _visibleMonth.asStateFlow()
+    /** 0 = 현재 월급 주기, 음수 = 과거, 양수 = 미래. */
+    val offset: StateFlow<Int> = _offset.asStateFlow()
+
+    val period: StateFlow<BudgetPeriod?> =
+        _offset
+            .flatMapLatest { repository.observePeriodAtOffset(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val dayTotals: StateFlow<Map<Long, DayTotalRow>> =
-        _visibleMonth
-            .flatMapLatest { ym ->
-                repository.observeDayTotalsInMonth(ym).map { rows ->
-                    rows.associateBy { it.dayEpoch }
-                }
+        period
+            .filterNotNull()
+            .flatMapLatest { p ->
+                repository.observeDayTotalsIn(p).map { rows -> rows.associateBy { it.dayEpoch } }
             }
             .stateIn(
                 scope = viewModelScope,
@@ -41,12 +45,16 @@ class CalendarViewModel(
                 initialValue = emptyMap(),
             )
 
-    fun previousMonth() {
-        _visibleMonth.update { it.minusMonths(1) }
+    fun previousPeriod() {
+        _offset.update { it - 1 }
     }
 
-    fun nextMonth() {
-        _visibleMonth.update { it.plusMonths(1) }
+    fun nextPeriod() {
+        _offset.update { it + 1 }
+    }
+
+    fun resetPeriod() {
+        _offset.value = 0
     }
 }
 
