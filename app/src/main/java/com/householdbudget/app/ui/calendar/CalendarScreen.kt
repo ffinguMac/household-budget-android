@@ -1,11 +1,12 @@
 package com.householdbudget.app.ui.calendar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -32,16 +33,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -98,16 +103,18 @@ fun CalendarScreen(
         val p = period ?: return@LazyColumn
 
         item {
+            // ‹ › 직후 새 쿼리가 오기 전까지 totals에 이전 기간 행이 남아 있어 이 기간 것만 더한다.
+            val rows = totals.values.filter { p.contains(LocalDate.ofEpochDay(it.dayEpoch)) }
             SummaryLine(
-                expenseMinor = totals.values.sumOf { it.expenseMinor },
-                incomeMinor = totals.values.sumOf { it.incomeMinor },
-                savingsMinor = totals.values.sumOf { it.savingsMinor },
+                expenseMinor = rows.sumOf { it.expenseMinor },
+                incomeMinor = rows.sumOf { it.incomeMinor },
+                savingsMinor = rows.sumOf { it.savingsMinor },
             )
         }
 
         item(key = "grid_${p.startInclusive}") {
             // 오늘이 이 기간에 있으면 오늘, 아니면 선택 없음.
-            var selectedEpochDay by remember(p) {
+            var selectedEpochDay by rememberSaveable(p.startInclusive) {
                 mutableLongStateOf(if (p.contains(today)) today.toEpochDay() else Long.MIN_VALUE)
             }
             Column {
@@ -122,7 +129,6 @@ fun CalendarScreen(
                     DayDetailSection(
                         day = LocalDate.ofEpochDay(selectedEpochDay),
                         today = today,
-                        expenseMinor = totals[selectedEpochDay]?.expenseMinor ?: 0L,
                         repository = repository,
                     )
                 }
@@ -144,25 +150,29 @@ private fun CalendarTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .heightIn(min = 56.dp)
             .padding(start = ScreenHorizontalPadding, end = Space.xs),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
-        if (period != null) {
-            Text(
-                text = archiveMonthTitle(period.startInclusive, today),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(R.string.cal_period_basis, period.formatRangeShort()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
+        // 제목 칸만 줄어들게 해서 "오늘"과 ‹ ›는 360dp·큰 글꼴에서도 늘 48dp를 지킨다.
+        Column(modifier = Modifier.weight(1f)) {
+            if (period != null) {
+                Text(
+                    text = archiveMonthTitle(period.startInclusive, today),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = stringResource(R.string.cal_period_basis, period.formatRangeShort()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        Spacer(Modifier.weight(1f))
         if (offset != 0) {
             TextButton(onClick = onReset) {
                 Text(text = stringResource(R.string.cal_today), style = MaterialTheme.typography.labelLarge)
@@ -231,9 +241,10 @@ private fun CalendarGrid(
             }
         }
         weeks.forEach { week ->
-            Row(modifier = Modifier.fillMaxWidth()) {
+            // 수입·지출 두 줄 칸이나 큰 글꼴이면 그 주 전체가 같이 커진다.
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 week.forEach { date ->
-                    val cellModifier = Modifier.weight(1f).height(64.dp)
+                    val cellModifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 64.dp)
                     if (date == null) {
                         Spacer(cellModifier)
                     } else {
@@ -270,25 +281,41 @@ private fun CalendarCell(
     val income = total?.incomeMinor ?: 0L
     val primary = MaterialTheme.colorScheme.primary
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val (label, labelColor) = when {
-        income > 0 -> "+" + compactAmountLabel(income) to primary
-        expense > 0 -> compactAmountLabel(expense) to muted
-        date == period.startInclusive || isNextPayday -> stringResource(R.string.cal_payday) to primary
-        date.dayOfMonth == 1 -> stringResource(R.string.archive_month_label, date.monthValue) to muted
-        else -> null to Color.Unspecified
+    // 수입·지출은 둘 다 있으면 두 줄. 둘 다 없을 때만 월급·달 바뀜 표시.
+    val labels = buildList {
+        if (income > 0) add("+" + compactAmountLabel(income) to primary)
+        if (expense > 0) add(compactAmountLabel(expense) to muted)
+        if (isEmpty()) {
+            when {
+                date == period.startInclusive || isNextPayday -> add(stringResource(R.string.cal_payday) to primary)
+                date.dayOfMonth == 1 -> add(stringResource(R.string.archive_month_label, date.monthValue) to muted)
+            }
+        }
     }
     Column(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
             .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
-            .then(if (isNextPayday) Modifier else Modifier.clickable(onClick = onClick))
+            .then(
+                if (isNextPayday) Modifier else Modifier.selectable(selected = isSelected, onClick = onClick),
+            )
             .padding(top = Space.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // 숫자 칸은 28dp, 오늘 링(32dp)은 칸 밖으로 그려 두 줄이 들어갈 자리를 남긴다.
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .then(if (isToday) Modifier.border(1.5.dp, primary, CircleShape) else Modifier),
+                .size(28.dp)
+                .then(
+                    if (isToday) {
+                        Modifier.drawBehind {
+                            val stroke = 1.5.dp.toPx()
+                            drawCircle(primary, radius = 16.dp.toPx() - stroke / 2, style = Stroke(stroke))
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -297,11 +324,11 @@ private fun CalendarCell(
                 color = if (isNextPayday) muted else MaterialTheme.colorScheme.onSurface,
             )
         }
-        if (label != null) {
+        labels.forEach { (text, color) ->
             Text(
-                text = label,
+                text = text,
                 style = MaterialTheme.typography.bodySmall,
-                color = labelColor,
+                color = color,
                 maxLines = 1,
             )
         }
@@ -313,7 +340,6 @@ private fun CalendarCell(
 private fun DayDetailSection(
     day: LocalDate,
     today: LocalDate,
-    expenseMinor: Long,
     repository: BudgetRepository,
 ) {
     val epoch = day.toEpochDay()
@@ -335,9 +361,15 @@ private fun DayDetailSection(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
+            // 금액은 지출만 더하므로 건수도 지출만 센다. 지출이 없으면 전체 건수만.
+            val expenses = txs.filter { CategoryKind.fromStorage(it.kind) == CategoryKind.EXPENSE }
             if (txs.isNotEmpty()) {
                 Text(
-                    text = stringResource(R.string.cal_day_summary, txs.size, expenseMinor.formatWon()),
+                    text = if (expenses.isEmpty()) {
+                        stringResource(R.string.cal_tx_count, txs.size)
+                    } else {
+                        stringResource(R.string.cal_day_summary, expenses.size, expenses.sumOf { it.amountMinor }.formatWon())
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
