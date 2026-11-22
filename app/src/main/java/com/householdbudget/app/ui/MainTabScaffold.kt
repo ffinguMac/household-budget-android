@@ -245,6 +245,7 @@ fun MainTabScaffold(
                             ArchiveListScreen(
                                 repository = repository,
                                 onOpenDetail = { settingsPane = SettingsPane.ArchiveDetail(archiveId = it) },
+                                onBack = { settingsPane = SettingsPane.Main },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         is SettingsPane.ArchiveDetail ->
@@ -280,7 +281,7 @@ fun MainTabScaffold(
 }
 
 /**
- * 미드나잇 바텀바: 탭 4개 + 한가운데 살짝 돌출된 민트 + 버튼.
+ * 하단 바: 탭 4개 + 한가운데 살짝 돌출된 + 버튼.
  *
  * 버튼이 바 위로 [AddButtonProtrusion] 만큼 돌출되므로, Surface 를 그만큼 아래로 밀어
  * 버튼 전체가 bottomBar 영역 안에 남게 한다 (Surface 클리핑/히트테스트 문제 회피).

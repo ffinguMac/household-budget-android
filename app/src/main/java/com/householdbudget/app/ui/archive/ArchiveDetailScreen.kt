@@ -11,11 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,12 +32,12 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
-import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.AppTopBar
+import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
@@ -97,7 +93,7 @@ fun ArchiveDetailScreen(
 
         LazyColumn(
             modifier = Modifier
-                    .fillMaxSize()
+                .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = pushedBottomPadding()),
         ) {

@@ -15,14 +15,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -52,8 +48,8 @@ import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatDigitsGrouped
@@ -135,7 +131,7 @@ fun BudgetSettingsScreen(
         AppTopBar(title = stringResource(R.string.budget_settings_title), onBack = onBack)
         LazyColumn(
             modifier = Modifier
-                    .fillMaxSize()
+                .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = pushedBottomPadding()),
         ) {

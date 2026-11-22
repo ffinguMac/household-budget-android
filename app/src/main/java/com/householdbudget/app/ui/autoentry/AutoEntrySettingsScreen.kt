@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material3.Icon
@@ -34,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,8 +40,8 @@ import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.settings.SettingsActionRow
 import com.householdbudget.app.ui.settings.SettingsGroupPanel
 import com.householdbudget.app.ui.settings.SettingsRowDivider

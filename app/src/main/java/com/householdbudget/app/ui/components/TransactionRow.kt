@@ -27,12 +27,12 @@ import com.householdbudget.app.ui.theme.kindAccent
 import com.householdbudget.app.ui.util.formatSignedWon
 
 /**
- * 거래 한 줄. 아바타(대분류 이모지) + 제목/보조텍스트 + 금액.
+ * 거래 한 줄. 아바타(대분류 이모지) + 제목(가맹점·메모)/보조줄(카테고리) + 금액.
  * Home / Ledger / Calendar 상세 / Archive 상세가 전부 이 하나를 쓴다.
  * 배경은 투명 — 호출자가 Surface/카드로 감싼다.
  *
  * @param categoryName 소분류 이름
- * @param parentCategoryName 대분류 이름 (있으면 제목에 "대분류 · 소분류" 로 표시)
+ * @param parentCategoryName 대분류 이름 (보조줄에 "대분류 · 소분류" 로 표시)
  * @param memo 비어 있으면 보조줄에 표시하지 않음
  * @param dateLabel null 이면 보조줄에 날짜 표시하지 않음 (날짜별 그룹 목록에서는 null)
  * @param onClick null 이면 클릭 불가 + ripple 없음

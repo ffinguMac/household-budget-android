@@ -17,19 +17,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,19 +39,20 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
-import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.AppTopBar
+import com.householdbudget.app.ui.components.EmptyState
+import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
-import com.householdbudget.app.ui.components.EmptyState
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private val savedAtFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy.MM.dd 보관").withLocale(Locale.KOREA)
@@ -73,6 +73,7 @@ internal fun archiveMonthTitle(start: LocalDate, today: LocalDate): String =
 fun ArchiveListScreen(
     repository: BudgetRepository,
     onOpenDetail: (Long) -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val rows by remember(repository) { repository.observeArchivedPeriods() }
@@ -89,7 +90,7 @@ fun ArchiveListScreen(
         contentPadding = PaddingValues(bottom = pushedBottomPadding()),
     ) {
         item {
-            AppTopBar(title = stringResource(R.string.archive_title))
+            AppTopBar(title = stringResource(R.string.archive_title), onBack = onBack)
             Text(
                 text = stringResource(R.string.archive_subtitle_short),
                 style = MaterialTheme.typography.bodySmall,
