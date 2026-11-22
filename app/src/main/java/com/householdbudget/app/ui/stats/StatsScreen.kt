@@ -47,6 +47,7 @@ import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -88,6 +89,7 @@ fun StatsScreen(
     val periodData by statsViewModel.periodData.collectAsStateWithLifecycle()
     val monthlyBudget by budgetViewModel.monthlyBudgetMinor.collectAsStateWithLifecycle()
     val categoryBudgets by budgetViewModel.categoryBudgets.collectAsStateWithLifecycle()
+    val paydayDom by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
 
     val today by repository.today.collectAsStateWithLifecycle()
     var mode by rememberSaveable { mutableStateOf(MODE_LIST) }
@@ -95,6 +97,8 @@ fun StatsScreen(
 
     // 집계는 (periodData) 가 바뀔 때만 다시 계산한다.
     val stats = remember(periodData) { periodData?.let(::computePeriodStats) }
+
+    val month = stats?.let { PeriodResolver().nominalMonth(it.period.startInclusive, paydayDom).monthValue }
 
     val mapRows = remember(stats) { stats?.let { buildMapRows(it.parents) }.orEmpty() }
 
@@ -107,7 +111,7 @@ fun StatsScreen(
         contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
         item(key = "header") {
-            StatsHeader(period = stats?.period, today = today)
+            StatsHeader(period = stats?.period, month = month, today = today)
         }
 
         val currentStats = stats
@@ -152,6 +156,7 @@ fun StatsScreen(
                     budgets = categoryBudgets,
                     mapRows = mapRows,
                     stats = currentStats,
+                    month = month ?: currentStats.period.startInclusive.monthValue,
                     onParentClick = openParent,
                     modifier = cardItemModifier(),
                 )
@@ -292,6 +297,7 @@ private fun sheetForParent(
 @Composable
 private fun StatsHeader(
     period: BudgetPeriod?,
+    month: Int?,
     today: LocalDate,
     modifier: Modifier = Modifier,
 ) {
@@ -311,8 +317,8 @@ private fun StatsHeader(
         ) {
             Text(
                 text =
-                    if (period != null) {
-                        stringResource(R.string.stats_title, period.startInclusive.monthValue)
+                    if (month != null) {
+                        stringResource(R.string.stats_title, month)
                     } else {
                         stringResource(R.string.stats_title_plain)
                     },
@@ -606,6 +612,7 @@ private fun CategoryCard(
     budgets: Map<Long, Long>,
     mapRows: List<MapRow>,
     stats: PeriodStats,
+    month: Int,
     onParentClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -641,7 +648,7 @@ private fun CategoryCard(
                     )
                 } else {
                     MapSummaryCard(
-                        month = stats.period.startInclusive.monthValue,
+                        month = month,
                         summary = MapSummary(stats.incomeMinor, stats.expenseMinor, stats.savingsMinor),
                     )
                     MoneyMap(

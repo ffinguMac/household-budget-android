@@ -499,7 +499,7 @@ fun EditTransactionScreen(
                         vm.delete(onSuccess = onClose)
                     },
                 ) {
-                    Text(stringResource(R.string.edit_confirm))
+                    Text(stringResource(R.string.edit_confirm), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
