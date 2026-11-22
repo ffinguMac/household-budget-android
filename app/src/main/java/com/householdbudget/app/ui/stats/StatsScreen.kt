@@ -1,6 +1,5 @@
 package com.householdbudget.app.ui.stats
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,15 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -41,13 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,18 +54,25 @@ import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.categoryStyleOf
-import com.householdbudget.app.ui.theme.categoryLabel
-import com.householdbudget.app.ui.util.formatAmountGrouped
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextAlign
+import com.householdbudget.app.ui.components.StatColumn
+import com.householdbudget.app.ui.feed.budgetStatus
+import com.householdbudget.app.ui.theme.kindDotColor
 import kotlin.math.roundToInt
 
 // ── 모드 토글 (rememberSaveable 저장용) ────────────────────────────────────
-private const val MODE_REPORT = "report"
+private const val MODE_LIST = "list"
 private const val MODE_MAP = "map"
 
 @Composable
@@ -93,7 +90,7 @@ fun StatsScreen(
     val categoryBudgets by budgetViewModel.categoryBudgets.collectAsStateWithLifecycle()
 
     val today by repository.today.collectAsStateWithLifecycle()
-    var mode by rememberSaveable { mutableStateOf(MODE_REPORT) }
+    var mode by rememberSaveable { mutableStateOf(MODE_LIST) }
     var sheet by remember { mutableStateOf<SheetData?>(null) }
 
     // 집계는 (periodData) 가 바뀔 때만 다시 계산한다.
@@ -110,28 +107,30 @@ fun StatsScreen(
         contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
         item(key = "header") {
-            StatsHeader(
-                period = stats?.period,
-                today = today,
-                mode = mode,
-                onModeChange = { mode = it },
-            )
+            StatsHeader(period = stats?.period, today = today)
         }
 
         val currentStats = stats
         val currentData = periodData
         if (currentStats == null || currentData == null) {
             item(key = "skeleton") { StatsSkeleton() }
-        } else if (mode == MODE_REPORT) {
-            item(key = "gauge") {
-                BudgetGaugeCard(
-                    spentMinor = currentStats.expenseMinor,
+        } else {
+            item(key = "summary") {
+                // 지난달 이맘때: 오늘이 기간 시작 후 며칠째인지만큼 지난 기간에서도 센다.
+                val elapsed = ChronoUnit.DAYS.between(currentStats.period.startInclusive, today)
+                val compare =
+                    deltaPercent(
+                        spentThroughDay(currentData.current, currentStats.period.startInclusive.toEpochDay(), elapsed),
+                        spentThroughDay(
+                            currentData.previous,
+                            currentData.previousPeriod.startInclusive.toEpochDay(),
+                            elapsed,
+                        ),
+                    )
+                SummaryCard(
+                    stats = currentStats,
                     budgetMinor = monthlyBudget,
-                    daysRemaining =
-                        ChronoUnit.DAYS
-                            .between(today, currentStats.period.endExclusive)
-                            .toInt()
-                            .coerceAtLeast(1),
+                    comparePercent = compare,
                     modifier = cardItemModifier(),
                 )
             }
@@ -143,66 +142,19 @@ fun StatsScreen(
                 )
             }
             item(key = "category") {
-                CategoryBudgetCard(
-                    parents = currentStats.parents.take(6),
-                    budgets = categoryBudgets,
-                    onRowClick = { parent ->
-                        sheet =
-                            SheetData(
-                                title = parent.name,
-                                rows = expenseRowsOfParent(currentData.current, parent.parentId),
-                            )
-                    },
-                    modifier = cardItemModifier(),
-                )
-            }
-        } else {
-            if (mapRows.isEmpty()) {
-                item(key = "map_empty") {
-                    EmptyState(
-                        icon = Icons.Outlined.PieChart,
-                        title = stringResource(R.string.stats_map_empty_title),
-                        description = stringResource(R.string.stats_map_empty_desc),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            } else {
                 val openParent: (Long) -> Unit = { key ->
                     sheet = sheetForParent(key = key, stats = currentStats, rows = currentData.current)
                 }
-                item(key = "map_summary") {
-                    MapSummaryCard(
-                        month = currentStats.period.startInclusive.monthValue,
-                        summary =
-                            MapSummary(
-                                currentStats.incomeMinor,
-                                currentStats.expenseMinor,
-                                currentStats.savingsMinor,
-                            ),
-                        modifier = cardItemModifier(),
-                    )
-                }
-                item(key = "map") {
-                    Surface(
-                        modifier = cardItemModifier(),
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 0.dp,
-                    ) {
-                        MoneyMap(
-                            rows = mapRows,
-                            onTileClick = openParent,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(230.dp)
-                                    .padding(Space.md),
-                        )
-                    }
-                }
-                item(key = "map_rank") {
-                    MapRankList(rows = mapRows, onRowClick = openParent, modifier = cardItemModifier())
-                }
+                CategoryCard(
+                    mode = mode,
+                    onModeChange = { mode = it },
+                    parents = currentStats.parents.take(6),
+                    budgets = categoryBudgets,
+                    mapRows = mapRows,
+                    stats = currentStats,
+                    onParentClick = openParent,
+                    modifier = cardItemModifier(),
+                )
             }
         }
     }
@@ -325,39 +277,37 @@ private fun sheetForParent(
     stats: PeriodStats,
     rows: List<TransactionWithCategoryRow>,
 ): SheetData =
-    SheetData(
-        title = stats.parents.firstOrNull { it.parentId == key }?.name ?: "",
-        rows = expenseRowsOfParent(rows, key),
-    )
+    stats.parents.firstOrNull { it.parentId == key }.let { parent ->
+        SheetData(
+            title = parent?.name ?: "",
+            rows = expenseRowsOfParent(rows, key),
+            deltaPercent = parent?.let { deltaPercent(it.currentMinor, it.previousMinor) },
+        )
+    }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 헤더 + 모드 토글
+// 헤더
 // ──────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun StatsHeader(
     period: BudgetPeriod?,
     today: LocalDate,
-    mode: String,
-    onModeChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(
-                    start = ScreenHorizontalPadding,
-                    end = ScreenHorizontalPadding,
-                    top = Space.xl,
-                    bottom = Space.lg,
-                ),
-        verticalAlignment = Alignment.Top,
+                .height(56.dp)
+                .padding(horizontal = ScreenHorizontalPadding),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.md),
     ) {
-        Column(
+        Row(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(Space.xs),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
             Text(
                 text =
@@ -366,16 +316,10 @@ private fun StatsHeader(
                     } else {
                         stringResource(R.string.stats_title_plain)
                     },
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             if (period != null) {
-                Text(
-                    text = period.paydayCountdownLabel(today),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Text(
                     text = period.formatRangeShort(),
                     style = MaterialTheme.typography.bodySmall,
@@ -383,7 +327,13 @@ private fun StatsHeader(
                 )
             }
         }
-        ModeToggle(mode = mode, onModeChange = onModeChange)
+        if (period != null) {
+            Text(
+                text = period.paydayCountdownLabel(today),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -396,14 +346,14 @@ private fun ModeToggle(
     Surface(
         modifier = modifier,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 0.dp,
     ) {
-        Row(modifier = Modifier.padding(Space.xs)) {
+        Row {
             ModeChip(
                 label = stringResource(R.string.stats_mode_report),
-                selected = mode == MODE_REPORT,
-                onClick = { onModeChange(MODE_REPORT) },
+                selected = mode == MODE_LIST,
+                onClick = { onModeChange(MODE_LIST) },
             )
             ModeChip(
                 label = stringResource(R.string.stats_mode_map),
@@ -421,41 +371,43 @@ private fun ModeChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 눌리는 영역은 48dp, 보이는 알약은 32dp.
     Box(
-        modifier =
-            modifier
-                .clip(CircleShape)
-                .background(
-                    if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                )
-                .clickable(onClick = onClick)
-                .defaultMinSize(minWidth = 56.dp, minHeight = 40.dp)
-                .padding(horizontal = Space.md),
+        modifier = modifier.clickable(onClick = onClick).defaultMinSize(minWidth = 64.dp, minHeight = 48.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color =
-                if (selected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
+        Box(
+            modifier =
+                Modifier
+                    .height(32.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .padding(horizontal = Space.md),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color =
+                    if (selected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
     }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 리포트: 예산 게이지
+// 요약 카드
 // ──────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun BudgetGaugeCard(
-    spentMinor: Long,
+private fun SummaryCard(
+    stats: PeriodStats,
     budgetMinor: Long?,
-    daysRemaining: Int,
+    comparePercent: Int?,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -464,151 +416,106 @@ private fun BudgetGaugeCard(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
-        if (budgetMinor == null || budgetMinor <= 0L) {
-            Column(
-                modifier = Modifier.padding(Space.xl),
-                verticalArrangement = Arrangement.spacedBy(Space.xs),
-            ) {
+        Column(
+            modifier = Modifier.padding(Space.xl),
+            verticalArrangement = Arrangement.spacedBy(Space.sm),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 Text(
-                    text = stringResource(R.string.stats_no_budget_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.stats_no_budget_desc),
+                    text = stringResource(R.string.stats_summary_label),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (comparePercent != null && comparePercent != 0) {
+                    val less = comparePercent < 0
+                    Text(
+                        text =
+                            stringResource(
+                                if (less) R.string.stats_compare_less else R.string.stats_compare_more,
+                                kotlin.math.abs(comparePercent),
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color =
+                            if (less) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+            Text(
+                text = stats.expenseMinor.formatWon(),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (budgetMinor != null && budgetMinor > 0L) {
+                val status = budgetStatus(budgetMinor, stats.expenseMinor, daysRemaining = 1)
+                val over = status.remainingMinor < 0
+                Text(
+                    text =
+                        if (over) {
+                            stringResource(R.string.stats_summary_budget_over, budgetMinor.formatWon(), (-status.remainingMinor).formatWon())
+                        } else {
+                            stringResource(
+                                R.string.stats_summary_budget,
+                                budgetMinor.formatWon(),
+                                (status.usedFraction * 100).roundToInt(),
+                                status.remainingMinor.formatWon(),
+                            )
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ThinBar(
+                    fraction = status.usedFraction,
+                    color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    height = 8.dp,
                 )
             }
-        } else {
-            val ratio = spentMinor.toDouble() / budgetMinor
-            val remainingMinor = budgetMinor - spentMinor
-            val trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            val usedColor = MaterialTheme.colorScheme.primary
-            val overColor = MaterialTheme.colorScheme.error
             Row(
-                modifier = Modifier.padding(Space.xl),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Space.xl),
+                modifier = Modifier.fillMaxWidth().padding(top = Space.sm),
+                horizontalArrangement = Arrangement.spacedBy(Space.sm),
             ) {
-                Box(
-                    modifier = Modifier.size(128.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val stroke = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
-                        val inset = 8.dp.toPx()
-                        val arcSize =
-                            Size(size.width - inset * 2, size.height - inset * 2)
-                        val topLeft = Offset(inset, inset)
-                        drawArc(
-                            color = trackColor,
-                            startAngle = 0f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = arcSize,
-                            style = stroke,
-                        )
-                        val usedSweep = (ratio.coerceIn(0.0, 1.0) * 360.0).toFloat()
-                        if (usedSweep > 0f) {
-                            drawArc(
-                                color = usedColor,
-                                startAngle = -90f,
-                                sweepAngle = usedSweep,
-                                useCenter = false,
-                                topLeft = topLeft,
-                                size = arcSize,
-                                style = stroke,
-                            )
-                        }
-                        if (ratio > 1.0) {
-                            val overSweep =
-                                ((ratio - 1.0).coerceAtMost(1.0) * 360.0).toFloat()
-                            drawArc(
-                                color = overColor,
-                                startAngle = -90f,
-                                sweepAngle = overSweep,
-                                useCenter = false,
-                                topLeft = topLeft,
-                                size = arcSize,
-                                style = stroke,
-                            )
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.stats_gauge_pct,
-                                    (ratio * 100).roundToInt(),
-                                ),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color =
-                                if (ratio > 1.0) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                        )
-                        Text(
-                            text = stringResource(R.string.stats_gauge_center_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                Column(
+                StatColumn(
+                    label = stringResource(R.string.stats_col_spent),
+                    value = stats.expenseMinor.formatWon(),
+                    dotColor = kindDotColor(CategoryKind.EXPENSE),
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(Space.xs),
-                ) {
-                    if (remainingMinor >= 0) {
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.stats_gauge_remaining,
-                                    remainingMinor.formatWon(),
-                                ),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.stats_gauge_daily,
-                                    (remainingMinor / daysRemaining).formatWon(),
-                                ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.stats_gauge_over,
-                                    (-remainingMinor).formatWon(),
-                                ),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        Text(
-                            text = stringResource(R.string.stats_gauge_over_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                )
+                StatColumn(
+                    label = stringResource(R.string.stats_col_savings),
+                    value = stats.savingsMinor.formatWon(),
+                    dotColor = kindDotColor(CategoryKind.SAVINGS),
+                    modifier = Modifier.weight(1f),
+                )
+                StatColumn(
+                    label = stringResource(R.string.stats_col_left),
+                    value = (stats.incomeMinor - stats.expenseMinor - stats.savingsMinor).formatWon(),
+                    dotColor = null,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
 }
 
+/** 둥근 진행 막대. [fraction]은 0..1. */
+@Composable
+private fun ThinBar(
+    fraction: Float,
+    color: Color,
+    height: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth().height(height).clip(CircleShape).background(trackColor),
+    ) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).fillMaxHeight().clip(CircleShape).background(color))
+    }
+}
+
 // ──────────────────────────────────────────────────────────────────────────
-// 리포트: 주별 지출 바 차트
+// 주별 지출 바 차트
 // ──────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -630,7 +537,6 @@ private fun WeeklySpendCard(
             Text(
                 text = stringResource(R.string.stats_weekly_title),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             val maxExpense = weeks.maxOfOrNull { it.expenseMinor }?.coerceAtLeast(1L) ?: 1L
@@ -647,10 +553,8 @@ private fun WeeklySpendCard(
                     val barColor =
                         when {
                             isCurrent -> MaterialTheme.colorScheme.primary
-                            isFuture ->
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
-                            else ->
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            isFuture -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
                         }
                     val fraction = week.expenseMinor.toFloat() / maxExpense
                     Column(
@@ -661,9 +565,8 @@ private fun WeeklySpendCard(
                         if (week.expenseMinor > 0) {
                             Text(
                                 text = compactAmountLabel(week.expenseMinor),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
                             )
                         }
                         Box(
@@ -671,13 +574,12 @@ private fun WeeklySpendCard(
                                 Modifier
                                     .fillMaxWidth(0.55f)
                                     .height((6 + 86 * fraction).dp)
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                                     .background(barColor),
                         )
                         Text(
                             text = stringResource(R.string.stats_week_label, week.index + 1),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            style = MaterialTheme.typography.bodySmall,
                             color =
                                 if (isCurrent) {
                                     MaterialTheme.colorScheme.primary
@@ -693,14 +595,18 @@ private fun WeeklySpendCard(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 리포트: 카테고리별 예산 대비
+// 카테고리 카드 (목록 / 맵)
 // ──────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun CategoryBudgetCard(
+private fun CategoryCard(
+    mode: String,
+    onModeChange: (String) -> Unit,
     parents: List<ParentSpend>,
     budgets: Map<Long, Long>,
-    onRowClick: (ParentSpend) -> Unit,
+    mapRows: List<MapRow>,
+    stats: PeriodStats,
+    onParentClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -713,32 +619,52 @@ private fun CategoryBudgetCard(
             modifier = Modifier.padding(Space.xl),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource(R.string.stats_category_title),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = stringResource(R.string.stats_category_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                ModeToggle(mode = mode, onModeChange = onModeChange)
             }
-            if (parents.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.stats_category_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            parents.forEach { parent ->
-                CategoryBudgetRow(
-                    parent = parent,
-                    budgetMinor = budgets[parent.parentId],
-                    onClick = { onRowClick(parent) },
-                )
+            if (mode == MODE_MAP) {
+                if (mapRows.isEmpty()) {
+                    EmptyState(
+                        icon = Icons.Outlined.PieChart,
+                        title = stringResource(R.string.stats_map_empty_title),
+                        description = stringResource(R.string.stats_map_empty_desc),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    MapSummaryCard(
+                        month = stats.period.startInclusive.monthValue,
+                        summary = MapSummary(stats.incomeMinor, stats.expenseMinor, stats.savingsMinor),
+                    )
+                    MoneyMap(
+                        rows = mapRows,
+                        onTileClick = onParentClick,
+                        modifier = Modifier.fillMaxWidth().height(230.dp),
+                    )
+                }
+            } else {
+                if (parents.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.stats_category_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                parents.forEach { parent ->
+                    CategoryBudgetRow(
+                        parent = parent,
+                        budgetMinor = budgets[parent.parentId],
+                        onClick = { onParentClick(parent.parentId) },
+                    )
+                }
             }
         }
     }
@@ -751,117 +677,74 @@ private fun CategoryBudgetRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    val style = categoryStyleOf(parent.name)
+    val hasBudget = budgetMinor != null && budgetMinor > 0L
+    val over = hasBudget && parent.currentMinor > budgetMinor!!
+    val barFraction =
+        if (hasBudget) (parent.currentMinor.toFloat() / budgetMinor!!).coerceIn(0f, 1f) else 0f
+    val caption =
+        when {
+            !hasBudget -> stringResource(R.string.stats_cat_no_budget)
+            over ->
+                stringResource(
+                    R.string.stats_cat_over,
+                    budgetMinor!!.formatWon(),
+                    (parent.currentMinor - budgetMinor).formatWon(),
+                )
+            else ->
+                stringResource(
+                    R.string.stats_cat_pct,
+                    budgetMinor!!.formatWon(),
+                    (parent.currentMinor * 100.0 / budgetMinor).roundToInt(),
+                )
+        }
+    Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
+                .clip(MaterialTheme.shapes.small)
                 .clickable(onClick = onClick)
-                .defaultMinSize(minHeight = 48.dp)
+                .defaultMinSize(minHeight = 64.dp)
                 .padding(vertical = Space.xs),
-        verticalArrangement = Arrangement.spacedBy(Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.md),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Space.sm),
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(style.color.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = categoryLabel(parent.name),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text =
-                    if (budgetMinor != null && budgetMinor > 0) {
-                        parent.currentMinor.formatAmountGrouped() +
-                            " / " +
-                            budgetMinor.formatAmountGrouped()
-                    } else {
-                        parent.currentMinor.formatWon()
-                    },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-            DeltaLabel(deltaPercent(parent.currentMinor, parent.previousMinor))
+            Text(text = style.emoji, style = MaterialTheme.typography.bodyLarge)
         }
-        if (budgetMinor != null && budgetMinor > 0) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            ) {
-                if (parent.currentMinor <= budgetMinor) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth(
-                                    (parent.currentMinor.toFloat() / budgetMinor)
-                                        .coerceIn(0f, 1f),
-                                )
-                                .fillMaxHeight()
-                                .background(categoryStyleOf(parent.name).color),
-                    )
-                } else {
-                    // 초과: 바 전체 = 총지출, 뒤쪽 빨간 구간 = 예산 초과분.
-                    Row(modifier = Modifier.fillMaxSize()) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .weight(budgetMinor.toFloat())
-                                    .fillMaxHeight()
-                                    .background(categoryStyleOf(parent.name).color),
-                        )
-                        Spacer(Modifier.width(2.dp).fillMaxHeight())
-                        Box(
-                            modifier =
-                                Modifier
-                                    .weight((parent.currentMinor - budgetMinor).toFloat())
-                                    .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.error),
-                        )
-                    }
-                }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                Text(
+                    text = parent.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = parent.currentMinor.formatWon(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
+            if (hasBudget) {
+                ThinBar(
+                    fraction = barFraction,
+                    color = if (over) MaterialTheme.colorScheme.error else style.color,
+                    height = 4.dp,
+                )
+            }
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
-}
-
-/** 전월 대비 표기(문구, 색): ▲n% 빨강 / ▼n% 초록 / — 회색. 맵 타일·순위 목록·리포트가 함께 쓴다. */
-@Composable
-internal fun deltaDisplay(deltaPercent: Int?): Pair<String, Color> =
-    when {
-        deltaPercent == null ->
-            stringResource(R.string.stats_delta_flat) to MaterialTheme.colorScheme.onSurfaceVariant
-        deltaPercent > 0 ->
-            stringResource(R.string.stats_delta_up, deltaPercent) to MaterialTheme.colorScheme.error
-        else ->
-            stringResource(R.string.stats_delta_down, -deltaPercent) to
-                MaterialTheme.colorScheme.primary
-    }
-
-/** 값은 `deltaPercent()` 결과(±5% 이내 = null → "—"). */
-@Composable
-internal fun DeltaLabel(
-    deltaPercent: Int?,
-    modifier: Modifier = Modifier,
-) {
-    val (text, color) = deltaDisplay(deltaPercent)
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = color,
-        modifier = modifier,
-    )
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -871,6 +754,7 @@ internal fun DeltaLabel(
 private data class SheetData(
     val title: String,
     val rows: List<TransactionWithCategoryRow>,
+    val deltaPercent: Int? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -890,36 +774,44 @@ private fun TransactionsSheet(
             verticalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                modifier = Modifier.padding(horizontal = Space.xl),
                 verticalArrangement = Arrangement.spacedBy(Space.xs),
             ) {
                 Text(
                     text = data.title,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+                val delta = data.deltaPercent
                 Text(
                     text =
                         stringResource(
                             R.string.stats_sheet_total,
                             data.rows.size,
                             data.rows.sumOf { it.amountMinor }.formatWon(),
-                        ),
+                        ) +
+                            when {
+                                delta == null -> ""
+                                delta > 0 -> " · " + stringResource(R.string.stats_sheet_up, delta)
+                                else -> " · " + stringResource(R.string.stats_sheet_down, -delta)
+                            },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             LazyColumn(modifier = Modifier.heightIn(max = 440.dp)) {
                 items(data.rows, key = { it.id }) { row ->
-                    TransactionRow(
-                        categoryName = row.categoryName,
-                        parentCategoryName = row.parentCategoryName,
-                        memo = row.memo,
-                        amountMinor = row.amountMinor,
-                        kind = CategoryKind.fromStorage(row.kind),
-                        dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),
-                    )
+                    // TransactionRow 자체 좌우 여백이 16dp라 4dp를 더해 제목과 20dp로 맞춘다.
+                    Box(Modifier.padding(horizontal = Space.xs)) {
+                        TransactionRow(
+                            categoryName = row.categoryName,
+                            parentCategoryName = row.parentCategoryName,
+                            memo = row.memo,
+                            amountMinor = row.amountMinor,
+                            kind = CategoryKind.fromStorage(row.kind),
+                            dateLabel = LocalDate.ofEpochDay(row.occurredEpochDay).formatShortDayLabel(),
+                        )
+                    }
                 }
             }
         }
