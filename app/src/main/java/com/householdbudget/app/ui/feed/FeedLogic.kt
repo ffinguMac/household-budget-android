@@ -10,14 +10,7 @@ data class FeedDay(
     val incomeMinor: Long,
     val expenseMinor: Long,
     val savingsMinor: Long,
-) {
-    fun totalOf(kind: CategoryKind): Long =
-        when (kind) {
-            CategoryKind.INCOME -> incomeMinor
-            CategoryKind.EXPENSE -> expenseMinor
-            CategoryKind.SAVINGS -> savingsMinor
-        }
-}
+)
 
 /** 날짜 내림차순. 하루 안의 행 순서는 입력 순서 그대로. */
 fun groupFeedDays(rows: List<TransactionWithCategoryRow>): List<FeedDay> =

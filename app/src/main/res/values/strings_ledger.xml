@@ -20,11 +20,15 @@
 
     <!-- 홈 히어로·확인 필요 띠·날짜 머리줄 -->
     <string name="feed_open_search">검색</string>
+    <string name="feed_close_search">검색 닫기</string>
     <string name="feed_hero_left_label">이번 달 예산에서</string>
+    <string name="feed_hero_left_label_past">예산에서</string>
     <string name="feed_hero_left_suffix">남았어요</string>
     <string name="feed_hero_over_label">이번 달 예산보다</string>
+    <string name="feed_hero_over_label_past">예산보다</string>
     <string name="feed_hero_over_suffix">더 썼어요</string>
     <string name="feed_hero_no_budget_label">이번 달 남은 돈</string>
+    <string name="feed_hero_no_budget_label_past">남은 돈</string>
     <string name="feed_hero_daily">하루 %1$s씩 쓸 수 있어요</string>
     <string name="feed_set_budget">예산 정하기</string>
     <string name="feed_pending_title">확인할 거래가 있어요</string>
@@ -32,5 +36,4 @@
     <string name="feed_day_relative">%1$s · %2$s</string>
     <string name="feed_day_today">오늘</string>
     <string name="feed_day_yesterday">어제</string>
-    <string name="feed_day_spent">%1$s 씀</string>
 </resources>

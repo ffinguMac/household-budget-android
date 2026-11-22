@@ -77,6 +77,7 @@ fun BudgetProgressBar(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f),
             )
         }
     }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,10 +52,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,6 +81,7 @@ import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
+import kotlin.math.abs
 
 /** 종류 필터에서 "전체"를 뜻하는 sentinel 값 (rememberSaveable 저장용). */
 private const val FILTER_ALL = "ALL"
@@ -112,6 +117,9 @@ fun FeedScreen(
 
     var query by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
+    // 아이콘을 눌러 열 때만 포커스를 준다(스크롤로 다시 보일 때는 주지 않는다).
+    var focusSearch by remember { mutableStateOf(false) }
+    val searchFocus = remember { FocusRequester() }
     var kindFilterStorage by rememberSaveable { mutableStateOf(FILTER_ALL) }
 
     val currentSummary = summary
@@ -167,6 +175,7 @@ fun FeedScreen(
         item(key = "header", contentType = "header") {
             FeedTopBar(
                 period = currentSummary?.period,
+                searchOpen = showSearch,
                 periodOffset = periodOffset,
                 today = today,
                 periodEnter = periodEnter,
@@ -176,6 +185,7 @@ fun FeedScreen(
                     showSearch = !showSearch
                     // 닫힌 검색어가 목록을 몰래 거르지 않게 한다.
                     if (!showSearch) query = ""
+                    focusSearch = showSearch
                 },
             )
         }
@@ -220,10 +230,16 @@ fun FeedScreen(
                 }
 
                 if (showSearch) {
+                    LaunchedEffect(focusSearch) {
+                        if (focusSearch) {
+                            searchFocus.requestFocus()
+                            focusSearch = false
+                        }
+                    }
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
                         placeholder = {
                             Text(text = stringResource(R.string.ledger_search_placeholder))
                         },
@@ -364,6 +380,7 @@ fun FeedScreen(
 private fun FeedTopBar(
     period: BudgetPeriod?,
     periodOffset: Int,
+    searchOpen: Boolean,
     today: LocalDate,
     periodEnter: Modifier,
     onPrevious: () -> Unit,
@@ -422,7 +439,7 @@ private fun FeedTopBar(
         IconButton(onClick = onToggleSearch, modifier = Modifier.size(48.dp)) {
             Icon(
                 imageVector = Icons.Outlined.Search,
-                contentDescription = stringResource(R.string.feed_open_search),
+                contentDescription = stringResource(if (searchOpen) R.string.feed_close_search else R.string.feed_open_search),
             )
         }
     }
@@ -448,25 +465,27 @@ private fun FeedHeroCard(
     val daysRemaining = (period.endExclusive.toEpochDay() - today.toEpochDay()).coerceAtLeast(0L).toInt()
     val status = monthlyBudgetMinor?.let { budgetStatus(it, summary.totalExpenseMinor, daysRemaining) }
     val over = status != null && status.remainingMinor < 0
+    // 지난 기간에는 "이번 달"이라고 하지 않는다.
+    fun pick(current: Int, past: Int) = if (isCurrent) current else past
 
     val label: String
     val amount: String
     val suffix: String?
     when {
         status == null -> {
-            label = stringResource(R.string.feed_hero_no_budget_label)
+            label = stringResource(pick(R.string.feed_hero_no_budget_label, R.string.feed_hero_no_budget_label_past))
             // 0원에는 부호를 붙이지 않는다.
-            amount = (if (summary.netMinor < 0) "−" else "") + kotlin.math.abs(summary.netMinor).formatWon()
+            amount = (if (summary.netMinor < 0) "−" else "") + abs(summary.netMinor).formatWon()
             suffix = null
         }
-        over -> {
-            label = stringResource(R.string.feed_hero_over_label)
-            amount = (-status!!.remainingMinor).formatWon()
+        status.remainingMinor < 0 -> {
+            label = stringResource(pick(R.string.feed_hero_over_label, R.string.feed_hero_over_label_past))
+            amount = (-status.remainingMinor).formatWon()
             suffix = stringResource(R.string.feed_hero_over_suffix)
         }
         else -> {
-            label = stringResource(R.string.feed_hero_left_label)
-            amount = status!!.remainingMinor.formatWon()
+            label = stringResource(pick(R.string.feed_hero_left_label, R.string.feed_hero_left_label_past))
+            amount = status.remainingMinor.formatWon()
             suffix = stringResource(R.string.feed_hero_left_suffix)
         }
     }
@@ -522,7 +541,7 @@ private fun FeedHeroCard(
                     text = amount,
                     style = MaterialTheme.typography.displaySmall,
                     color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.alignByBaseline(),
+                    modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
                 )
                 if (suffix != null) {
                     Text(
@@ -533,7 +552,7 @@ private fun FeedHeroCard(
                     )
                 }
             }
-            if (status != null && isCurrent && status.remainingMinor > 0) {
+            if (status != null && isCurrent && status.dailyAllowanceMinor > 0) {
                 Text(
                     text = stringResource(R.string.feed_hero_daily, status.dailyAllowanceMinor.formatWon()),
                     style = MaterialTheme.typography.bodySmall,
@@ -577,10 +596,10 @@ private fun PendingStrip(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .heightIn(min = 48.dp)
                 .clip(MaterialTheme.shapes.small)
                 .background(MaterialTheme.colorScheme.primaryContainer)
-                .clickable(onClick = onClick)
+                .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = Space.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.sm),
@@ -640,7 +659,7 @@ private fun FeedDayCard(
             )
             if (day.expenseMinor > 0) {
                 Text(
-                    text = stringResource(R.string.feed_day_spent, day.expenseMinor.formatWon()),
+                    text = stringResource(R.string.budget_bar_spent, day.expenseMinor.formatWon()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -674,7 +693,7 @@ private fun FeedDayCard(
     }
 }
 
-/** 필터 칩: 36dp 알약, 선택 primaryContainer, 미선택 1dp outline. 터치는 48dp(M3 기본). */
+/** 필터 칩: 36dp 알약, 선택 primaryContainer, 미선택 1dp outline. heightIn 이라 M3 최소 48dp 터치가 살아 있다. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun KindFilterChip(
@@ -686,7 +705,7 @@ private fun KindFilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(text = label) },
-        modifier = Modifier.height(36.dp),
+        modifier = Modifier.heightIn(min = 36.dp),
         shape = CircleShape,
         colors =
             FilterChipDefaults.filterChipColors(
