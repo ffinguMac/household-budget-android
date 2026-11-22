@@ -47,14 +47,20 @@
 
     <!-- 예산 설정 화면 -->
     <string name="budget_settings_title">예산 설정</string>
-    <string name="budget_settings_monthly_section">월 총 예산</string>
+    <string name="budget_settings_monthly_label">한 달 예산</string>
+    <string name="budget_settings_monthly_unset">예산을 정해 주세요</string>
+    <string name="budget_settings_change">바꾸기</string>
+    <string name="budget_settings_assigned">카테고리에 %1$s · 자유롭게 %2$s</string>
+    <string name="budget_settings_over">카테고리 예산이 한 달 예산보다 %s 많아요</string>
+    <string name="budget_settings_set">예산 정하기</string>
+    <string name="budget_settings_spent_none">아직 쓴 돈이 없어요</string>
+    <string name="budget_settings_spent_over"> · %s 초과</string>
     <string name="budget_settings_monthly_row">한 달 전체 예산</string>
     <string name="budget_settings_category_section">카테고리별 예산</string>
-    <string name="budget_settings_category_desc">지출 대분류별로 한도를 정해요</string>
-    <string name="budget_settings_spent">지출 %s</string>
+    <string name="budget_settings_category_desc">정해 두면 통계에서 얼마나 썼는지 보여 드려요</string>
+    <string name="budget_settings_spent">%s 썼어요</string>
     <string name="budget_settings_none_option">예산 없음</string>
     <string name="budget_settings_sheet_hint">이번 주기에 쓸 최대 금액을 입력하세요.</string>
-    <string name="budget_settings_footer">카테고리 예산은 통계와 머니 맵에서 사용돼요.</string>
     <string name="budget_settings_empty_categories">지출 대분류가 없어요.</string>
 
     <!-- 지난 기록 -->
