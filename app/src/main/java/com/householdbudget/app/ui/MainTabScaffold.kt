@@ -130,12 +130,17 @@ fun MainTabScaffold(
     val pendingCount by remember(context) {
         (context.applicationContext as BudgetApplication).container.autoEntryRepository.observePendingCount()
     }.collectAsStateWithLifecycle(initialValue = 0)
-    // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
+    // 이미 핫한 StateFlow 라 첫 프레임부터 실제 월급일로 제목을 낸다.
+    val paydayDom by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
+    // 프로세스 사망 복구는 포기 (설정 탭에 들어올 때 Main 으로 초기화).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
-    // 확인할 거래를 홈 띠·알림으로 열었으면 뒤로 가기는 가계부 탭으로, 자동 기록 화면에서 열었으면 그리로.
-    var pendingFromFeed by remember { mutableStateOf(false) }
+    // 확인할 거래·예산을 홈(띠·히어로·알림)에서 열었으면 뒤로 가기는 가계부 탭으로, 설정 쪽에서 열었으면 그리로.
+    var openedFromFeed by remember { mutableStateOf(false) }
     val leavePending = {
-        if (pendingFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.AutoEntry
+        if (openedFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.AutoEntry
+    }
+    val leaveBudget = {
+        if (openedFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.Main
     }
 
     // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
@@ -148,19 +153,14 @@ fun MainTabScaffold(
         when (settingsPane) {
             is SettingsPane.ArchiveDetail -> settingsPane = SettingsPane.Archive
             SettingsPane.Pending -> leavePending()
+            SettingsPane.Budget -> leaveBudget()
             else -> settingsPane = SettingsPane.Main
         }
     }
 
-    LaunchedEffect(selected) {
-        if (selected != MainTab.SETTINGS) {
-            settingsPane = SettingsPane.Main
-        }
-    }
-    // 순서 중요: 위 LaunchedEffect(selected) 가 처음 컴포지션 때 settingsPane 을 Main 으로 되돌리므로 그 뒤에 둔다.
     LaunchedEffect(openPending) {
         if (openPending) {
-            pendingFromFeed = true
+            openedFromFeed = true
             selectedOrdinal = MainTab.SETTINGS.ordinal
             settingsPane = SettingsPane.Pending
             onOpenPendingHandled()
@@ -175,7 +175,11 @@ fun MainTabScaffold(
             if (!pushed) {
                 AppBottomBar(
                     selected = selected,
-                    onSelect = { selectedOrdinal = it.ordinal },
+                    onSelect = {
+                        // 떠날 때가 아니라 들어올 때 초기화해야 나가는 애니메이션 중에 설정 목록이 비치지 않는다.
+                        if (it == MainTab.SETTINGS && selected != MainTab.SETTINGS) settingsPane = SettingsPane.Main
+                        selectedOrdinal = it.ordinal
+                    },
                     onAdd = onNavigateAdd,
                 )
             }
@@ -217,11 +221,12 @@ fun MainTabScaffold(
                         listState = feedListState,
                         pendingCount = pendingCount,
                         onOpenPending = {
-                            pendingFromFeed = true
+                            openedFromFeed = true
                             selectedOrdinal = MainTab.SETTINGS.ordinal
                             settingsPane = SettingsPane.Pending
                         },
                         onOpenBudget = {
+                            openedFromFeed = true
                             selectedOrdinal = MainTab.SETTINGS.ordinal
                             settingsPane = SettingsPane.Budget
                         },
@@ -231,6 +236,7 @@ fun MainTabScaffold(
                     CalendarScreen(
                         viewModel = calendarViewModel,
                         repository = repository,
+                        paydayDom = paydayDom,
                         listState = calendarListState,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -247,13 +253,17 @@ fun MainTabScaffold(
                             SettingsScreen(
                                 budgetViewModel = budgetViewModel,
                                 onOpenArchive = { settingsPane = SettingsPane.Archive },
-                                onOpenBudget = { settingsPane = SettingsPane.Budget },
+                                onOpenBudget = {
+                                    openedFromFeed = false
+                                    settingsPane = SettingsPane.Budget
+                                },
                                 onOpenAutoEntry = { settingsPane = SettingsPane.AutoEntry },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->
                             ArchiveListScreen(
                                 repository = repository,
+                                paydayDom = paydayDom,
                                 onOpenDetail = { settingsPane = SettingsPane.ArchiveDetail(archiveId = it) },
                                 onBack = { settingsPane = SettingsPane.Main },
                                 modifier = Modifier.fillMaxSize(),
@@ -262,6 +272,7 @@ fun MainTabScaffold(
                             ArchiveDetailScreen(
                                 archiveId = pane.archiveId,
                                 repository = repository,
+                                paydayDom = paydayDom,
                                 onBack = { settingsPane = SettingsPane.Archive },
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -269,7 +280,7 @@ fun MainTabScaffold(
                             AutoEntrySettingsScreen(
                                 onBack = { settingsPane = SettingsPane.Main },
                                 onOpenPending = {
-                                    pendingFromFeed = false
+                                    openedFromFeed = false
                                     settingsPane = SettingsPane.Pending
                                 },
                                 modifier = Modifier.fillMaxSize(),
@@ -285,7 +296,7 @@ fun MainTabScaffold(
                             BudgetSettingsScreen(
                                 repository = repository,
                                 budgetViewModel = budgetViewModel,
-                                onBack = { settingsPane = SettingsPane.Main },
+                                onBack = leaveBudget,
                                 modifier = Modifier.fillMaxSize(),
                             )
                     }

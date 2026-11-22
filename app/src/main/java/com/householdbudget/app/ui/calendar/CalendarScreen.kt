@@ -54,7 +54,6 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.local.model.DayTotalRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
-import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.archive.archiveMonthTitle
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -76,6 +75,7 @@ private val dayHeaderFormatter: DateTimeFormatter =
 fun CalendarScreen(
     viewModel: CalendarViewModel,
     repository: BudgetRepository,
+    paydayDom: Int,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
 ) {
@@ -83,7 +83,6 @@ fun CalendarScreen(
     val offset by viewModel.offset.collectAsStateWithLifecycle()
     val totals by viewModel.dayTotals.collectAsStateWithLifecycle()
     val today by repository.today.collectAsStateWithLifecycle()
-    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
 
     LazyColumn(
         state = listState,
@@ -162,7 +161,7 @@ private fun CalendarTopBar(
         Column(modifier = Modifier.weight(1f)) {
             if (period != null) {
                 Text(
-                    text = archiveMonthTitle(PeriodResolver().nominalMonth(period.startInclusive, paydayDom), today),
+                    text = archiveMonthTitle(period.startInclusive, paydayDom, today),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
