@@ -1,14 +1,15 @@
 package com.householdbudget.app.ui.calendar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,47 +18,59 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
+import com.householdbudget.app.data.local.model.DayTotalRow
 import com.householdbudget.app.data.repository.BudgetRepository
-import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.PeriodResolver
-import com.householdbudget.app.ui.components.EmptyState
+import com.householdbudget.app.domain.CategoryKind
+import com.householdbudget.app.ui.archive.archiveMonthTitle
 import com.householdbudget.app.ui.components.FabContentBottomPadding
-import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.components.cardBorder
+import com.householdbudget.app.ui.stats.compactAmountLabel
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.util.formatDayLabel
+import com.householdbudget.app.ui.util.formatRangeShort
+import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val dayHeaderFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("M월 d일 (E)").withLocale(Locale.KOREA)
 
 @Composable
 fun CalendarScreen(
@@ -66,29 +79,11 @@ fun CalendarScreen(
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
 ) {
-    val ym by viewModel.visibleMonth.collectAsStateWithLifecycle()
+    val period by viewModel.period.collectAsStateWithLifecycle()
+    val offset by viewModel.offset.collectAsStateWithLifecycle()
     val totals by viewModel.dayTotals.collectAsStateWithLifecycle()
-    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
-    var selectedEpochDay by remember { mutableLongStateOf(Long.MIN_VALUE) }
-
     val today by repository.today.collectAsStateWithLifecycle()
-    val monthlyIncome = totals.values.sumOf { it.incomeMinor }
-    val monthlyExpense = totals.values.sumOf { it.expenseMinor }
-    val monthlySavings = totals.values.sumOf { it.savingsMinor }
-
-    val first = ym.atDay(1)
-    // Sunday-first: SUN=7 → 7%7=0, MON=1 → 1%7=1, ..., SAT=6 → 6%7=6
-    val offset = first.dayOfWeek.value % 7
-    val daysInMonth = ym.lengthOfMonth()
-    // 보정된 월급날. 월급일 1~5일은 앞 달 날짜가 이 달에 들어올 수 있어 이번·다음 달 것을 모두 본다.
-    val paydayDays = remember(ym, paydayDom) {
-        val r = PeriodResolver()
-        listOf(r.paydayInMonth(ym, paydayDom), r.paydayInMonth(ym.plusMonths(1), paydayDom))
-            .filter { YearMonth.from(it) == ym }
-            .map { it.dayOfMonth }
-    }
-    val totalCells = ((offset + daysInMonth + 6) / 7) * 7
-    val weekLabels = stringArrayResource(R.array.cal_weekdays)
+    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
 
     LazyColumn(
         state = listState,
@@ -97,130 +92,178 @@ fun CalendarScreen(
             .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
-        // 월 네비게이션
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding, vertical = Space.xl),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { viewModel.previousMonth() }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.cal_prev_month),
-                        tint = MaterialTheme.colorScheme.onSurface,
+            CalendarTopBar(
+                period = period,
+                offset = offset,
+                today = today,
+                paydayDom = paydayDom,
+                onPrevious = viewModel::previousPeriod,
+                onNext = viewModel::nextPeriod,
+                onReset = viewModel::resetPeriod,
+            )
+        }
+        val p = period ?: return@LazyColumn
+
+        item {
+            // ‹ › 직후 새 쿼리가 오기 전까지 totals에 이전 기간 행이 남아 있어 이 기간 것만 더한다.
+            val rows = totals.values.filter { p.contains(LocalDate.ofEpochDay(it.dayEpoch)) }
+            SummaryLine(
+                expenseMinor = rows.sumOf { it.expenseMinor },
+                incomeMinor = rows.sumOf { it.incomeMinor },
+                savingsMinor = rows.sumOf { it.savingsMinor },
+            )
+        }
+
+        item(key = "grid_${p.startInclusive}") {
+            // 오늘이 이 기간에 있으면 오늘, 아니면 선택 없음.
+            var selectedEpochDay by rememberSaveable(p.startInclusive) {
+                mutableLongStateOf(if (p.contains(today)) today.toEpochDay() else Long.MIN_VALUE)
+            }
+            Column {
+                CalendarGrid(
+                    period = p,
+                    today = today,
+                    totals = totals,
+                    selectedEpochDay = selectedEpochDay,
+                    onSelect = { selectedEpochDay = it },
+                )
+                if (selectedEpochDay != Long.MIN_VALUE) {
+                    DayDetailSection(
+                        day = LocalDate.ofEpochDay(selectedEpochDay),
+                        today = today,
+                        repository = repository,
                     )
                 }
+            }
+        }
+    }
+}
+
+/** 상단(56dp): "11월" + "11.20 ~ 12.17 · 월급날 기준", 오른쪽 "오늘"(다른 기간일 때) ‹ ›. */
+@Composable
+private fun CalendarTopBar(
+    period: BudgetPeriod?,
+    offset: Int,
+    today: LocalDate,
+    paydayDom: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(start = ScreenHorizontalPadding, end = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 제목 칸만 줄어들게 해서 "오늘"과 ‹ ›는 360dp·큰 글꼴에서도 늘 48dp를 지킨다.
+        Column(modifier = Modifier.weight(1f)) {
+            if (period != null) {
                 Text(
-                    text = DateTimeFormatter.ofPattern("yyyy년 M월").withLocale(Locale.KOREA).format(ym),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
+                    text = archiveMonthTitle(PeriodResolver().nominalMonth(period.startInclusive, paydayDom), today),
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = stringResource(R.string.cal_period_basis, period.formatRangeShort()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (offset != 0) {
+            TextButton(onClick = onReset) {
+                Text(text = stringResource(R.string.cal_today), style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        IconButton(onClick = onPrevious, modifier = Modifier.size(48.dp)) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.cal_prev_month),
+            )
+        }
+        IconButton(onClick = onNext, modifier = Modifier.size(48.dp)) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.cal_next_month),
+            )
+        }
+    }
+}
+
+/** "지출 187,600원" + " · 수입 3,000,000원 · 저축 500,000원". */
+@Composable
+private fun SummaryLine(expenseMinor: Long, incomeMinor: Long, savingsMinor: Long) {
+    val emphasis = MaterialTheme.typography.labelLarge.toSpanStyle()
+        .merge(SpanStyle(color = MaterialTheme.colorScheme.onSurface))
+    val expense = stringResource(R.string.cal_summary_expense, expenseMinor.formatWon())
+    val rest = stringResource(R.string.cal_summary_rest, incomeMinor.formatWon(), savingsMinor.formatWon())
+    Text(
+        text = buildAnnotatedString {
+            withStyle(emphasis) { append(expense) }
+            append(rest)
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenHorizontalPadding, vertical = Space.xs),
+    )
+}
+
+@Composable
+private fun CalendarGrid(
+    period: BudgetPeriod,
+    today: LocalDate,
+    totals: Map<Long, DayTotalRow>,
+    selectedEpochDay: Long,
+    onSelect: (Long) -> Unit,
+) {
+    val weekLabels = stringArrayResource(R.array.cal_weekdays)
+    val weeks = remember(period) { calendarGridDays(period).chunked(7) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Space.lg)
+            .padding(top = Space.md),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = Space.xs)) {
+            weekLabels.forEach { w ->
+                Text(
+                    text = w,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                IconButton(onClick = { viewModel.nextMonth() }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.cal_next_month),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
             }
         }
-
-        // 월별 수입/지출/저축 3분할 요약
-        item {
-            KindSummaryRow(
-                incomeMinor = monthlyIncome,
-                expenseMinor = monthlyExpense,
-                savingsMinor = monthlySavings,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding),
-            )
-            Spacer(Modifier.height(Space.lg))
-        }
-
-        // 달력 그리드
-        item {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                tonalElevation = 0.dp,
-            ) {
-                Column {
-                    // 요일 헤더 (일=빨강, 토=파랑)
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = Space.md)) {
-                        weekLabels.forEachIndexed { index, w ->
-                            Text(
-                                text = w,
-                                modifier = Modifier.weight(1f),
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = when (index) {
-                                    0 -> MaterialTheme.colorScheme.error
-                                    6 -> MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                },
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
-
-                    // 날짜 행
-                    for (row in 0 until totalCells / 7) {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            for (col in 0 until 7) {
-                                val i = row * 7 + col
-                                val dayNum = i - offset + 1
-                                val inMonth = dayNum in 1..daysInMonth
-                                val isToday = inMonth && ym.atDay(dayNum) == today
-                                val epoch = if (inMonth) ym.atDay(dayNum).toEpochDay() else -1L
-                                val t = if (inMonth) totals[epoch] else null
-                                val isSelected = inMonth && epoch == selectedEpochDay
-
-                                CalendarCell(
-                                    modifier = Modifier.weight(1f),
-                                    dayNum = dayNum,
-                                    inMonth = inMonth,
-                                    isToday = isToday,
-                                    isSelected = isSelected,
-                                    isPayday = inMonth && dayNum in paydayDays,
-                                    hasIncome = (t?.incomeMinor ?: 0L) > 0L,
-                                    hasExpense = (t?.expenseMinor ?: 0L) > 0L,
-                                    hasSavings = (t?.savingsMinor ?: 0L) > 0L,
-                                    onClick = {
-                                        if (inMonth) {
-                                            val tapped = ym.atDay(dayNum).toEpochDay()
-                                            selectedEpochDay = if (selectedEpochDay == tapped) Long.MIN_VALUE else tapped
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                        if (row < totalCells / 7 - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f))
-                        }
+        weeks.forEach { week ->
+            // 수입·지출 두 줄 칸이나 큰 글꼴이면 그 주 전체가 같이 커진다.
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                week.forEach { date ->
+                    val cellModifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 64.dp)
+                    if (date == null) {
+                        Spacer(cellModifier)
+                    } else {
+                        val epoch = date.toEpochDay()
+                        CalendarCell(
+                            date = date,
+                            period = period,
+                            total = totals[epoch],
+                            isToday = date == today,
+                            isSelected = epoch == selectedEpochDay,
+                            onClick = { onSelect(epoch) },
+                            modifier = cellModifier,
+                        )
                     }
                 }
-            }
-        }
-
-        // 선택된 날짜 상세 (격자 바로 아래)
-        if (selectedEpochDay != Long.MIN_VALUE) {
-            val selectedDay = LocalDate.ofEpochDay(selectedEpochDay)
-            item(key = "day_detail") {
-                DayDetailSection(
-                    day = selectedDay,
-                    today = today,
-                    repository = repository,
-                )
             }
         }
     }
@@ -228,170 +271,144 @@ fun CalendarScreen(
 
 @Composable
 private fun CalendarCell(
-    dayNum: Int,
-    inMonth: Boolean,
+    date: LocalDate,
+    period: BudgetPeriod,
+    total: DayTotalRow?,
     isToday: Boolean,
     isSelected: Boolean,
-    isPayday: Boolean,
-    hasIncome: Boolean,
-    hasExpense: Boolean,
-    hasSavings: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    // 다음 월급날 칸은 다음 기간 몫이라 누를 수 없다.
+    val isNextPayday = date == period.endExclusive
+    val expense = total?.expenseMinor ?: 0L
+    val income = total?.incomeMinor ?: 0L
+    val primary = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // 수입·지출은 둘 다 있으면 두 줄. 둘 다 없을 때만 월급·달 바뀜 표시.
+    val labels = buildList {
+        if (income > 0) add("+" + compactAmountLabel(income) to primary)
+        if (expense > 0) add(compactAmountLabel(expense) to muted)
+        if (isEmpty()) {
+            when {
+                date == period.startInclusive || isNextPayday -> add(stringResource(R.string.cal_payday) to primary)
+                date.dayOfMonth == 1 -> add(stringResource(R.string.archive_month_label, date.monthValue) to muted)
+            }
+        }
+    }
+    Column(
         modifier = modifier
-            .aspectRatio(0.85f)
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                else Color.Transparent
+            .clip(MaterialTheme.shapes.small)
+            .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+            .then(
+                if (isNextPayday) Modifier else Modifier.selectable(selected = isSelected, onClick = onClick),
             )
-            .then(if (inMonth) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(Space.sm),
+            .padding(top = Space.xs),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // 오늘은 primary 채운 원으로 명확하게 표시
+        // 숫자 칸은 28dp, 오늘 링(32dp)은 칸 밖으로 그려 두 줄이 들어갈 자리를 남긴다.
         Box(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent
+                .size(28.dp)
+                .then(
+                    if (isToday) {
+                        Modifier.drawBehind {
+                            val stroke = 1.5.dp.toPx()
+                            drawCircle(primary, radius = 16.dp.toPx() - stroke / 2, style = Stroke(stroke))
+                        }
+                    } else {
+                        Modifier
+                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = if (inMonth) dayNum.toString() else "",
+                text = date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isNextPayday) muted else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        labels.forEach { (text, color) ->
+            Text(
+                text = text,
                 style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = when {
-                    isToday -> MaterialTheme.colorScheme.onPrimary
-                    isSelected -> MaterialTheme.colorScheme.primary
-                    inMonth -> MaterialTheme.colorScheme.onSurface
-                    else -> Color.Transparent
-                },
+                color = color,
                 maxLines = 1,
             )
-        }
-        // 월급 받는 날 표시 — 우상단 민트 점
-        if (isPayday) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            )
-        }
-        if (inMonth && (hasIncome || hasExpense || hasSavings)) {
-            Row(
-                modifier = Modifier.align(Alignment.BottomStart),
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                if (hasIncome) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondary),
-                    )
-                }
-                if (hasExpense) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.error),
-                    )
-                }
-                if (hasSavings) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                }
-            }
         }
     }
 }
 
+/** 선택 날짜 머리줄 "11월 22일 (일) · 오늘" + "4건 · 101,000원", 그 아래 하루 카드. */
 @Composable
 private fun DayDetailSection(
     day: LocalDate,
     today: LocalDate,
     repository: BudgetRepository,
-    modifier: Modifier = Modifier,
 ) {
     val epoch = day.toEpochDay()
-    val txs by remember(repository, epoch) { repository.observeTransactionsOnDay(epoch) }.collectAsStateWithLifecycle(initialValue = emptyList())
-    val title = day.formatDayLabel(today)
+    val txs by remember(repository, epoch) { repository.observeTransactionsOnDay(epoch) }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val dateText = day.format(dayHeaderFormatter)
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        // 헤더
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = ScreenHorizontalPadding)
-                .padding(top = Space.xxl, bottom = Space.md),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
-            ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenHorizontalPadding)
+            .padding(top = Space.xxl),
+        verticalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = if (day == today) stringResource(R.string.cal_day_today, dateText) else dateText,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            // 금액은 지출만 더하므로 건수도 지출만 센다. 지출이 없으면 전체 건수만.
+            val expenses = txs.filter { CategoryKind.fromStorage(it.kind) == CategoryKind.EXPENSE }
+            if (txs.isNotEmpty()) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.cal_tx_count, txs.size),
+                    text = if (expenses.isEmpty()) {
+                        stringResource(R.string.cal_tx_count, txs.size)
+                    } else {
+                        stringResource(R.string.cal_day_summary, expenses.size, expenses.sumOf { it.amountMinor }.formatWon())
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(Space.xs))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         }
-
-        // 거래 목록
         if (txs.isEmpty()) {
-            EmptyState(
-                icon = Icons.Filled.CalendarMonth,
-                title = stringResource(R.string.calendar_empty_title),
-                description = stringResource(R.string.calendar_day_empty),
-                modifier = Modifier.fillMaxWidth(),
+            Text(
+                text = stringResource(R.string.calendar_day_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenHorizontalPadding),
-                verticalArrangement = Arrangement.spacedBy(Space.sm),
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                border = cardBorder(),
             ) {
-                txs.forEach { row ->
-                    val kind = CategoryKind.fromStorage(row.kind)
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 0.dp,
-                    ) {
+                Column {
+                    txs.forEachIndexed { index, row ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 72.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                        }
                         TransactionRow(
                             categoryName = row.categoryName,
                             parentCategoryName = row.parentCategoryName,
                             memo = row.memo,
                             amountMinor = row.amountMinor,
-                            kind = kind,
-                            dateLabel = null,
-                            onClick = null,
+                            kind = CategoryKind.fromStorage(row.kind),
                         )
                     }
                 }
-                Spacer(Modifier.height(Space.sm))
             }
         }
     }

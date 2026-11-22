@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 미드나잇 다크 단일 테마 — Compose 진입 전 첫 프레임도 미드나잇 배경으로. -->
+    <!-- 라이트 블루 기준 창. 다크 블루 사용자는 Compose 첫 프레임 전까지 밝은 창이 잠깐 보인다. -->
     <style name="Theme.HouseholdBudget" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#0C1018</item>
-        <item name="android:statusBarColor">#0C1018</item>
-        <item name="android:navigationBarColor">#0C1018</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#F6F7F9</item>
+        <item name="android:statusBarColor">#F6F7F9</item>
+        <item name="android:navigationBarColor">#F6F7F9</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

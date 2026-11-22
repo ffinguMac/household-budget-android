@@ -4,14 +4,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
-// Toss-style radius scale — friendly, generous rounding.
-// extraSmall=8 (chips/pills), small=12 (buttons/list rows),
-// medium=14 (inputs), large=20 (cards), extraLarge=24 (hero/sheets)
+// small=12 (버튼·입력·칩), large=20 (카드), extraLarge=28 (시트).
 val AppShapes =
     Shapes(
-        extraSmall = RoundedCornerShape(8.dp),
+        extraSmall = RoundedCornerShape(12.dp),
         small = RoundedCornerShape(12.dp),
-        medium = RoundedCornerShape(14.dp),
+        medium = RoundedCornerShape(12.dp),
         large = RoundedCornerShape(20.dp),
-        extraLarge = RoundedCornerShape(24.dp),
+        extraLarge = RoundedCornerShape(28.dp),
     )

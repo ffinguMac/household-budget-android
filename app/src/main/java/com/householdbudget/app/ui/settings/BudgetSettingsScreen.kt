@@ -15,24 +15,17 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,7 +37,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,10 +58,12 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.components.cardBorder
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.categoryLabel
+import com.householdbudget.app.ui.theme.categoryStyleOf
 import com.householdbudget.app.ui.util.formatDigitsGrouped
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.stripDigits
@@ -132,91 +139,111 @@ fun BudgetSettingsScreen(
         sheetTarget = null
     }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.budget_settings_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-    ) { inner ->
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        AppTopBar(title = stringResource(R.string.budget_settings_title), onBack = onBack)
         LazyColumn(
             modifier = Modifier
-                .padding(inner)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(bottom = Space.xxxl),
+            contentPadding = PaddingValues(bottom = pushedBottomPadding()),
         ) {
-            // ── 월 총 예산 ───────────────────────────────────────────────────
+            // ── 합계 카드 ────────────────────────────────────────────────────
             item {
-                SectionHeader(
-                    title = stringResource(R.string.budget_settings_monthly_section),
-                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
-                )
-                Spacer(Modifier.height(Space.sm))
+                val monthly = monthlyBudgetMinor
+                val assigned = expenseParents.sumOf { budgetByCategory[it.id] ?: 0L }
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = ScreenHorizontalPadding),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    tonalElevation = 0.dp,
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = cardBorder(),
+                    onClick = { openSheet(BudgetSheetTarget.Monthly, monthly) },
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                openSheet(BudgetSheetTarget.Monthly, monthlyBudgetMinor)
+                    Column(modifier = Modifier.padding(Space.lg)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.budget_settings_monthly_label),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (monthly != null) {
+                                    Text(
+                                        text = monthly.formatWon(),
+                                        style = MaterialTheme.typography.displaySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                } else {
+                                    Text(
+                                        text = stringResource(R.string.budget_settings_monthly_unset),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
-                            .heightIn(min = 56.dp)
-                            .padding(horizontal = Space.lg, vertical = Space.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.budget_settings_monthly_row),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        val budget = monthlyBudgetMinor
-                        Text(
-                            text = budget?.formatWon()
-                                ?: stringResource(R.string.settings_budget_subtitle_unset),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (budget != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                            Text(
+                                text = stringResource(R.string.budget_settings_change),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        if (monthly != null && assigned > 0) {
+                            Spacer(Modifier.height(Space.md))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            ) {
+                                expenseParents.forEach { parent ->
+                                    val amount = budgetByCategory[parent.id] ?: 0L
+                                    if (amount > 0) {
+                                        Box(
+                                            Modifier
+                                                .weight(amount.toFloat())
+                                                .fillMaxHeight()
+                                                .background(categoryStyleOf(parent.name).color),
+                                        )
+                                    }
+                                }
+                                if (monthly > assigned) {
+                                    Spacer(Modifier.weight((monthly - assigned).toFloat()))
+                                }
+                            }
+                            Spacer(Modifier.height(Space.sm))
+                            Text(
+                                text = if (assigned > monthly) {
+                                    stringResource(R.string.budget_settings_over, (assigned - monthly).formatWon())
+                                } else {
+                                    stringResource(
+                                        R.string.budget_settings_assigned,
+                                        assigned.formatWon(),
+                                        (monthly - assigned).formatWon(),
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
 
-            item { Spacer(Modifier.height(Space.xxl)) }
-
             // ── 카테고리별 예산 (지출 대분류) ─────────────────────────────────
             item {
-                SectionHeader(
-                    title = stringResource(R.string.budget_settings_category_section),
-                    subtitle = stringResource(R.string.budget_settings_category_desc),
+                Spacer(Modifier.height(Space.xxl))
+                Text(
+                    text = stringResource(R.string.budget_settings_category_section),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                )
+                Text(
+                    text = stringResource(R.string.budget_settings_category_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
                 )
                 Spacer(Modifier.height(Space.sm))
@@ -226,7 +253,7 @@ fun BudgetSettingsScreen(
                 item {
                     Text(
                         text = stringResource(R.string.budget_settings_empty_categories),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(
                             horizontal = ScreenHorizontalPadding,
@@ -240,20 +267,21 @@ fun BudgetSettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = ScreenHorizontalPadding),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        tonalElevation = 0.dp,
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = cardBorder(),
                     ) {
                         Column {
                             expenseParents.forEachIndexed { index, parent ->
                                 if (index > 0) {
                                     HorizontalDivider(
                                         modifier = Modifier.padding(horizontal = Space.lg),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                        color = MaterialTheme.colorScheme.outlineVariant,
                                     )
                                 }
                                 val budget = budgetByCategory[parent.id]
                                 val spent = spentByParent[parent.id] ?: 0L
+                                val style = categoryStyleOf(parent.name)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -263,48 +291,79 @@ fun BudgetSettingsScreen(
                                                 budget,
                                             )
                                         }
-                                        .heightIn(min = 56.dp)
-                                        .padding(horizontal = Space.lg, vertical = Space.md),
+                                        .defaultMinSize(minHeight = 64.dp)
+                                        .padding(horizontal = Space.lg, vertical = Space.sm),
+                                    horizontalArrangement = Arrangement.spacedBy(Space.md),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(style.color.copy(alpha = 0.16f))
+                                            .clearAndSetSemantics { },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = style.emoji,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = style.color,
+                                        )
+                                    }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = categoryLabel(parent.name),
+                                            text = parent.name,
                                             style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                         )
                                         Text(
-                                            text = stringResource(
-                                                R.string.budget_settings_spent,
-                                                spent.formatWon(),
-                                            ),
+                                            text = buildAnnotatedString {
+                                                append(
+                                                    if (spent == 0L) {
+                                                        stringResource(R.string.budget_settings_spent_none)
+                                                    } else {
+                                                        stringResource(R.string.budget_settings_spent, spent.formatWon())
+                                                    },
+                                                )
+                                                if (budget != null && spent > budget) {
+                                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.error)) {
+                                                        append(
+                                                            stringResource(
+                                                                R.string.budget_settings_spent_over,
+                                                                (spent - budget).formatWon(),
+                                                            ),
+                                                        )
+                                                    }
+                                                }
+                                            },
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    Text(
-                                        text = budget?.formatWon() ?: "—",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (budget != null) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    if (budget != null) {
+                                        Text(
+                                            text = budget.formatWon(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    } else {
+                                        Text(
+                                            text = stringResource(R.string.budget_settings_set),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(Modifier.height(Space.lg))
-                Text(
-                    text = stringResource(R.string.budget_settings_footer),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
-                )
             }
         }
     }
@@ -331,7 +390,6 @@ fun BudgetSettingsScreen(
                         is BudgetSheetTarget.Category -> target.name
                     },
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
@@ -346,10 +404,10 @@ fun BudgetSettingsScreen(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = MaterialTheme.shapes.small,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 )
                 Row(
@@ -370,7 +428,7 @@ fun BudgetSettingsScreen(
                     Button(
                         onClick = { applySheet() },
                         enabled = amountText.toLongOrNull()?.let { it > 0 } == true,
-                        shape = MaterialTheme.shapes.medium,
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.heightIn(min = 48.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,

@@ -54,13 +54,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
@@ -84,10 +84,10 @@ private const val TAB_TRANSITION_MS = 200
 private const val TAB_SLIDE_OFFSET_PX = 40
 
 /** 중앙 + 버튼 지름. */
-private val AddButtonSize = 50.dp
+private val AddButtonSize = 56.dp
 
 /** 중앙 + 버튼이 바 위로 돌출되는 높이. */
-private val AddButtonProtrusion = 20.dp
+private val AddButtonProtrusion = 16.dp
 
 private enum class MainTab(
     val icon: ImageVector,
@@ -132,6 +132,11 @@ fun MainTabScaffold(
     }.collectAsStateWithLifecycle(initialValue = 0)
     // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
+    // 확인할 거래를 홈 띠·알림으로 열었으면 뒤로 가기는 가계부 탭으로, 자동 기록 화면에서 열었으면 그리로.
+    var pendingFromFeed by remember { mutableStateOf(false) }
+    val leavePending = {
+        if (pendingFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.AutoEntry
+    }
 
     // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
     // 스크롤 상태를 여기(바깥)에서 만들어 내려보내 탭 전환 후에도 위치를 보존한다.
@@ -140,12 +145,11 @@ fun MainTabScaffold(
     val statsListState = rememberLazyListState()
 
     BackHandler(enabled = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main) {
-        settingsPane =
-            when (settingsPane) {
-                is SettingsPane.ArchiveDetail -> SettingsPane.Archive
-                SettingsPane.Pending -> SettingsPane.AutoEntry
-                else -> SettingsPane.Main
-            }
+        when (settingsPane) {
+            is SettingsPane.ArchiveDetail -> settingsPane = SettingsPane.Archive
+            SettingsPane.Pending -> leavePending()
+            else -> settingsPane = SettingsPane.Main
+        }
     }
 
     LaunchedEffect(selected) {
@@ -156,20 +160,25 @@ fun MainTabScaffold(
     // 순서 중요: 위 LaunchedEffect(selected) 가 처음 컴포지션 때 settingsPane 을 Main 으로 되돌리므로 그 뒤에 둔다.
     LaunchedEffect(openPending) {
         if (openPending) {
+            pendingFromFeed = true
             selectedOrdinal = MainTab.SETTINGS.ordinal
             settingsPane = SettingsPane.Pending
             onOpenPendingHandled()
         }
     }
 
+    val pushed = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            MidnightBottomBar(
-                selected = selected,
-                onSelect = { selectedOrdinal = it.ordinal },
-                onAdd = onNavigateAdd,
-            )
+            if (!pushed) {
+                AppBottomBar(
+                    selected = selected,
+                    onSelect = { selectedOrdinal = it.ordinal },
+                    onAdd = onNavigateAdd,
+                )
+            }
         },
     ) { padding ->
         // 하단 인셋은 넘기지 않는다: 리스트가 바텀바 아래로 자연스럽게 스크롤되고,
@@ -208,8 +217,13 @@ fun MainTabScaffold(
                         listState = feedListState,
                         pendingCount = pendingCount,
                         onOpenPending = {
+                            pendingFromFeed = true
                             selectedOrdinal = MainTab.SETTINGS.ordinal
                             settingsPane = SettingsPane.Pending
+                        },
+                        onOpenBudget = {
+                            selectedOrdinal = MainTab.SETTINGS.ordinal
+                            settingsPane = SettingsPane.Budget
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -241,6 +255,7 @@ fun MainTabScaffold(
                             ArchiveListScreen(
                                 repository = repository,
                                 onOpenDetail = { settingsPane = SettingsPane.ArchiveDetail(archiveId = it) },
+                                onBack = { settingsPane = SettingsPane.Main },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         is SettingsPane.ArchiveDetail ->
@@ -253,13 +268,17 @@ fun MainTabScaffold(
                         SettingsPane.AutoEntry ->
                             AutoEntrySettingsScreen(
                                 onBack = { settingsPane = SettingsPane.Main },
-                                onOpenPending = { settingsPane = SettingsPane.Pending },
+                                onOpenPending = {
+                                    pendingFromFeed = false
+                                    settingsPane = SettingsPane.Pending
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Pending ->
                             PendingReviewScreen(
                                 budgetViewModel = budgetViewModel,
-                                onBack = { settingsPane = SettingsPane.AutoEntry },
+                                onBack = leavePending,
+                                onDone = { selectedOrdinal = MainTab.FEED.ordinal },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Budget ->
@@ -276,14 +295,14 @@ fun MainTabScaffold(
 }
 
 /**
- * 미드나잇 바텀바: 탭 4개 + 한가운데 살짝 돌출된 민트 + 버튼.
+ * 하단 바: 탭 4개 + 한가운데 살짝 돌출된 + 버튼.
  *
  * 버튼이 바 위로 [AddButtonProtrusion] 만큼 돌출되므로, Surface 를 그만큼 아래로 밀어
  * 버튼 전체가 bottomBar 영역 안에 남게 한다 (Surface 클리핑/히트테스트 문제 회피).
  * 돌출부 옆 투명 영역은 포인터 핸들러가 없어 터치가 아래 콘텐츠로 통과한다.
  */
 @Composable
-private fun MidnightBottomBar(
+private fun AppBottomBar(
     selected: MainTab,
     onSelect: (MainTab) -> Unit,
     onAdd: () -> Unit,
@@ -315,24 +334,24 @@ private fun MidnightBottomBar(
                                 .height(62.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.FEED,
                             selected = selected == MainTab.FEED,
                             onClick = { onSelect(MainTab.FEED) },
                         )
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.CALENDAR,
                             selected = selected == MainTab.CALENDAR,
                             onClick = { onSelect(MainTab.CALENDAR) },
                         )
                         // 중앙 + 버튼 자리 비움 (버튼은 바깥 Box 에 오버레이).
                         Spacer(modifier = Modifier.weight(1f))
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.STATS,
                             selected = selected == MainTab.STATS,
                             onClick = { onSelect(MainTab.STATS) },
                         )
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.SETTINGS,
                             selected = selected == MainTab.SETTINGS,
                             onClick = { onSelect(MainTab.SETTINGS) },
@@ -342,12 +361,18 @@ private fun MidnightBottomBar(
             }
         }
 
-        // 중앙 + 버튼: 바 위로 살짝 돌출된 민트 원형.
+        // 중앙 + 버튼: 바 위로 살짝 돌출된 원형.
         Box(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
                     .size(AddButtonSize)
+                    .shadow(
+                        8.dp,
+                        CircleShape,
+                        ambientColor = MaterialTheme.colorScheme.primary,
+                        spotColor = MaterialTheme.colorScheme.primary,
+                    )
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary)
                     .clickable(onClick = onAdd),
@@ -364,7 +389,7 @@ private fun MidnightBottomBar(
 }
 
 @Composable
-private fun RowScope.TossNavItem(
+private fun RowScope.NavItem(
     tab: MainTab,
     selected: Boolean,
     onClick: () -> Unit,
@@ -421,9 +446,8 @@ private fun RowScope.TossNavItem(
         )
         Text(
             text = stringResource(tab.labelRes),
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelLarge,
             color = contentColor,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }

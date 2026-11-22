@@ -15,7 +15,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -29,7 +28,6 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,7 +71,6 @@ internal fun MoneyMap(
     val typography = MaterialTheme.typography
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    val deltas = rows.map { deltaDisplay(it.deltaPercent) }
     val descriptions =
         rows.map { row ->
             val amount = compactAmountLabel(row.amountMinor)
@@ -100,7 +97,7 @@ internal fun MoneyMap(
             }
         }
     val renderTiles =
-        remember(placements, deltas, textMeasurer, typography, onSurface, onSurfaceVariant, density) {
+        remember(placements, textMeasurer, typography, onSurface, onSurfaceVariant, density) {
             // 줄마다 따로 재는 한 줄 문단이라 기본 Trim.Both에선 lineHeight가 무시된다 → Trim.None으로
             // 줄 높이를 글자 크기의 1.15배로 고정한다. 최소 BIG(80×64dp)엔 이모지·금액, 최소 MID(54×40dp)엔 금액만 들어간다.
             fun TextStyle.tile() =
@@ -111,15 +108,15 @@ internal fun MoneyMap(
                 )
             val bigEmoji = typography.titleMedium.tile()
             val bigName = typography.bodySmall.tile()
-            val bigAmount = typography.titleMedium.copy(fontWeight = FontWeight.Bold).tile()
-            val bigMeta = typography.labelSmall.tile()
-            val midEmoji = typography.labelMedium.tile()
-            val midName = typography.labelSmall.tile()
-            val midAmount = typography.bodySmall.copy(fontWeight = FontWeight.Bold).tile()
+            val bigAmount = typography.titleMedium.tile()
+            val bigMeta = typography.bodySmall.tile()
+            val midEmoji = typography.labelLarge.tile()
+            val midName = typography.bodySmall.tile()
+            val midAmount = typography.labelLarge.tile()
             with(density) {
                 val inset = 3.dp.toPx()
                 val pad = 8.dp.toPx()
-                placements.mapIndexed { index, placed ->
+                placements.map { placed ->
                     val row = placed.tile
                     val style = categoryStyleOf(row.name)
                     val inner =
@@ -132,7 +129,7 @@ internal fun MoneyMap(
                     fun line(text: AnnotatedString, textStyle: TextStyle) =
                         measureSingleLine(textMeasurer, text, textStyle, maxTextWidth)
                     val tier = tileTier(placed.rect.width.toDp().value, placed.rect.height.toDp().value)
-                    if (tier == TileTier.SMALL || maxTextWidth == 0) {
+                    fun emojiOnly(): RenderTile {
                         val emoji =
                             measureSingleLine(
                                 textMeasurer,
@@ -142,25 +139,29 @@ internal fun MoneyMap(
                             )
                         val fits = minOf(inner.width, inner.height) >=
                             maxOf(emoji.size.width, emoji.size.height)
-                        RenderTile(inner, style.color, if (fits) listOf(emoji) else emptyList(), true)
+                        return RenderTile(inner, style.color, if (fits) listOf(emoji) else emptyList(), true)
+                    }
+                    if (tier == TileTier.SMALL || maxTextWidth == 0) {
+                        emojiOnly()
                     } else {
                         val big = tier == TileTier.BIG
                         val amount = AnnotatedString(compactAmountLabel(row.amountMinor))
+                        val amountLine = line(amount, if (big) bigAmount else midAmount)
                         val layouts = buildList {
                             add(line(AnnotatedString(style.emoji), if (big) bigEmoji else midEmoji))
                             add(line(AnnotatedString(row.name), if (big) bigName else midName))
-                            add(line(amount, if (big) bigAmount else midAmount))
+                            add(amountLine)
                             if (big) {
-                                val (deltaText, deltaTint) = deltas[index]
                                 val meta = buildAnnotatedString {
                                     withStyle(SpanStyle(color = onSurfaceVariant)) {
-                                        append("${row.sharePercent}% ")
+                                        append("${row.sharePercent}%")
                                     }
-                                    withStyle(SpanStyle(color = deltaTint)) { append(deltaText) }
                                 }
                                 add(line(meta, bigMeta))
                             }
                         }
+                        // 금액이 잘리면 틀린 숫자처럼 보이므로 이모지만 보여준다.
+                        if (amountLine.hasVisualOverflow) return@map emojiOnly()
                         // 높이가 모자라면 우선순위가 낮은 줄부터 뺀다.
                         // BIG: 이모지 > 금액 > 이름 > 비율·증감, MID: 금액 > 이모지 > 이름.
                         var used = pad
@@ -195,22 +196,12 @@ internal fun MoneyMap(
                     }
                 },
     ) {
-        val corner = CornerRadius(14.dp.toPx())
-        val strokeWidth = 1.5.dp.toPx()
+        val corner = CornerRadius(12.dp.toPx())
         val pad = 8.dp.toPx()
         renderTiles.forEach { tile ->
             val topLeft = Offset(tile.rect.left, tile.rect.top)
             val size = Size(tile.rect.width, tile.rect.height)
-            drawRoundRect(tile.color.copy(alpha = 0.15f), topLeft, size, corner)
-            // 테두리는 사각형 안쪽에 그려지도록 선 두께 절반만큼 들인다.
-            val half = strokeWidth / 2f
-            drawRoundRect(
-                color = tile.color.copy(alpha = 0.5f),
-                topLeft = Offset(topLeft.x + half, topLeft.y + half),
-                size = Size(size.width - strokeWidth, size.height - strokeWidth),
-                cornerRadius = CornerRadius(corner.x - half),
-                style = Stroke(strokeWidth),
-            )
+            drawRoundRect(tile.color.copy(alpha = 0.16f), topLeft, size, corner)
             if (tile.centered) {
                 tile.lines.firstOrNull()?.let { emoji ->
                     drawText(

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material3.Icon
@@ -33,16 +32,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.settings.SettingsActionRow
 import com.householdbudget.app.ui.settings.SettingsGroupPanel
 import com.householdbudget.app.ui.settings.SettingsRowDivider
@@ -75,15 +73,10 @@ fun AutoEntrySettingsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = pushedBottomPadding()),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                }
-                ScreenHeader(title = stringResource(R.string.auto_title), modifier = Modifier.weight(1f))
-            }
+            AppTopBar(title = stringResource(R.string.auto_title), onBack = onBack)
         }
 
         item {
@@ -112,8 +105,6 @@ fun AutoEntrySettingsScreen(
                 SettingsRowDivider()
                 SettingsActionRow(
                     icon = Icons.Filled.PendingActions,
-                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     title = stringResource(R.string.auto_pending_row, pendingCount),
                     subtitle = null,
                     onClick = onOpenPending,
@@ -133,7 +124,7 @@ fun AutoEntrySettingsScreen(
             item {
                 Text(
                     text = stringResource(R.string.auto_rules_empty),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
                 )
@@ -161,7 +152,6 @@ fun AutoEntrySettingsScreen(
                         Text(
                             "${row.displayName} · $dir",
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(target, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -197,10 +187,10 @@ fun AutoEntrySettingsScreen(
                         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 e.merchant.ifBlank { stringResource(R.string.auto_pending_no_name) },
-                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(e.amountMinor.formatWon(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(e.amountMinor.formatWon(), style = MaterialTheme.typography.titleMedium)
                         }
                         Text(
                             LocalDate.ofEpochDay(e.occurredEpochDay).formatShortDayLabel(),

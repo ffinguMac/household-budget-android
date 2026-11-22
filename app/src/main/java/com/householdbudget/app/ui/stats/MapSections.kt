@@ -1,12 +1,10 @@
 package com.householdbudget.app.ui.stats
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,31 +21,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.householdbudget.app.R
-import com.householdbudget.app.ui.theme.CategoryDot
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.categoryLabel
-import com.householdbudget.app.ui.theme.categoryStyleOf
 import com.householdbudget.app.ui.util.formatWon
 
-
-// 막대 "지출" 색은 식비 색과 같은 데이터 시각화 고정값.
-private val SpentBarColor = Color(0xFFFF8A65)
 
 @Composable
 private fun MapCard(modifier: Modifier, content: @Composable () -> Unit) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp,
         content = content,
     )
@@ -67,13 +56,12 @@ internal fun MapSummaryCard(
         ) {
             Text(
                 text = stringResource(R.string.stats_map_summary_title, month),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = summary.spentMinor.formatWon(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             if (summary.hasIncome) {
@@ -117,9 +105,9 @@ private fun SummaryBar(summary: MapSummary) {
     val segments = summary.barSegments()
     val colors =
         mapOf(
-            BarPart.SPENT to SpentBarColor,
-            BarPart.SAVINGS to categoryStyleOf("저축").color,
-            BarPart.LEFTOVER to MaterialTheme.colorScheme.surfaceContainerHighest,
+            BarPart.SPENT to MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            BarPart.SAVINGS to MaterialTheme.colorScheme.tertiary,
+            BarPart.LEFTOVER to MaterialTheme.colorScheme.surfaceVariant,
             BarPart.OVER to MaterialTheme.colorScheme.error,
         )
     Row(
@@ -128,7 +116,7 @@ private fun SummaryBar(summary: MapSummary) {
                 .padding(top = Space.xs)
                 .fillMaxWidth()
                 .height(14.dp)
-                .clip(RoundedCornerShape(7.dp)),
+                .clip(CircleShape),
     ) {
         segments.forEach { segment ->
             // 초과 구간은 카테고리색과 구분되게 2dp 틈을 둔다.
@@ -159,82 +147,15 @@ private fun SummaryBar(summary: MapSummary) {
                     modifier =
                         Modifier
                             .size(10.dp)
-                            .clip(RoundedCornerShape(3.dp))
+                            .clip(CircleShape)
                             .background(colors.getValue(segment.part)),
                 )
                 Text(
                     text = stringResource(label),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-    }
-}
-
-/** 지출 대분류 순위. 행을 누르면 그 대분류 거래 목록. */
-@Composable
-internal fun MapRankList(
-    rows: List<MapRow>,
-    onRowClick: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    MapCard(modifier) {
-        Column(modifier = Modifier.padding(horizontal = Space.sm, vertical = Space.sm)) {
-            rows.forEach { row -> RankRow(row, onClick = { onRowClick(row.key) }) }
-        }
-    }
-}
-
-@Composable
-private fun RankRow(row: MapRow, onClick: () -> Unit) {
-    val color = categoryStyleOf(row.name).color
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .clickable(onClick = onClick)
-                .defaultMinSize(minHeight = 48.dp)
-                .padding(horizontal = Space.sm, vertical = Space.xs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Space.sm),
-    ) {
-        CategoryDot(color)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-            Text(
-                text = categoryLabel(row.name),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(row.barFraction)
-                            .fillMaxHeight()
-                            .background(color),
-                )
-            }
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = compactAmountLabel(row.amountMinor),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-            DeltaLabel(row.deltaPercent)
         }
     }
 }

@@ -2,6 +2,10 @@ package com.householdbudget.app.ui.settings
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.navigationBarsPadding
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -12,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,17 +23,20 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Autorenew
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,21 +59,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
 import com.householdbudget.app.data.export.CsvExporter
 import com.householdbudget.app.data.work.ReminderScheduler
+import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.ui.BudgetViewModel
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
-import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatMonthDayWeekday
 import com.householdbudget.app.ui.util.formatWon
-import com.householdbudget.app.domain.PeriodResolver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -99,15 +104,18 @@ fun SettingsScreen(
     val monthlyBudgetMinor by prefs.monthlyBudgetMinor.collectAsStateWithLifecycle(initialValue = null)
     val reminderEnabled by prefs.reminderEnabled.collectAsStateWithLifecycle(initialValue = false)
     val reminderHour by prefs.reminderHour.collectAsStateWithLifecycle(initialValue = 21)
+    val darkTheme by prefs.darkTheme.collectAsStateWithLifecycle(initialValue = false)
     val appLockEnabled by prefs.appLockEnabled.collectAsStateWithLifecycle(initialValue = false)
 
     var showPaydaySheet by remember { mutableStateOf(false) }
+    var showThemeSheet by remember { mutableStateOf(false) }
     var showReminderHourSheet by remember { mutableStateOf(false) }
     var reminderPermissionDenied by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportFailed by remember { mutableStateOf(false) }
-    val paydaySheetState = rememberModalBottomSheetState()
+    val paydaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val reminderSheetState = rememberModalBottomSheetState()
+    val themeSheetState = rememberModalBottomSheetState()
 
     fun enableReminder() {
         reminderPermissionDenied = false
@@ -167,34 +175,36 @@ fun SettingsScreen(
         contentPadding = PaddingValues(bottom = 96.dp),
     ) {
         item {
-            ScreenHeader(
-                title = stringResource(R.string.nav_settings),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            AppTopBar(title = stringResource(R.string.nav_settings))
         }
 
         // ── 기본 ─────────────────────────────────────────────────────────────
         item {
-            SectionHeader(
-                title = stringResource(R.string.settings_group_basic),
+            Text(
+                text = stringResource(R.string.settings_group_basic),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
                 SettingsActionRow(
                     icon = Icons.Filled.DateRange,
-                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     title = stringResource(R.string.settings_payday_title_v2),
                     subtitle = stringResource(R.string.settings_payday_subtitle_v2, payday, nextPayday.formatMonthDayWeekday()),
                     onClick = { showPaydaySheet = true },
+                )
+                SettingsRowDivider()
+                SettingsActionRow(
+                    icon = Icons.Rounded.Palette,
+                    title = stringResource(R.string.settings_theme_title),
+                    subtitle = stringResource(if (darkTheme) R.string.settings_theme_dark else R.string.settings_theme_light),
+                    onClick = { showThemeSheet = true },
                 )
                 if (onOpenBudget != null) {
                     SettingsRowDivider()
                     SettingsActionRow(
                         icon = Icons.Filled.AccountBalanceWallet,
-                        iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                        iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                         title = stringResource(R.string.settings_budget_title),
                         subtitle = monthlyBudgetMinor.let { budget ->
                             if (budget != null) {
@@ -213,16 +223,16 @@ fun SettingsScreen(
 
         // ── 자동화 · 알림 ─────────────────────────────────────────────────────
         item {
-            SectionHeader(
-                title = stringResource(R.string.settings_group_automation),
+            Text(
+                text = stringResource(R.string.settings_group_automation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
                 SettingsActionRow(
                     icon = Icons.Filled.Autorenew,
-                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     title = stringResource(R.string.auto_title),
                     subtitle = if (pendingCount > 0) {
                         stringResource(R.string.auto_row_subtitle_pending, pendingCount)
@@ -230,12 +240,24 @@ fun SettingsScreen(
                         stringResource(R.string.auto_row_subtitle_idle)
                     },
                     onClick = onOpenAutoEntry,
+                    trailing = if (pendingCount > 0) {
+                        {
+                            Box(
+                                modifier = Modifier.size(24.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = pendingCount.toString(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
+                        }
+                    } else null,
                 )
                 SettingsRowDivider()
                 SettingsActionRow(
                     icon = Icons.Filled.Notifications,
-                    iconContainer = MaterialTheme.colorScheme.secondaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                     title = stringResource(R.string.settings_reminder_title),
                     subtitle = when {
                         reminderPermissionDenied -> stringResource(R.string.settings_reminder_denied)
@@ -253,10 +275,7 @@ fun SettingsScreen(
                         Switch(
                             checked = reminderEnabled,
                             onCheckedChange = { toggleReminder(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = settingsSwitchColors(),
                         )
                     },
                 )
@@ -267,8 +286,10 @@ fun SettingsScreen(
 
         // ── 데이터 ───────────────────────────────────────────────────────────
         item {
-            SectionHeader(
-                title = stringResource(R.string.settings_group_data),
+            Text(
+                text = stringResource(R.string.settings_group_data),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
             )
             Spacer(Modifier.height(Space.sm))
@@ -276,8 +297,6 @@ fun SettingsScreen(
                 if (onOpenArchive != null) {
                     SettingsActionRow(
                         icon = Icons.Filled.Inventory2,
-                        iconContainer = MaterialTheme.colorScheme.secondaryContainer,
-                        iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                         title = stringResource(R.string.archive_title),
                         subtitle = null,
                         onClick = onOpenArchive,
@@ -286,8 +305,6 @@ fun SettingsScreen(
                 }
                 SettingsActionRow(
                     icon = Icons.Filled.Share,
-                    iconContainer = MaterialTheme.colorScheme.secondaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                     title = stringResource(R.string.settings_export_title),
                     subtitle = when {
                         exporting -> stringResource(R.string.settings_export_running)
@@ -303,16 +320,16 @@ fun SettingsScreen(
 
         // ── 보안 ─────────────────────────────────────────────────────────────
         item {
-            SectionHeader(
-                title = stringResource(R.string.settings_group_security),
+            Text(
+                text = stringResource(R.string.settings_group_security),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
             )
             Spacer(Modifier.height(Space.sm))
             SettingsGroupPanel {
                 SettingsActionRow(
                     icon = Icons.Filled.Lock,
-                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                     title = stringResource(R.string.settings_lock_title),
                     subtitle = stringResource(R.string.settings_lock_subtitle),
                     onClick = { scope.launch { prefs.setAppLockEnabled(!appLockEnabled) } },
@@ -322,10 +339,7 @@ fun SettingsScreen(
                             onCheckedChange = { checked ->
                                 scope.launch { prefs.setAppLockEnabled(checked) }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = settingsSwitchColors(),
                         )
                     },
                 )
@@ -342,67 +356,103 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
                     .padding(horizontal = ScreenHorizontalPadding)
-                    .padding(bottom = Space.xxxl),
+                    .padding(bottom = Space.xxl),
                 verticalArrangement = Arrangement.spacedBy(Space.md),
             ) {
                 Text(
                     text = stringResource(R.string.settings_payday_sheet_title),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.settings_payday_select),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = stringResource(R.string.settings_payday_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = stringResource(R.string.settings_payday_adjust_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(Space.xs))
-                Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+                Column {
                     (1..31).chunked(7).forEach { rowDays ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
                             rowDays.forEach { day ->
                                 val selected = payday == day
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .aspectRatio(1f)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (selected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surfaceContainer,
-                                        )
+                                        .height(48.dp)
                                         .clickable {
                                             budgetViewModel.setPaydayDom(day)
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.settings_payday_changed, day),
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
                                             showPaydaySheet = false
                                         },
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    Text(
-                                        text = day.toString(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                        else MaterialTheme.colorScheme.onSurface,
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = day.toString(),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
                                 }
                             }
                             repeat(7 - rowDays.size) {
-                                Spacer(Modifier.weight(1f).aspectRatio(1f))
+                                Spacer(Modifier.weight(1f).height(48.dp))
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showThemeSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showThemeSheet = false },
+            sheetState = themeSheetState,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Space.xxxl)
+                    .selectableGroup(),
+            ) {
+                listOf(false to R.string.settings_theme_light, true to R.string.settings_theme_dark).forEach { (isDark, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .selectable(
+                                selected = darkTheme == isDark,
+                                role = Role.RadioButton,
+                                onClick = {
+                                    scope.launch { prefs.setDarkTheme(isDark) }
+                                    showThemeSheet = false
+                                },
+                            )
+                            .padding(horizontal = ScreenHorizontalPadding),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (darkTheme == isDark) {
+                            Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -426,7 +476,6 @@ fun SettingsScreen(
                 Text(
                     text = stringResource(R.string.settings_reminder_sheet_title),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
@@ -447,7 +496,7 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .heightIn(min = 48.dp)
-                                        .clip(MaterialTheme.shapes.medium)
+                                        .clip(MaterialTheme.shapes.small)
                                         .background(
                                             if (selected) MaterialTheme.colorScheme.primary
                                             else MaterialTheme.colorScheme.surfaceContainer,
@@ -461,8 +510,7 @@ fun SettingsScreen(
                                 ) {
                                     Text(
                                         text = stringResource(R.string.settings_reminder_hour_cell, hour),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        style = if (selected) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodySmall,
                                         color = if (selected) MaterialTheme.colorScheme.onPrimary
                                         else MaterialTheme.colorScheme.onSurface,
                                     )
@@ -486,7 +534,7 @@ internal fun SettingsGroupPanel(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenHorizontalPadding),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 0.dp,
     ) {
@@ -498,7 +546,7 @@ internal fun SettingsGroupPanel(
 internal fun SettingsRowDivider() {
     androidx.compose.material3.HorizontalDivider(
         modifier = Modifier.padding(horizontal = Space.lg),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        color = MaterialTheme.colorScheme.outlineVariant,
     )
 }
 
@@ -506,8 +554,6 @@ internal fun SettingsRowDivider() {
 @Composable
 internal fun SettingsActionRow(
     icon: ImageVector,
-    iconContainer: Color,
-    iconTint: Color,
     title: String,
     subtitle: String?,
     onClick: () -> Unit,
@@ -523,8 +569,8 @@ internal fun SettingsActionRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = iconContainer,
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant,
             tonalElevation = 0.dp,
         ) {
             Icon(
@@ -533,14 +579,13 @@ internal fun SettingsActionRow(
                 modifier = Modifier
                     .padding(Space.sm)
                     .size(20.dp),
-                tint = iconTint,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             if (subtitle != null) {
@@ -562,3 +607,12 @@ internal fun SettingsActionRow(
         }
     }
 }
+
+@Composable
+private fun settingsSwitchColors() = SwitchDefaults.colors(
+    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+    checkedTrackColor = MaterialTheme.colorScheme.primary,
+    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)

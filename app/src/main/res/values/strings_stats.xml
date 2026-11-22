@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 통계 탭 (W4 전용) -->
-    <string name="stats_title">%1$d월 리포트</string>
-    <string name="stats_title_plain">리포트</string>
-    <string name="stats_mode_report">리포트</string>
+    <string name="stats_title">%1$d월</string>
+    <string name="stats_title_plain">통계</string>
+    <string name="stats_mode_report">목록</string>
     <string name="stats_mode_map">맵</string>
 
-    <!-- 예산 게이지 카드 -->
-    <string name="stats_gauge_pct">%1$d%%</string>
-    <string name="stats_gauge_center_label">예산 사용</string>
-    <string name="stats_gauge_remaining">%1$s 남음</string>
-    <string name="stats_gauge_over">%1$s 초과</string>
-    <string name="stats_gauge_daily">하루 %1$s씩 쓸 수 있어요</string>
-    <string name="stats_gauge_over_desc">이번 달 예산을 넘었어요</string>
-    <string name="stats_no_budget_title">예산을 설정하면 사용률을 보여드려요</string>
-    <string name="stats_no_budget_desc">설정 탭 → 예산에서 월 예산을 정할 수 있어요</string>
+    <!-- 요약 카드 -->
+    <string name="stats_summary_label">이번 달 쓴 돈</string>
+    <string name="stats_summary_budget">예산 %1$s 중 %2$d%% · %3$s 남았어요</string>
+    <string name="stats_summary_budget_over">예산 %1$s을 %2$s 넘게 썼어요</string>
+    <string name="stats_compare_less">지난달 이맘때보다 %1$d%% 덜 썼어요</string>
+    <string name="stats_compare_more">지난달 이맘때보다 %1$d%% 더 썼어요</string>
+    <string name="stats_col_spent">지출</string>
+    <string name="stats_col_savings">저축</string>
+    <string name="stats_col_left">남은 돈</string>
 
     <!-- 주별 지출 -->
     <string name="stats_weekly_title">주별 지출</string>
@@ -22,11 +22,10 @@
 
     <!-- 카테고리별 예산 대비 -->
     <string name="stats_category_title">카테고리별 지출</string>
-    <string name="stats_category_subtitle">예산 대비 · 전월 대비</string>
+    <string name="stats_cat_pct">예산 %1$s의 %2$d%%</string>
+    <string name="stats_cat_over">예산 %1$s보다 %2$s 더 썼어요</string>
+    <string name="stats_cat_no_budget">예산을 정하지 않았어요</string>
     <string name="stats_category_empty">이번 달 지출이 아직 없어요</string>
-    <string name="stats_delta_up">▲%1$d%%</string>
-    <string name="stats_delta_down">▼%1$d%%</string>
-    <string name="stats_delta_flat">—</string>
 
     <!-- 머니 맵 -->
     <string name="stats_map_summary_title">%1$d월 지출</string>
@@ -45,5 +44,7 @@
     <string name="stats_map_empty_desc">거래를 기록하면 돈의 흐름을 지도로 보여드려요.</string>
 
     <!-- 상세 바텀시트 -->
-    <string name="stats_sheet_total">%1$d건 · 합계 %2$s</string>
+    <string name="stats_sheet_total">%1$d건 · %2$s</string>
+    <string name="stats_sheet_up">지난달보다 %1$d%% 늘었어요</string>
+    <string name="stats_sheet_down">지난달보다 %1$d%% 줄었어요</string>
 </resources>
