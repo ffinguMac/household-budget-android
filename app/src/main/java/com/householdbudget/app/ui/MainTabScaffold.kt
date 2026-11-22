@@ -132,6 +132,11 @@ fun MainTabScaffold(
     }.collectAsStateWithLifecycle(initialValue = 0)
     // 프로세스 사망 복구는 포기 (탭 이탈 시 Main 으로 초기화되는 기존 동작과 동일).
     var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
+    // 확인할 거래를 홈 띠·알림으로 열었으면 뒤로 가기는 가계부 탭으로, 자동 기록 화면에서 열었으면 그리로.
+    var pendingFromFeed by remember { mutableStateOf(false) }
+    val leavePending = {
+        if (pendingFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.AutoEntry
+    }
 
     // 탭 콘텐츠는 AnimatedContent 로 교체되며 컴포지션에서 빠지므로,
     // 스크롤 상태를 여기(바깥)에서 만들어 내려보내 탭 전환 후에도 위치를 보존한다.
@@ -140,12 +145,11 @@ fun MainTabScaffold(
     val statsListState = rememberLazyListState()
 
     BackHandler(enabled = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main) {
-        settingsPane =
-            when (settingsPane) {
-                is SettingsPane.ArchiveDetail -> SettingsPane.Archive
-                SettingsPane.Pending -> SettingsPane.AutoEntry
-                else -> SettingsPane.Main
-            }
+        when (settingsPane) {
+            is SettingsPane.ArchiveDetail -> settingsPane = SettingsPane.Archive
+            SettingsPane.Pending -> leavePending()
+            else -> settingsPane = SettingsPane.Main
+        }
     }
 
     LaunchedEffect(selected) {
@@ -156,6 +160,7 @@ fun MainTabScaffold(
     // 순서 중요: 위 LaunchedEffect(selected) 가 처음 컴포지션 때 settingsPane 을 Main 으로 되돌리므로 그 뒤에 둔다.
     LaunchedEffect(openPending) {
         if (openPending) {
+            pendingFromFeed = true
             selectedOrdinal = MainTab.SETTINGS.ordinal
             settingsPane = SettingsPane.Pending
             onOpenPendingHandled()
@@ -212,6 +217,7 @@ fun MainTabScaffold(
                         listState = feedListState,
                         pendingCount = pendingCount,
                         onOpenPending = {
+                            pendingFromFeed = true
                             selectedOrdinal = MainTab.SETTINGS.ordinal
                             settingsPane = SettingsPane.Pending
                         },
@@ -262,13 +268,17 @@ fun MainTabScaffold(
                         SettingsPane.AutoEntry ->
                             AutoEntrySettingsScreen(
                                 onBack = { settingsPane = SettingsPane.Main },
-                                onOpenPending = { settingsPane = SettingsPane.Pending },
+                                onOpenPending = {
+                                    pendingFromFeed = false
+                                    settingsPane = SettingsPane.Pending
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Pending ->
                             PendingReviewScreen(
                                 budgetViewModel = budgetViewModel,
-                                onBack = { settingsPane = SettingsPane.AutoEntry },
+                                onBack = leavePending,
+                                onDone = { selectedOrdinal = MainTab.FEED.ordinal },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Budget ->

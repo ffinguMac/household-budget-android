@@ -25,6 +25,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -230,6 +231,35 @@ class AutoEntryRepositoryTest {
         assertEquals(2, txCount())
         assertEquals(0, pending().size)
         assertEquals(2, count("auto_entries WHERE status = 'REGISTERED'"))
+    }
+
+    @Test fun resolvePending_returnsTargetThenCascaded() = runBlocking {
+        kimOut()
+        kimOut("k2", T0 + 86_400_000)
+        val target = pending().last()
+        val resolved = repo.resolvePending(target.id, leafId("EXPENSE", "유동 지출", "기본"))
+        assertEquals(2, resolved.size)
+        assertEquals(target.id, resolved.first().id)
+        assertEquals(0, pending().size)
+    }
+
+    @Test fun resolvePending_notPending_returnsEmpty() = runBlocking {
+        kimOut()
+        val id = pending().single().id
+        repo.resolvePending(id, null)
+        assertEquals(emptyList<AutoEntryEntity>(), repo.resolvePending(id, null))
+        assertEquals(emptyList<AutoEntryEntity>(), repo.resolvePending(9_999L, null))
+    }
+
+    @Test fun suggestedCategoryId_returnsLearnedRule_orNull() = runBlocking {
+        kimOut()
+        val first = pending().single()
+        assertNull(repo.suggestedCategoryId(first))
+        val flexible = leafId("EXPENSE", "유동 지출", "기본")
+        repo.resolvePending(first.id, flexible)
+        assertEquals(flexible, repo.suggestedCategoryId(first))
+        assertNull(repo.suggestedCategoryId(first.copy(merchantKey = "")))
+        assertNull(repo.suggestedCategoryId(first.copy(merchantKey = "모르는가게")))
     }
 
     @Test fun crossApp_sameAmountWithin5Min_secondGoesPending() = runBlocking {

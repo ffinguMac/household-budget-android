@@ -172,23 +172,28 @@ class AutoEntryRepository(
         }
     }
 
-    /** categoryId == null 이면 기록 안 함. */
-    suspend fun resolvePending(entryId: Long, categoryId: Long?) = mutex.withLock {
+    /** categoryId == null 이면 기록 안 함. 반환값은 이번에 정리된 항목(누른 항목 먼저). 대기 중이 아니면 빈 목록. */
+    suspend fun resolvePending(entryId: Long, categoryId: Long?): List<AutoEntryEntity> = mutex.withLock {
         database.withTransaction {
             val entry = entryDao.getById(entryId)?.takeIf { it.status == AutoEntryStatus.PENDING }
-                ?: return@withTransaction
+                ?: return@withTransaction emptyList()
             val leaf = categoryId?.let { categoryDao.getById(it) ?: error("Category not found: $it") }
             val apply: suspend (AutoEntryEntity) -> Unit = { e ->
                 if (leaf == null) entryDao.update(e.copy(status = AutoEntryStatus.IGNORED)) else register(e, leaf)
             }
             apply(entry)
-            if (entry.merchantKey.isEmpty() || entry.reason !in LEARNABLE_REASONS) return@withTransaction
+            if (entry.merchantKey.isEmpty() || entry.reason !in LEARNABLE_REASONS) return@withTransaction listOf(entry)
             upsertRule(entry, categoryId)
-            entryDao.listPendingByMerchantKey(entry.merchantKey, entry.direction)
+            val cascaded = entryDao.listPendingByMerchantKey(entry.merchantKey, entry.direction)
                 .filter { it.reason in LEARNABLE_REASONS }
-                .forEach { apply(it) }
+            cascaded.forEach { apply(it) }
+            listOf(entry) + cascaded
         }
     }
+
+    /** 이 가맹점에 배운 규칙의 카테고리(기록 안 함 규칙이면 null). */
+    suspend fun suggestedCategoryId(entry: AutoEntryEntity): Long? =
+        if (entry.merchantKey.isEmpty()) null else ruleDao.getByKey(entry.merchantKey, entry.direction)?.categoryId
 
     private suspend fun upsertRule(entry: AutoEntryEntity, categoryId: Long?) {
         ruleDao.upsert(

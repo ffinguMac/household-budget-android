@@ -1,54 +1,71 @@
 package com.householdbudget.app.ui.autoentry
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PendingActions
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.AutoEntryEntity
+import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.components.cardBorder
 import com.householdbudget.app.ui.components.pushedBottomPadding
-import com.householdbudget.app.ui.theme.CategoryDot
+import com.householdbudget.app.ui.feed.budgetStatus
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.theme.categoryStyleOf
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
@@ -71,95 +88,376 @@ fun reasonLabelRes(reason: String?): Int =
 fun PendingReviewScreen(
     budgetViewModel: BudgetViewModel,
     onBack: () -> Unit,
+    onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val repo = remember(context) { (context.applicationContext as BudgetApplication).container.autoEntryRepository }
-    val entries by remember(repo) { repo.observePending() }.collectAsStateWithLifecycle(initialValue = emptyList())
-    var selected by remember { mutableStateOf<AutoEntryEntity?>(null) }
+    val pending by remember(repo) { repo.observePending() }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val categories by budgetViewModel.categories.collectAsStateWithLifecycle()
+    var deferred by remember { mutableStateOf(emptySet<Long>()) }
+    // 항목과 고른 세부 id(null = 기록 안 함).
+    var resolved by remember { mutableStateOf(emptyList<Pair<AutoEntryEntity, Long?>>()) }
+    // 저장 중에는 다시 누르지 못하게 하고, 마지막 항목 직후 빈 화면이 깜빡이지 않게 한다.
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val state = triageState(pending, deferred, resolved.size)
+
+    fun resolve(leafId: Long?) {
+        val entry = state.current ?: return
+        if (busy) return
+        busy = true
+        scope.launch {
+            try {
+                resolved = resolved + repo.resolvePending(entry.id, leafId).map { it to leafId }
+            } finally {
+                busy = false
+            }
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        AppTopBar(title = stringResource(R.string.auto_pending_title), onBack = onBack)
-        if (entries.isEmpty()) {
-            EmptyState(icon = Icons.Filled.PendingActions, title = stringResource(R.string.auto_pending_empty))
-        } else {
-            LazyColumn(contentPadding = PaddingValues(bottom = pushedBottomPadding())) {
-                items(entries, key = { it.id }) { e ->
-                    Column(
-                        modifier = Modifier.fillMaxWidth().clickable { selected = e }
-                            .padding(horizontal = ScreenHorizontalPadding, vertical = Space.md),
-                        verticalArrangement = Arrangement.spacedBy(Space.xs),
+        val current = state.current
+        when {
+            current != null -> {
+                AppTopBar(title = stringResource(R.string.auto_pending_title), onBack = onBack) {
+                    Text(
+                        stringResource(R.string.auto_pending_progress, state.total, state.position),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = Space.lg),
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { resolved.size.toFloat() / state.total },
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                )
+                TriageBody(
+                    budgetViewModel = budgetViewModel,
+                    categories = categories,
+                    current = current,
+                    upNext = state.upNext,
+                    suggestedId = produceState<Long?>(null, current.id) { value = repo.suggestedCategoryId(current) }.value,
+                    onResolve = ::resolve,
+                    onDefer = {
+                        deferred = deferred + current.id
+                        if (pending.all { it.id in deferred }) onBack()
+                    },
+                )
+            }
+            resolved.isNotEmpty() -> DoneContent(budgetViewModel, categories, resolved, onDone)
+            busy -> Unit
+            else -> {
+                AppTopBar(title = stringResource(R.string.auto_pending_title), onBack = onBack)
+                EmptyState(icon = Icons.Filled.PendingActions, title = stringResource(R.string.auto_pending_empty))
+            }
+        }
+    }
+}
+
+private fun leafLabel(categories: List<CategoryEntity>, leafId: Long): String? {
+    val leaf = categories.firstOrNull { it.id == leafId } ?: return null
+    val parent = categories.firstOrNull { it.id == leaf.parentId }
+    return if (parent == null) leaf.name else "${parent.name} · ${leaf.name}"
+}
+
+@Composable
+private fun TriageBody(
+    budgetViewModel: BudgetViewModel,
+    categories: List<CategoryEntity>,
+    current: AutoEntryEntity,
+    upNext: List<AutoEntryEntity>,
+    suggestedId: Long?,
+    onResolve: (Long?) -> Unit,
+    onDefer: () -> Unit,
+) {
+    val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
+    val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
+    var kind by remember(current.id) { mutableStateOf(defaultKindFor(current.direction)) }
+    val noName = stringResource(R.string.auto_pending_no_name)
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = ScreenHorizontalPadding)
+            .padding(top = Space.lg, bottom = pushedBottomPadding()),
+        verticalArrangement = Arrangement.spacedBy(Space.lg),
+    ) {
+        AnimatedContent(
+            targetState = current,
+            contentKey = { it.id },
+            transitionSpec = {
+                (slideInHorizontally { it / 3 } + fadeIn()).togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
+            },
+            label = "pendingCard",
+        ) { entry ->
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                border = cardBorder(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(Space.xl), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                    val day = LocalDate.ofEpochDay(entry.occurredEpochDay).formatShortDayLabel()
+                    val reason = reasonLabelRes(entry.reason)
+                    Text(
+                        if (reason == R.string.auto_reason_unclassified) day else day + " · " + stringResource(reason),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        entry.merchant.ifBlank { noName },
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(entry.amountMinor.formatWon(), style = MaterialTheme.typography.displaySmall)
+                }
+            }
+        }
+
+        if (upNext.isNotEmpty()) {
+            Column {
+                Text(
+                    stringResource(R.string.auto_pending_up_next),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                upNext.forEach { e ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Space.md),
                     ) {
-                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                e.merchant.ifBlank { stringResource(R.string.auto_pending_no_name) },
-                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(e.amountMinor.formatWon(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        }
                         Text(
-                            LocalDate.ofEpochDay(e.occurredEpochDay).formatShortDayLabel() + " · " +
-                                stringResource(reasonLabelRes(e.reason)),
-                            style = MaterialTheme.typography.bodySmall,
+                            e.merchant.ifBlank { noName },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            e.amountMinor.formatWon(),
+                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
         }
-    }
 
-    val scope = rememberCoroutineScope()
-    selected?.let { entry ->
-        ResolveSheet(budgetViewModel, entry, onDismiss = { selected = null }) { leafId ->
-            selected = null
-            scope.launch { repo.resolvePending(entry.id, leafId) }
+        Text(stringResource(R.string.auto_pending_prompt), style = MaterialTheme.typography.titleMedium)
+
+        val suggestion = suggestedId?.let { id -> leafLabel(categories, id)?.let { id to it } }
+        if (suggestion != null) {
+            Surface(
+                onClick = { onResolve(suggestion.first) },
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(horizontal = Space.lg, vertical = Space.md)) {
+                    Text(
+                        stringResource(R.string.auto_pending_suggest, suggestion.second),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.auto_pending_suggest_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        PendingCategoryPicker(
+            parents = parentsByKind[kind].orEmpty(),
+            childrenByParent = childrenByParent,
+            onLeafSelected = { onResolve(it.id) },
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            KIND_SWITCH_LABELS.filterKeys { it != kind }.forEach { (k, res) ->
+                Surface(
+                    onClick = { kind = k },
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(stringResource(res), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = { onResolve(null) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(
+                    stringResource(R.string.auto_skip),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onDefer, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.auto_pending_later), style = MaterialTheme.typography.bodyLarge)
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+private val KIND_SWITCH_LABELS = linkedMapOf(
+    CategoryKind.EXPENSE to R.string.auto_pending_kind_expense,
+    CategoryKind.INCOME to R.string.auto_pending_kind_income,
+    CategoryKind.SAVINGS to R.string.auto_pending_kind_savings,
+)
+
+/**
+ * 대분류 격자 → 같은 자리에서 세부 칩. Task 6 의 `CategoryPicker` 와 같은 모양.
+ * shortcut: Task 6 이 아직 합쳐지지 않아 따로 둔다, 합친 뒤 ui.components.CategoryPicker 호출로 바꾼다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResolveSheet(
-    budgetViewModel: BudgetViewModel,
-    entry: AutoEntryEntity,
-    onDismiss: () -> Unit,
-    onResolve: (Long?) -> Unit,
+private fun PendingCategoryPicker(
+    parents: List<CategoryEntity>,
+    childrenByParent: Map<Long, List<CategoryEntity>>,
+    onLeafSelected: (CategoryEntity) -> Unit,
 ) {
-    val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
-    val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
-    var kind by remember(entry.id) { mutableStateOf(defaultKindFor(entry.direction)) }
-    val kindLabels = listOf(
-        CategoryKind.EXPENSE to R.string.summary_expense,
-        CategoryKind.INCOME to R.string.summary_income,
-        CategoryKind.SAVINGS to R.string.summary_savings,
-    )
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                .padding(horizontal = ScreenHorizontalPadding).padding(bottom = Space.xxxl),
-            verticalArrangement = Arrangement.spacedBy(Space.md),
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                kindLabels.forEach { (k, res) ->
-                    FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(res)) })
-                }
-            }
-            parentsByKind[kind].orEmpty().forEach { parent ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    CategoryDot(categoryStyleOf(parent.name).color)
-                    Text(categoryLabel(parent.name), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    childrenByParent[parent.id].orEmpty().forEach { leaf ->
-                        FilterChip(selected = false, onClick = { onResolve(leaf.id) }, label = { Text(leaf.name) })
+    var expandedParentId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val expanded = parents.firstOrNull { it.id == expandedParentId }
+    if (expanded == null) {
+        Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+            parents.chunked(4).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    row.forEach { parent ->
+                        val style = categoryStyleOf(parent.name)
+                        Surface(
+                            onClick = {
+                                val leaves = childrenByParent[parent.id].orEmpty()
+                                if (leaves.size == 1) onLeafSelected(leaves.single()) else expandedParentId = parent.id
+                            },
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.weight(1f).height(64.dp),
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(style.emoji, style = MaterialTheme.typography.titleLarge)
+                                Text(
+                                    parent.name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
-            OutlinedButton(onClick = { onResolve(null) }, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.auto_skip))
+        }
+    } else {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Space.sm),
+            verticalArrangement = Arrangement.spacedBy(Space.sm),
+        ) {
+            LeafChip(stringResource(R.string.auto_pending_back_to_grid, expanded.name)) { expandedParentId = null }
+            childrenByParent[expanded.id].orEmpty().forEach { leaf -> LeafChip(leaf.name) { onLeafSelected(leaf) } }
+        }
+    }
+}
+
+@Composable
+private fun LeafChip(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = Modifier.heightIn(min = 48.dp),
+    ) {
+        Box(Modifier.padding(horizontal = Space.lg), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+@Composable
+private fun DoneContent(
+    budgetViewModel: BudgetViewModel,
+    categories: List<CategoryEntity>,
+    resolved: List<Pair<AutoEntryEntity, Long?>>,
+    onDone: () -> Unit,
+) {
+    val summary by budgetViewModel.homeSummary.collectAsStateWithLifecycle()
+    val budget by budgetViewModel.monthlyBudgetMinor.collectAsStateWithLifecycle()
+    val days by budgetViewModel.daysRemainingInPeriod.collectAsStateWithLifecycle()
+    val recorded = resolved.mapNotNull { (e, leafId) -> leafId?.let { e to it } }
+    val recordedTotal = recorded.sumOf { it.first.amountMinor }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = ScreenHorizontalPadding)
+            .padding(bottom = pushedBottomPadding()),
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = Space.xxxl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Space.sm),
+        ) {
+            Box(
+                Modifier.size(72.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
             }
+            Spacer(Modifier.height(Space.lg))
+            Text(
+                stringResource(R.string.auto_pending_done_title, resolved.size),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            if (recordedTotal > 0) {
+                Text(
+                    stringResource(R.string.auto_pending_done_total, recordedTotal.formatWon()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(Space.lg))
+            recorded.forEach { (entry, leafId) ->
+                val leaf = categories.firstOrNull { it.id == leafId }
+                TransactionRow(
+                    categoryName = leaf?.name.orEmpty(),
+                    parentCategoryName = categories.firstOrNull { it.id == leaf?.parentId }?.name,
+                    memo = entry.merchant,
+                    amountMinor = entry.amountMinor,
+                    kind = CategoryKind.fromStorage(leaf?.kind ?: CategoryKind.EXPENSE.storage),
+                )
+            }
+            budget?.takeIf { it > 0 }?.let { b ->
+                val remaining = budgetStatus(b, summary.totalExpenseMinor, days).remainingMinor
+                Spacer(Modifier.height(Space.lg))
+                Text(
+                    stringResource(R.string.auto_pending_done_remaining),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    remaining.formatWon(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (remaining < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        Button(
+            onClick = onDone,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+        ) {
+            Text(stringResource(R.string.auto_pending_done_back), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
