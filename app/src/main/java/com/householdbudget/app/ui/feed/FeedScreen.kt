@@ -405,7 +405,7 @@ fun FeedScreen(
                                         Modifier
                                             .clip(RoundedCornerShape(percent = 50))
                                             .background(kindContainer(CategoryKind.INCOME))
-                                            .padding(horizontal = Space.sm, vertical = Space.xxs),
+                                            .padding(horizontal = Space.sm, vertical = Space.xs),
                                 )
                             }
                             Spacer(Modifier.weight(1f))
@@ -498,7 +498,7 @@ private fun FeedHeroCard(
     Box(
         modifier =
             modifier
-                .clip(MaterialTheme.shapes.extraLarge)
+                .clip(MaterialTheme.shapes.large)
                 .background(heroGradient()),
     ) {
         Column(
@@ -635,7 +635,7 @@ private fun HeroSkeleton(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .height(150.dp)
-                .clip(MaterialTheme.shapes.extraLarge)
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     )
 }

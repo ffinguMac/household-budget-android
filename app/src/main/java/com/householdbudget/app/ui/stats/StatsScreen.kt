@@ -185,7 +185,7 @@ fun StatsScreen(
                 item(key = "map") {
                     Surface(
                         modifier = cardItemModifier(),
-                        shape = MaterialTheme.shapes.extraLarge,
+                        shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 0.dp,
                     ) {
@@ -460,7 +460,7 @@ private fun BudgetGaugeCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
@@ -619,7 +619,7 @@ private fun WeeklySpendCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
@@ -705,7 +705,7 @@ private fun CategoryBudgetCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
@@ -713,7 +713,7 @@ private fun CategoryBudgetCard(
             modifier = Modifier.padding(Space.xl),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(Space.xxs)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
                 Text(
                     text = stringResource(R.string.stats_category_title),
                     style = MaterialTheme.typography.titleMedium,
@@ -891,7 +891,7 @@ private fun TransactionsSheet(
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
-                verticalArrangement = Arrangement.spacedBy(Space.xxs),
+                verticalArrangement = Arrangement.spacedBy(Space.xs),
             ) {
                 Text(
                     text = data.title,
@@ -941,7 +941,7 @@ private fun StatsSkeleton(modifier: Modifier = Modifier) {
                 Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .clip(MaterialTheme.shapes.extraLarge)
+                    .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         )
         Box(
@@ -949,7 +949,7 @@ private fun StatsSkeleton(modifier: Modifier = Modifier) {
                 Modifier
                     .fillMaxWidth()
                     .height(220.dp)
-                    .clip(MaterialTheme.shapes.extraLarge)
+                    .clip(MaterialTheme.shapes.large)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         )
     }

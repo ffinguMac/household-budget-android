@@ -46,7 +46,7 @@ private val SpentBarColor = Color(0xFFFF8A65)
 private fun MapCard(modifier: Modifier, content: @Composable () -> Unit) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         content = content,

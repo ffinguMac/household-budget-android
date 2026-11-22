@@ -96,7 +96,7 @@ fun PendingReviewScreen(
                     Column(
                         modifier = Modifier.fillMaxWidth().clickable { selected = e }
                             .padding(horizontal = ScreenHorizontalPadding, vertical = Space.md),
-                        verticalArrangement = Arrangement.spacedBy(Space.xxs),
+                        verticalArrangement = Arrangement.spacedBy(Space.xs),
                     ) {
                         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Text(

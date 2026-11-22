@@ -178,7 +178,7 @@ fun EditTransactionScreen(
 
     // 하단 + 버튼에서 시트처럼 올라오는 화면 — 최상단 코너만 라운드.
     val sheetShape =
-        MaterialTheme.shapes.extraLarge.copy(
+        MaterialTheme.shapes.large.copy(
             bottomStart = CornerSize(0.dp),
             bottomEnd = CornerSize(0.dp),
         )
@@ -718,7 +718,7 @@ fun EditTransactionScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.large,
             title = { Text(stringResource(R.string.edit_delete_confirm_title)) },
             text = { Text(stringResource(R.string.edit_delete_confirm_body)) },
             confirmButton = {
@@ -742,7 +742,7 @@ fun EditTransactionScreen(
     if (showDiscardConfirm) {
         AlertDialog(
             onDismissRequest = { showDiscardConfirm = false },
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.large,
             title = { Text(stringResource(R.string.edit_discard_title)) },
             text = { Text(stringResource(R.string.edit_discard_body)) },
             confirmButton = {

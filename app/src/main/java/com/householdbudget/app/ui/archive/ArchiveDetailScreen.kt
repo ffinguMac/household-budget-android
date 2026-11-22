@@ -171,7 +171,7 @@ fun ArchiveDetailScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = ScreenHorizontalPadding, vertical = Space.xxs),
+                        .padding(horizontal = ScreenHorizontalPadding, vertical = Space.xs),
                     shape = MaterialTheme.shapes.large,
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 0.dp,

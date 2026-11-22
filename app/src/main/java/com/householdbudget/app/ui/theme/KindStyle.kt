@@ -4,20 +4,30 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import com.householdbudget.app.domain.CategoryKind
 
 // ──────────────────────────────────────────────────────────────────────────
 // CategoryKind 별 색/부호 단일 결정 지점.
-// 표기 규칙: INCOME "+"/secondary(민트), EXPENSE "−"/error(레드), SAVINGS "↑"/tertiary(블루)
+// 표기 규칙: INCOME "+"/primary, EXPENSE "−"/onSurface, SAVINGS "↑"/onSurface.
+// error는 예산 초과·삭제·오류에만 쓴다. 저축은 점(tertiary)으로만 구분한다.
 // ──────────────────────────────────────────────────────────────────────────
 
-/** 금액 강조색: INCOME=secondary, EXPENSE=error, SAVINGS=tertiary */
+/** 금액 색: INCOME=primary, EXPENSE·SAVINGS=onSurface */
 @Composable
 fun kindAccent(kind: CategoryKind): Color =
     when (kind) {
-        CategoryKind.INCOME -> MaterialTheme.colorScheme.secondary
-        CategoryKind.EXPENSE -> MaterialTheme.colorScheme.error
+        CategoryKind.INCOME -> MaterialTheme.colorScheme.primary
+        CategoryKind.EXPENSE, CategoryKind.SAVINGS -> MaterialTheme.colorScheme.onSurface
+    }
+
+/** 종류 점 색: INCOME=primary, SAVINGS=tertiary, EXPENSE=점 없음(null) */
+@Composable
+fun kindDotColor(kind: CategoryKind): Color? =
+    when (kind) {
+        CategoryKind.INCOME -> MaterialTheme.colorScheme.primary
         CategoryKind.SAVINGS -> MaterialTheme.colorScheme.tertiary
+        CategoryKind.EXPENSE -> null
     }
 
 /** 아바타/칩 배경: INCOME=secondaryContainer, EXPENSE=errorContainer, SAVINGS=tertiaryContainer */
@@ -46,15 +56,14 @@ fun kindSignPrefix(kind: CategoryKind): String =
         CategoryKind.SAVINGS -> "↑"
     }
 
-/** 히어로 카드용 그라디언트 — 미드나잇 전용(#131A26 → #0F2231). 보더는 호출자가 그린다. */
+/** 히어로 카드 배경 — 이제 단색 surface. (Task 4에서 삭제 예정) */
 @Composable
-fun heroGradient(): Brush =
-    Brush.linearGradient(colors = listOf(MidnightHeroStart, MidnightHeroEnd))
+fun heroGradient(): Brush = SolidColor(MaterialTheme.colorScheme.surface)
 
 /** 히어로 카드 위 본문 텍스트 색. 금액 강조는 호출자가 [kindAccent] 로. */
 @Composable
-fun onHeroColor(): Color = MidnightOnSurface
+fun onHeroColor(): Color = MaterialTheme.colorScheme.onSurface
 
-/** 히어로 카드 위 보조 텍스트 색 (위 색의 낮은 알파). */
+/** 히어로 카드 위 보조 텍스트 색. */
 @Composable
-fun onHeroMutedColor(): Color = onHeroColor().copy(alpha = 0.72f)
+fun onHeroMutedColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant

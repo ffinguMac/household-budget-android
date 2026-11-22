@@ -92,7 +92,7 @@ fun TransactionRow(
         }
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(Space.xxs),
+            verticalArrangement = Arrangement.spacedBy(Space.xs),
         ) {
             Text(
                 text = title,

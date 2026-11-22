@@ -2,130 +2,53 @@ package com.householdbudget.app.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.householdbudget.app.R
+
+val Pretendard =
+    FontFamily(
+        Font(R.font.pretendard_regular, FontWeight.Normal),
+        Font(R.font.pretendard_bold, FontWeight.Bold),
+    )
+
+// 화면 코드는 displaySmall·titleLarge·titleMedium·bodyLarge·labelLarge·bodySmall 여섯 개만 쓴다.
+// 나머지 슬롯은 M3 컴포넌트 기본값용으로 같은 네 단계에 묶는다.
+private fun style(size: Int, line: Int, weight: FontWeight, tracking: Double = 0.0) =
+    TextStyle(
+        fontFamily = Pretendard,
+        fontWeight = weight,
+        fontSize = size.sp,
+        lineHeight = line.sp,
+        letterSpacing = tracking.em,
+        fontFeatureSettings = "tnum",
+    )
+
+private val Display = style(32, 40, FontWeight.Bold, -0.02)
+private val Title = style(20, 28, FontWeight.Bold, -0.01)
+private val TitleMedium = style(16, 24, FontWeight.Bold)
+private val Body = style(16, 24, FontWeight.Normal)
+private val Label = style(13, 18, FontWeight.Bold)
+private val Caption = style(13, 18, FontWeight.Normal)
 
 val Typography =
     Typography(
-        displayLarge =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 50.sp,
-                lineHeight = 56.sp,
-                letterSpacing = (-0.5).sp,
-            ),
-        displayMedium =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 40.sp,
-                lineHeight = 46.sp,
-                letterSpacing = (-0.25).sp,
-            ),
-        displaySmall =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 32.sp,
-                lineHeight = 38.sp,
-                letterSpacing = (-0.25).sp,
-            ),
-        headlineLarge =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 30.sp,
-                lineHeight = 36.sp,
-                letterSpacing = (-0.25).sp,
-            ),
-        headlineMedium =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
-                lineHeight = 32.sp,
-                letterSpacing = (-0.25).sp,
-            ),
-        headlineSmall =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 22.sp,
-                lineHeight = 28.sp,
-                letterSpacing = 0.sp,
-            ),
-        titleLarge =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                lineHeight = 26.sp,
-                letterSpacing = 0.sp,
-            ),
-        titleMedium =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
-                letterSpacing = 0.sp,
-            ),
-        titleSmall =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                letterSpacing = 0.sp,
-            ),
-        bodyLarge =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Normal,
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-                letterSpacing = 0.sp,
-            ),
-        bodyMedium =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                letterSpacing = 0.sp,
-            ),
-        bodySmall =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                letterSpacing = 0.sp,
-            ),
-        labelLarge =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                lineHeight = 18.sp,
-                letterSpacing = 0.sp,
-            ),
-        labelMedium =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                letterSpacing = 0.sp,
-            ),
-        labelSmall =
-            TextStyle(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
-                fontSize = 10.sp,
-                lineHeight = 14.sp,
-                letterSpacing = 0.1.sp,
-            ),
+        displayLarge = Display,
+        displayMedium = Display,
+        displaySmall = Display,
+        headlineLarge = Display,
+        headlineMedium = Display,
+        headlineSmall = Title,
+        titleLarge = Title,
+        titleMedium = TitleMedium,
+        bodyLarge = Body,
+        titleSmall = Label,
+        labelLarge = Label,
+        labelMedium = Label,
+        bodyMedium = Caption,
+        bodySmall = Caption,
+        labelSmall = Caption,
     )

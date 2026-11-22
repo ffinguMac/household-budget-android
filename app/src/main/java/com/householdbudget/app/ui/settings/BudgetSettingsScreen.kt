@@ -176,7 +176,7 @@ fun BudgetSettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = ScreenHorizontalPadding),
-                    shape = MaterialTheme.shapes.extraLarge,
+                    shape = MaterialTheme.shapes.large,
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     tonalElevation = 0.dp,
                 ) {
@@ -240,7 +240,7 @@ fun BudgetSettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = ScreenHorizontalPadding),
-                        shape = MaterialTheme.shapes.extraLarge,
+                        shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                         tonalElevation = 0.dp,
                     ) {
