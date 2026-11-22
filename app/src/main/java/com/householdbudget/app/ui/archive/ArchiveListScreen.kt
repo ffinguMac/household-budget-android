@@ -27,6 +27,7 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
@@ -35,17 +36,18 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
- * 아카이브 기간 제목: 시작일의 달 기준 "8월", 올해가 아니면 "2025년 8월".
- * (월급날 기준 한 달은 시작일이 속한 달로 부른다.)
+ * 기간 제목: 명목 월([PeriodResolver.nominalMonth]) 기준 "8월", 올해가 아니면 "2025년 8월".
+ * 시작일의 달로 부르면 앞 달로 당겨진 월급일(1월 1일 → 12월 31일)에서 "12월"이 두 번 나온다.
  */
 @Composable
-internal fun archiveMonthTitle(start: LocalDate, today: LocalDate): String =
-    if (start.year == today.year) {
-        stringResource(R.string.archive_month_label, start.monthValue)
+internal fun archiveMonthTitle(month: YearMonth, today: LocalDate): String =
+    if (month.year == today.year) {
+        stringResource(R.string.archive_month_label, month.monthValue)
     } else {
-        stringResource(R.string.archive_month_label_with_year, start.year, start.monthValue)
+        stringResource(R.string.archive_month_label_with_year, month.year, month.monthValue)
     }
 
 @Composable
@@ -58,6 +60,7 @@ fun ArchiveListScreen(
     val rows by remember(repository) { repository.observeArchivedPeriods() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val today by repository.today.collectAsStateWithLifecycle()
+    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
 
     LazyColumn(
         modifier = modifier
@@ -89,6 +92,7 @@ fun ArchiveListScreen(
                 ArchiveCard(
                     row = row,
                     today = today,
+                    paydayDom = paydayDom,
                     modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Space.xs),
                     onClick = { onOpenDetail(row.id) },
                 )
@@ -101,6 +105,7 @@ fun ArchiveListScreen(
 private fun ArchiveCard(
     row: ArchivedPeriodEntity,
     today: LocalDate,
+    paydayDom: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -110,7 +115,7 @@ private fun ArchiveCard(
     )
     val periodLabel = stringResource(
         R.string.archive_card_period,
-        archiveMonthTitle(period.startInclusive, today),
+        archiveMonthTitle(PeriodResolver().nominalMonth(period.startInclusive, paydayDom), today),
         period.formatRangeShort(),
     )
     val netMinor = row.totalIncomeMinor - row.totalExpenseMinor - row.totalSavingsMinor

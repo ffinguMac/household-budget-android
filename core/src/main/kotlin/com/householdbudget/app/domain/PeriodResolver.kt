@@ -62,6 +62,15 @@ class PeriodResolver {
         return period
     }
 
+    /**
+     * 시작일이 [periodStart]인 구간의 명목 월(제목에 쓰는 달).
+     * 다음 달 월급일이 앞 달로 당겨져 시작일이 된 경우(예: 2027-01 1일 → 2026-12-31)는 다음 달이다.
+     */
+    fun nominalMonth(periodStart: LocalDate, paydayDom: Int): YearMonth {
+        val next = YearMonth.from(periodStart).plusMonths(1)
+        return if (paydayInMonth(next, paydayDom) == periodStart) next else YearMonth.from(periodStart)
+    }
+
     private fun nominalPayday(yearMonth: YearMonth, paydayDom: Int): LocalDate =
         yearMonth.atDay(minOf(paydayDom, yearMonth.lengthOfMonth()))
 

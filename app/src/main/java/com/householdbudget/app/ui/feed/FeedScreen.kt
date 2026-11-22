@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.archive.archiveMonthTitle
@@ -115,6 +116,7 @@ fun FeedScreen(
     val periodOffset by budgetViewModel.ledgerPeriodOffset.collectAsStateWithLifecycle()
     val monthlyBudgetMinor by budgetViewModel.monthlyBudgetMinor.collectAsStateWithLifecycle()
     val today by budgetViewModel.today.collectAsStateWithLifecycle()
+    val paydayDom by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
 
     var query by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
@@ -179,6 +181,7 @@ fun FeedScreen(
                 searchOpen = showSearch,
                 periodOffset = periodOffset,
                 today = today,
+                paydayDom = paydayDom,
                 periodEnter = periodEnter,
                 onPrevious = budgetViewModel::previousPeriod,
                 onNext = budgetViewModel::nextPeriod,
@@ -386,6 +389,7 @@ private fun FeedTopBar(
     periodOffset: Int,
     searchOpen: Boolean,
     today: LocalDate,
+    paydayDom: Int,
     periodEnter: Modifier,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -406,15 +410,15 @@ private fun FeedTopBar(
             )
         }
         if (period != null) {
-            val start = period.startInclusive
+            val month = PeriodResolver().nominalMonth(period.startInclusive, paydayDom)
             Box(modifier = periodEnter, contentAlignment = Alignment.Center) {
                 Text(
-                    text = archiveMonthTitle(start.withMonth(12), today),
+                    text = archiveMonthTitle(month.withMonth(12), today),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.alpha(0f).clearAndSetSemantics { },
                 )
                 Text(
-                    text = archiveMonthTitle(start, today),
+                    text = archiveMonthTitle(month, today),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )

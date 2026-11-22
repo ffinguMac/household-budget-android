@@ -196,4 +196,33 @@ class PeriodResolverTest {
         val p = resolver.periodAtOffset(LocalDate.of(2026, 12, 31), 1, 0)
         assertEquals(LocalDate.of(2026, 12, 31), p.startInclusive)
     }
+
+    @Test
+    fun nominalMonth_payday1PulledIntoDecember_isJanuary() { // 2027-01-01 신정 → 2026-12-31
+        assertEquals(YearMonth.of(2027, 1), resolver.nominalMonth(LocalDate.of(2026, 12, 31), 1))
+    }
+
+    @Test
+    fun nominalMonth_payday25_isStartMonth() {
+        assertEquals(YearMonth.of(2025, 5), resolver.nominalMonth(LocalDate.of(2025, 5, 23), 25))
+    }
+
+    @Test
+    fun nominalMonth_payday1NotShifted_isStartMonth() {
+        assertEquals(YearMonth.of(2025, 4), resolver.nominalMonth(LocalDate.of(2025, 4, 1), 1))
+    }
+
+    @Test
+    fun nominalMonth_consecutivePeriods_areConsecutiveMonths_everyPayday() {
+        for (dom in 1..31) {
+            var period = resolver.periodContaining(LocalDate.of(2025, 1, 15), dom)
+            var prev = resolver.nominalMonth(period.startInclusive, dom)
+            repeat(36) {
+                period = resolver.nextPeriod(period, dom)
+                val month = resolver.nominalMonth(period.startInclusive, dom)
+                assertEquals("dom=$dom start=${period.startInclusive}", prev.plusMonths(1), month)
+                prev = month
+            }
+        }
+    }
 }

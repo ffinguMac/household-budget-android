@@ -39,6 +39,7 @@ import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.BudgetPeriod
+import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.KindSummaryRow
@@ -63,6 +64,7 @@ fun ArchiveDetailScreen(
     var confirmCount by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
     val today by repository.today.collectAsStateWithLifecycle()
+    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
 
     LaunchedEffect(archiveId) {
         header = repository.getArchivedPeriod(archiveId)
@@ -75,7 +77,7 @@ fun ArchiveDetailScreen(
             title = if (h == null) {
                 stringResource(R.string.archive_title)
             } else {
-                archiveMonthTitle(LocalDate.ofEpochDay(h.startEpochDay), today)
+                archiveMonthTitle(PeriodResolver().nominalMonth(LocalDate.ofEpochDay(h.startEpochDay), paydayDom), today)
             },
             onBack = onBack,
             actions = {
@@ -192,7 +194,7 @@ fun ArchiveDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmCount = null },
             title = {
-                Text(stringResource(R.string.archive_delete_confirm_title, archiveMonthTitle(LocalDate.ofEpochDay(dh.startEpochDay), today)))
+                Text(stringResource(R.string.archive_delete_confirm_title, archiveMonthTitle(PeriodResolver().nominalMonth(LocalDate.ofEpochDay(dh.startEpochDay), paydayDom), today)))
             },
             text = { Text(stringResource(R.string.archive_delete_confirm_body, range, count)) },
             confirmButton = {
