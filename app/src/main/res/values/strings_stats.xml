@@ -41,7 +41,7 @@
     <string name="stats_map_overspent">초과 지출</string>
     <string name="stats_map_savings">저축</string>
     <string name="stats_map_empty_title">이번 달 거래가 아직 없어요</string>
-    <string name="stats_map_empty_desc">거래를 기록하면 돈의 흐름을 지도로 보여드려요.</string>
+    <string name="stats_map_empty_desc">거래를 기록하면 돈의 흐름을 맵으로 보여드려요.</string>
 
     <!-- 상세 바텀시트 -->
     <string name="stats_sheet_total">%1$d건 · %2$s</string>
