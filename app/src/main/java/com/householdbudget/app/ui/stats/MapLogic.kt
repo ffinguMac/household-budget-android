@@ -1,5 +1,6 @@
 package com.householdbudget.app.ui.stats
 
+import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -75,3 +76,12 @@ internal fun tileTier(widthDp: Float, heightDp: Float): TileTier = when {
     widthDp >= 54f && heightDp >= 40f -> TileTier.MID
     else -> TileTier.SMALL
 }
+
+/** 기간 시작 후 [elapsedDays]일째까지의 지출 합("지난달 이맘때" 비교용). */
+internal fun spentThroughDay(
+    rows: List<TransactionWithCategoryRow>,
+    periodStartEpochDay: Long,
+    elapsedDays: Long,
+): Long =
+    rows.filter { it.kind == "EXPENSE" && it.occurredEpochDay - periodStartEpochDay <= elapsedDays }
+        .sumOf { it.amountMinor }

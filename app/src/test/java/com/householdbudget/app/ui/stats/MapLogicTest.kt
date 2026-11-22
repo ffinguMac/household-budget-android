@@ -1,5 +1,6 @@
 package com.householdbudget.app.ui.stats
 
+import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -86,5 +87,15 @@ class MapLogicTest {
         assertEquals(TileTier.MID, tileTier(54f, 40f))
         assertEquals(TileTier.SMALL, tileTier(53.9f, 40f))
         assertEquals(TileTier.SMALL, tileTier(200f, 39.9f))
+    }
+
+    private fun row(day: Long, amount: Long, kind: String) =
+        TransactionWithCategoryRow(day, day, amount, kind, 1, "식비", null, null, "", "MANUAL")
+
+    @Test fun spentThroughDay_countsOnlyExpensesUpToElapsedDay() {
+        val rows = listOf(row(100, 1_000, "EXPENSE"), row(102, 2_000, "EXPENSE"),
+            row(103, 4_000, "EXPENSE"), row(101, 9_000, "INCOME"))
+        assertEquals(3_000, spentThroughDay(rows, periodStartEpochDay = 100, elapsedDays = 2))
+        assertEquals(0, spentThroughDay(emptyList(), 100, 2))
     }
 }
