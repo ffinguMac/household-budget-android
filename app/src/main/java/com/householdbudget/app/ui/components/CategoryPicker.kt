@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.CategoryEntity
@@ -96,12 +97,16 @@ fun CategoryPicker(
                         PickerTile(
                             onClick = {
                                 val children = childrenByParent[parent.id].orEmpty()
-                                if (children.size == 1) onLeafSelected(children.first()) else expandedParentId = parent.id
+                                when (children.size) {
+                                    0 -> Unit // 세부가 없으면 고를 것이 없다.
+                                    1 -> onLeafSelected(children.first())
+                                    else -> expandedParentId = parent.id
+                                }
                             },
                             modifier = Modifier.weight(1f),
                         ) {
                             Text(categoryStyleOf(parent.name).emoji, style = MaterialTheme.typography.titleLarge)
-                            Text(parent.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                            Text(parent.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -120,7 +125,7 @@ private fun PickerTile(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(64.dp),
+        modifier = modifier.heightIn(min = 64.dp),
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurface,

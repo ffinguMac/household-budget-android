@@ -32,6 +32,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.runtime.key
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.BasicTextField
@@ -160,6 +167,9 @@ fun EditTransactionScreen(
 
     val focusManager = LocalFocusManager.current
     val haptics = LocalHapticFeedback.current
+    // 시스템 뒤로 가기로 키보드만 닫혀도 메모 포커스를 풀어 키패드를 되살린다.
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) { if (!imeVisible) focusManager.clearFocus() }
 
     val requestClose: () -> Unit = {
         if (vm.hasUnsavedChanges()) showDiscardConfirm = true else onClose()
@@ -250,35 +260,38 @@ fun EditTransactionScreen(
                                 ) { focusManager.clearFocus() },
                     )
                     Box(Modifier.fillMaxWidth().padding(bottom = Space.sm), contentAlignment = Alignment.Center) {
-                        DatePill(
-                            label = datePillLabel(ui.date, today),
-                            onClick = { showDateMenu = true },
-                        )
-                        DropdownMenu(
-                            expanded = showDateMenu,
-                            onDismissRequest = { showDateMenu = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.edit_date_today)) },
-                                onClick = {
-                                    vm.setDate(today)
-                                    showDateMenu = false
-                                },
+                        // 메뉴가 알약 아래에 붙도록 알약 크기의 Box 에 둔다.
+                        Box {
+                            DatePill(
+                                label = datePillLabel(ui.date, today),
+                                onClick = { showDateMenu = true },
                             )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.edit_date_yesterday)) },
-                                onClick = {
-                                    vm.setDate(today.minusDays(1))
-                                    showDateMenu = false
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.edit_pick_date)) },
-                                onClick = {
-                                    showDateMenu = false
-                                    showDatePicker = true
-                                },
-                            )
+                            DropdownMenu(
+                                expanded = showDateMenu,
+                                onDismissRequest = { showDateMenu = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_date_today)) },
+                                    onClick = {
+                                        vm.setDate(today)
+                                        showDateMenu = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_date_yesterday)) },
+                                    onClick = {
+                                        vm.setDate(today.minusDays(1))
+                                        showDateMenu = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_pick_date)) },
+                                    onClick = {
+                                        showDateMenu = false
+                                        showDatePicker = true
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -386,18 +399,23 @@ fun EditTransactionScreen(
                     }
                 }
 
-                CategoryPicker(
-                    parents = parents,
-                    childrenByParent = childrenByParent,
-                    selectedLeafId = ui.categoryId,
-                    onLeafSelected = { leaf -> vm.setParent(leaf.parentId!!, leaf) },
-                    onMore = { showCategorySheet = true },
-                )
+                // 종류를 바꾸면 펼쳐 둔 대분류를 접는다.
+                key(ui.kind) {
+                    CategoryPicker(
+                        parents = parents,
+                        childrenByParent = childrenByParent,
+                        selectedLeafId = ui.categoryId,
+                        onLeafSelected = { leaf -> vm.setParent(leaf.parentId!!, leaf) },
+                        onMore = { showCategorySheet = true },
+                    )
+                }
 
                 BasicTextField(
                     value = ui.memo,
                     onValueChange = vm::setMemo,
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier =
@@ -673,32 +691,43 @@ private fun KindSelector(
             CategoryKind.INCOME to stringResource(R.string.edit_income),
             CategoryKind.SAVINGS to stringResource(R.string.edit_savings),
         )
-    Row(
-        modifier
-            .width(240.dp)
-            .height(36.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(2.dp),
-    ) {
-        entries.forEach { (kind, label) ->
-            val isSelected = kind == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(CircleShape)
-                    .background(if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent)
-                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(kind) }),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color =
-                        if (isSelected) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    // 보이는 트랙은 36dp, 각 칸의 터치 영역은 48dp.
+    Box(modifier.width(240.dp).height(48.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
+        Row(Modifier.fillMaxSize().selectableGroup()) {
+            entries.forEach { (kind, label) ->
+                val isSelected = kind == selected
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(kind) }),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .padding(horizontal = Space.xs)
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color =
+                                if (isSelected) MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
