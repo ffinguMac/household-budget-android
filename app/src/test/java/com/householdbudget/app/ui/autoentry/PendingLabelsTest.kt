@@ -19,4 +19,10 @@ class PendingLabelsTest {
         assertEquals(R.string.auto_reason_unclassified, reasonLabelRes(null))
         assertEquals(R.string.auto_reason_restored, reasonLabelRes("RESTORED"))
     }
+
+    @Test fun roParticle_followsFinalConsonant() {
+        assertEquals("으로", roParticle("기본")); assertEquals("으로", roParticle("교통"))
+        assertEquals("로", roParticle("식비")); assertEquals("로", roParticle("술")); assertEquals("로", roParticle("카페"))
+        assertEquals("로", roParticle("ATM")); assertEquals("로", roParticle(""))
+    }
 }
