@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -116,7 +116,7 @@ private fun SummaryBar(summary: MapSummary) {
                 .padding(top = Space.xs)
                 .fillMaxWidth()
                 .height(14.dp)
-                .clip(RoundedCornerShape(7.dp)),
+                .clip(CircleShape),
     ) {
         segments.forEach { segment ->
             // 초과 구간은 카테고리색과 구분되게 2dp 틈을 둔다.
@@ -147,7 +147,7 @@ private fun SummaryBar(summary: MapSummary) {
                     modifier =
                         Modifier
                             .size(10.dp)
-                            .clip(RoundedCornerShape(3.dp))
+                            .clip(CircleShape)
                             .background(colors.getValue(segment.part)),
                 )
                 Text(

@@ -28,7 +28,6 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -130,7 +129,7 @@ internal fun MoneyMap(
                     fun line(text: AnnotatedString, textStyle: TextStyle) =
                         measureSingleLine(textMeasurer, text, textStyle, maxTextWidth)
                     val tier = tileTier(placed.rect.width.toDp().value, placed.rect.height.toDp().value)
-                    if (tier == TileTier.SMALL || maxTextWidth == 0) {
+                    fun emojiOnly(): RenderTile {
                         val emoji =
                             measureSingleLine(
                                 textMeasurer,
@@ -140,14 +139,18 @@ internal fun MoneyMap(
                             )
                         val fits = minOf(inner.width, inner.height) >=
                             maxOf(emoji.size.width, emoji.size.height)
-                        RenderTile(inner, style.color, if (fits) listOf(emoji) else emptyList(), true)
+                        return RenderTile(inner, style.color, if (fits) listOf(emoji) else emptyList(), true)
+                    }
+                    if (tier == TileTier.SMALL || maxTextWidth == 0) {
+                        emojiOnly()
                     } else {
                         val big = tier == TileTier.BIG
                         val amount = AnnotatedString(compactAmountLabel(row.amountMinor))
+                        val amountLine = line(amount, if (big) bigAmount else midAmount)
                         val layouts = buildList {
                             add(line(AnnotatedString(style.emoji), if (big) bigEmoji else midEmoji))
                             add(line(AnnotatedString(row.name), if (big) bigName else midName))
-                            add(line(amount, if (big) bigAmount else midAmount))
+                            add(amountLine)
                             if (big) {
                                 val meta = buildAnnotatedString {
                                     withStyle(SpanStyle(color = onSurfaceVariant)) {
@@ -157,6 +160,8 @@ internal fun MoneyMap(
                                 add(line(meta, bigMeta))
                             }
                         }
+                        // 금액이 잘리면 틀린 숫자처럼 보이므로 이모지만 보여준다.
+                        if (amountLine.hasVisualOverflow) return@map emojiOnly()
                         // 높이가 모자라면 우선순위가 낮은 줄부터 뺀다.
                         // BIG: 이모지 > 금액 > 이름 > 비율·증감, MID: 금액 > 이모지 > 이름.
                         var used = pad
@@ -191,7 +196,7 @@ internal fun MoneyMap(
                     }
                 },
     ) {
-        val corner = CornerRadius(14.dp.toPx())
+        val corner = CornerRadius(12.dp.toPx())
         val pad = 8.dp.toPx()
         renderTiles.forEach { tile ->
             val topLeft = Offset(tile.rect.left, tile.rect.top)

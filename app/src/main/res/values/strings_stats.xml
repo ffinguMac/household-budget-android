@@ -25,7 +25,6 @@
     <string name="stats_cat_pct">예산 %1$s의 %2$d%%</string>
     <string name="stats_cat_over">예산 %1$s보다 %2$s 더 썼어요</string>
     <string name="stats_cat_no_budget">예산을 정하지 않았어요</string>
-    <string name="stats_cat_zero">아직 쓴 돈이 없어요</string>
     <string name="stats_category_empty">이번 달 지출이 아직 없어요</string>
 
     <!-- 머니 맵 -->

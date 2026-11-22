@@ -54,7 +54,6 @@ import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.categoryStyleOf
-import com.householdbudget.app.ui.theme.categoryLabel
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
@@ -350,7 +349,7 @@ private fun ModeToggle(
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 0.dp,
     ) {
-        Row(modifier = Modifier.padding(Space.xs)) {
+        Row {
             ModeChip(
                 label = stringResource(R.string.stats_mode_report),
                 selected = mode == MODE_LIST,
@@ -372,26 +371,31 @@ private fun ModeChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 눌리는 영역은 48dp, 보이는 알약은 32dp.
     Box(
-        modifier =
-            modifier
-                .clip(CircleShape)
-                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
-                .clickable(onClick = onClick)
-                .defaultMinSize(minWidth = 48.dp, minHeight = 40.dp)
-                .padding(horizontal = Space.md),
+        modifier = modifier.clickable(onClick = onClick).defaultMinSize(minWidth = 64.dp, minHeight = 48.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color =
-                if (selected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
+        Box(
+            modifier =
+                Modifier
+                    .height(32.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .padding(horizontal = Space.md),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color =
+                    if (selected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
     }
 }
 
@@ -677,14 +681,9 @@ private fun CategoryBudgetRow(
     val hasBudget = budgetMinor != null && budgetMinor > 0L
     val over = hasBudget && parent.currentMinor > budgetMinor!!
     val barFraction =
-        when {
-            parent.currentMinor <= 0L -> 0f
-            hasBudget -> (parent.currentMinor.toFloat() / budgetMinor!!).coerceIn(0f, 1f)
-            else -> 1f
-        }
+        if (hasBudget) (parent.currentMinor.toFloat() / budgetMinor!!).coerceIn(0f, 1f) else 0f
     val caption =
         when {
-            parent.currentMinor <= 0L -> stringResource(R.string.stats_cat_zero)
             !hasBudget -> stringResource(R.string.stats_cat_no_budget)
             over ->
                 stringResource(
@@ -732,7 +731,13 @@ private fun CategoryBudgetRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            ThinBar(fraction = barFraction, color = style.color, height = 4.dp)
+            if (hasBudget) {
+                ThinBar(
+                    fraction = barFraction,
+                    color = if (over) MaterialTheme.colorScheme.error else style.color,
+                    height = 4.dp,
+                )
+            }
             Text(
                 text = caption,
                 style = MaterialTheme.typography.bodySmall,
