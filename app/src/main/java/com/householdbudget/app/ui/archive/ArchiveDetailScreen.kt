@@ -2,6 +2,7 @@ package com.householdbudget.app.ui.archive
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +17,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,7 +37,9 @@ import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.components.KindSummaryRow
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
@@ -63,36 +63,11 @@ fun ArchiveDetailScreen(
 
     val h = header
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.archive_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-    ) { inner ->
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        AppTopBar(title = stringResource(R.string.archive_title), onBack = onBack)
         if (h == null) {
             Box(
                 Modifier
-                    .padding(inner)
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
                     .padding(ScreenHorizontalPadding),
@@ -103,7 +78,7 @@ fun ArchiveDetailScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            return@Scaffold
+            return@Column
         }
 
         // null = 아직 로드 전. 합계는 스냅샷이 아니라 이 목록에서 낸다(지난 거래 수정 반영).
@@ -122,10 +97,9 @@ fun ArchiveDetailScreen(
 
         LazyColumn(
             modifier = Modifier
-                .padding(inner)
-                .fillMaxSize()
+                    .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(bottom = Space.xxxl),
+            contentPadding = PaddingValues(bottom = pushedBottomPadding()),
         ) {
             item {
                 // "8월 · 8.25 ~ 9.24 (월급날 기준)"

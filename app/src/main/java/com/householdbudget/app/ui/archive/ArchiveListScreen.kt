@@ -41,8 +41,9 @@ import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.ui.components.KindSummaryRow
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
@@ -85,13 +86,15 @@ fun ArchiveListScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = Space.xxxl),
+        contentPadding = PaddingValues(bottom = pushedBottomPadding()),
     ) {
         item {
-            ScreenHeader(
-                title = stringResource(R.string.archive_title),
-                subtitle = stringResource(R.string.archive_subtitle_short),
-                modifier = Modifier.fillMaxWidth(),
+            AppTopBar(title = stringResource(R.string.archive_title))
+            Text(
+                text = stringResource(R.string.archive_subtitle_short),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Space.sm),
             )
         }
 

@@ -54,13 +54,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
@@ -84,10 +84,10 @@ private const val TAB_TRANSITION_MS = 200
 private const val TAB_SLIDE_OFFSET_PX = 40
 
 /** 중앙 + 버튼 지름. */
-private val AddButtonSize = 50.dp
+private val AddButtonSize = 56.dp
 
 /** 중앙 + 버튼이 바 위로 돌출되는 높이. */
-private val AddButtonProtrusion = 20.dp
+private val AddButtonProtrusion = 16.dp
 
 private enum class MainTab(
     val icon: ImageVector,
@@ -162,14 +162,18 @@ fun MainTabScaffold(
         }
     }
 
+    val pushed = selected == MainTab.SETTINGS && settingsPane != SettingsPane.Main
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            MidnightBottomBar(
-                selected = selected,
-                onSelect = { selectedOrdinal = it.ordinal },
-                onAdd = onNavigateAdd,
-            )
+            if (!pushed) {
+                AppBottomBar(
+                    selected = selected,
+                    onSelect = { selectedOrdinal = it.ordinal },
+                    onAdd = onNavigateAdd,
+                )
+            }
         },
     ) { padding ->
         // 하단 인셋은 넘기지 않는다: 리스트가 바텀바 아래로 자연스럽게 스크롤되고,
@@ -283,7 +287,7 @@ fun MainTabScaffold(
  * 돌출부 옆 투명 영역은 포인터 핸들러가 없어 터치가 아래 콘텐츠로 통과한다.
  */
 @Composable
-private fun MidnightBottomBar(
+private fun AppBottomBar(
     selected: MainTab,
     onSelect: (MainTab) -> Unit,
     onAdd: () -> Unit,
@@ -315,24 +319,24 @@ private fun MidnightBottomBar(
                                 .height(62.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.FEED,
                             selected = selected == MainTab.FEED,
                             onClick = { onSelect(MainTab.FEED) },
                         )
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.CALENDAR,
                             selected = selected == MainTab.CALENDAR,
                             onClick = { onSelect(MainTab.CALENDAR) },
                         )
                         // 중앙 + 버튼 자리 비움 (버튼은 바깥 Box 에 오버레이).
                         Spacer(modifier = Modifier.weight(1f))
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.STATS,
                             selected = selected == MainTab.STATS,
                             onClick = { onSelect(MainTab.STATS) },
                         )
-                        TossNavItem(
+                        NavItem(
                             tab = MainTab.SETTINGS,
                             selected = selected == MainTab.SETTINGS,
                             onClick = { onSelect(MainTab.SETTINGS) },
@@ -348,6 +352,12 @@ private fun MidnightBottomBar(
                 Modifier
                     .align(Alignment.TopCenter)
                     .size(AddButtonSize)
+                    .shadow(
+                        8.dp,
+                        CircleShape,
+                        ambientColor = MaterialTheme.colorScheme.primary,
+                        spotColor = MaterialTheme.colorScheme.primary,
+                    )
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary)
                     .clickable(onClick = onAdd),
@@ -364,7 +374,7 @@ private fun MidnightBottomBar(
 }
 
 @Composable
-private fun RowScope.TossNavItem(
+private fun RowScope.NavItem(
     tab: MainTab,
     selected: Boolean,
     onClick: () -> Unit,
@@ -421,9 +431,8 @@ private fun RowScope.TossNavItem(
         )
         Text(
             text = stringResource(tab.labelRes),
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelLarge,
             color = contentColor,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }

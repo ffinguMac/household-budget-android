@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.householdbudget.app.domain.CategoryKind
@@ -49,17 +48,7 @@ fun TransactionRow(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val title =
-        if (parentCategoryName.isNullOrBlank()) {
-            categoryName
-        } else {
-            "$parentCategoryName · $categoryName"
-        }
-    val supporting =
-        listOfNotNull(
-            dateLabel?.takeIf { it.isNotBlank() },
-            memo.takeIf { it.isNotBlank() },
-        ).joinToString(" · ")
+    val (title, supporting) = transactionRowTexts(categoryName, parentCategoryName, memo, dateLabel)
 
     Row(
         modifier =
@@ -77,27 +66,24 @@ fun TransactionRow(
         Box(
             modifier =
                 Modifier
-                    .size(44.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(style.color.copy(alpha = 0.18f))
+                    .background(style.color.copy(alpha = 0.16f))
                     .clearAndSetSemantics { },
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = style.emoji,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
                 color = style.color,
             )
         }
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(Space.xs),
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -114,9 +100,23 @@ fun TransactionRow(
         }
         Text(
             text = amountMinor.formatSignedWon(kind),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium,
             color = kindAccent(kind),
         )
     }
+}
+
+/** (제목, 보조줄). 가맹점(메모)이 제목, 메모가 비면 소분류 이름이 제목. */
+internal fun transactionRowTexts(
+    categoryName: String,
+    parentCategoryName: String?,
+    memo: String,
+    dateLabel: String?,
+): Pair<String, String> {
+    val title = memo.trim().ifEmpty { categoryName }
+    val category =
+        if (memo.isBlank()) parentCategoryName?.takeIf { it.isNotBlank() }
+        else listOfNotNull(parentCategoryName?.takeIf { it.isNotBlank() }, categoryName).joinToString(" · ")
+    val subtitle = listOfNotNull(dateLabel?.takeIf { it.isNotBlank() }, category?.takeIf { it.isNotEmpty() }).joinToString(" · ")
+    return title to subtitle
 }

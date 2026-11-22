@@ -70,7 +70,7 @@ import com.householdbudget.app.ui.archive.archiveMonthTitle
 import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.theme.Space
@@ -172,8 +172,7 @@ fun FeedScreen(
         contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
         item(key = "header", contentType = "header") {
-            // ScreenHeader 는 좌우/상하 패딩을 스스로 처리한다.
-            ScreenHeader(title = stringResource(R.string.nav_feed))
+            AppTopBar(title = stringResource(R.string.nav_feed))
         }
 
         if (pendingCount > 0) {

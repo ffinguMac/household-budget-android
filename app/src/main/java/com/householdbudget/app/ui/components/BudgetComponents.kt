@@ -1,10 +1,22 @@
 package com.householdbudget.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,7 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import com.householdbudget.app.R
 import androidx.compose.ui.unit.dp
 import com.householdbudget.app.ui.theme.Space
 
@@ -60,7 +74,6 @@ private fun SectionHeaderText(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
         )
         if (!subtitle.isNullOrBlank()) {
@@ -74,48 +87,46 @@ private fun SectionHeaderText(
     }
 }
 
-/** 화면 상단 큰 제목 블록. Home/Ledger/Calendar/Archive 공용 헤더. */
+/** 모든 화면 공용 상단 바. 인셋은 바깥 Scaffold 가 이미 준다. */
 @Composable
-fun ScreenHeader(
+fun AppTopBar(
     title: String,
-    subtitle: String? = null,
-    eyebrow: String? = null,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(
-                    start = ScreenHorizontalPadding,
-                    end = ScreenHorizontalPadding,
-                    top = Space.xl,
-                    bottom = Space.lg,
-                ),
-        verticalArrangement = Arrangement.spacedBy(Space.xs),
+    Row(
+        modifier = modifier.fillMaxWidth().height(56.dp).padding(horizontal = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!eyebrow.isNullOrBlank()) {
-            Text(
-                text = eyebrow,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        if (onBack != null) {
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                )
+            }
+        } else {
+            Spacer(Modifier.width(Space.md))
         }
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
-        if (!subtitle.isNullOrBlank()) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        actions()
     }
 }
+
+/** 하단 바가 숨겨진 화면의 목록 아래 여백: 시스템 내비게이션 바 + Space.xxl. */
+@Composable
+fun pushedBottomPadding(): Dp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + Space.xxl
+
+@Composable
+fun cardBorder(): BorderStroke = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
 @Composable
 fun ElevatedPanel(
@@ -125,7 +136,8 @@ fun ElevatedPanel(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surface,
+        border = cardBorder(),
         tonalElevation = 0.dp,
     ) {
         Column(

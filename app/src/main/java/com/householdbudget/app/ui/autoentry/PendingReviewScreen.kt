@@ -47,8 +47,9 @@ import com.householdbudget.app.data.local.entity.AutoEntryEntity
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.EmptyState
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.CategoryDot
 import com.householdbudget.app.ui.theme.categoryStyleOf
@@ -82,16 +83,11 @@ fun PendingReviewScreen(
     var selected by remember { mutableStateOf<AutoEntryEntity?>(null) }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-            }
-            ScreenHeader(title = stringResource(R.string.auto_pending_title), modifier = Modifier.weight(1f))
-        }
+        AppTopBar(title = stringResource(R.string.auto_pending_title), onBack = onBack)
         if (entries.isEmpty()) {
             EmptyState(icon = Icons.Filled.PendingActions, title = stringResource(R.string.auto_pending_empty))
         } else {
-            LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
+            LazyColumn(contentPadding = PaddingValues(bottom = pushedBottomPadding())) {
                 items(entries, key = { it.id }) { e ->
                     Column(
                         modifier = Modifier.fillMaxWidth().clickable { selected = e }

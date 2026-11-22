@@ -40,8 +40,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.settings.SettingsActionRow
 import com.householdbudget.app.ui.settings.SettingsGroupPanel
@@ -75,15 +76,10 @@ fun AutoEntrySettingsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = pushedBottomPadding()),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                }
-                ScreenHeader(title = stringResource(R.string.auto_title), modifier = Modifier.weight(1f))
-            }
+            AppTopBar(title = stringResource(R.string.auto_title), onBack = onBack)
         }
 
         item {

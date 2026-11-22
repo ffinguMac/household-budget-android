@@ -66,7 +66,7 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.export.CsvExporter
 import com.householdbudget.app.data.work.ReminderScheduler
 import com.householdbudget.app.ui.BudgetViewModel
-import com.householdbudget.app.ui.components.ScreenHeader
+import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
 import com.householdbudget.app.ui.theme.Space
@@ -175,10 +175,7 @@ fun SettingsScreen(
         contentPadding = PaddingValues(bottom = 96.dp),
     ) {
         item {
-            ScreenHeader(
-                title = stringResource(R.string.nav_settings),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            AppTopBar(title = stringResource(R.string.nav_settings))
         }
 
         // ── 기본 ─────────────────────────────────────────────────────────────
