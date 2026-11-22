@@ -7,18 +7,16 @@
 package com.householdbudget.app.ui.edit
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,26 +26,38 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.runtime.key
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,7 +65,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -65,20 +74,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -87,26 +96,20 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.EditTransactionViewModel
-import com.householdbudget.app.ui.autoCategorySelection
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
+import com.householdbudget.app.ui.autoCategorySelection
+import com.householdbudget.app.ui.components.CategoryChip
+import com.householdbudget.app.ui.components.CategoryPicker
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.CategoryDot
-import com.householdbudget.app.ui.theme.categoryStyleOf
 import com.householdbudget.app.ui.theme.categoryLabel
-import com.householdbudget.app.ui.theme.kindAccent
-import com.householdbudget.app.ui.theme.kindContainer
-import com.householdbudget.app.ui.theme.kindOnContainer
-import com.householdbudget.app.ui.theme.kindSignPrefix
-import com.householdbudget.app.ui.util.formatDayLabel
 import com.householdbudget.app.ui.util.formatDigitsGrouped
+import com.householdbudget.app.ui.util.formatShortDayLabel
+import com.householdbudget.app.ui.util.formatWon
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
-
-/** 소분류가 이 개수를 넘으면 칩 대신 바텀시트 피커를 쓴다. */
-private const val LEAF_SHEET_THRESHOLD = 12
 
 private const val KEY_DOUBLE_ZERO = "00"
 private const val KEY_DELETE = "⌫"
@@ -155,21 +158,18 @@ fun EditTransactionScreen(
     }
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var showDateMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     var showCategorySheet by remember { mutableStateOf(false) }
-    // 화면이 열리면 바로 금액을 입력할 수 있게 내장 키패드를 기본 표시한다.
-    var keypadVisible by rememberSaveable { mutableStateOf(true) }
-    // 메모는 접힌 한 줄로 시작. 수정 모드에서 기존 메모가 있으면 자동으로 펼친다.
-    var memoExpanded by rememberSaveable { mutableStateOf(false) }
-    var memoFocusPending by remember { mutableStateOf(false) }
-    val memoFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(ui.loadFinished) {
-        if (ui.loadFinished && ui.memo.isNotBlank()) memoExpanded = true
-    }
+    // 메모에 포커스가 있으면 시스템 키보드를 쓰므로 내장 키패드를 숨긴다.
+    var memoFocused by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
     val haptics = LocalHapticFeedback.current
+    // 시스템 뒤로 가기로 키보드만 닫혀도 메모 포커스를 풀어 키패드를 되살린다.
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) { if (!imeVisible) focusManager.clearFocus() }
 
     val requestClose: () -> Unit = {
         if (vm.hasUnsavedChanges()) showDiscardConfirm = true else onClose()
@@ -178,404 +178,273 @@ fun EditTransactionScreen(
 
     // 하단 + 버튼에서 시트처럼 올라오는 화면 — 최상단 코너만 라운드.
     val sheetShape =
-        MaterialTheme.shapes.large.copy(
+        MaterialTheme.shapes.extraLarge.copy(
             bottomStart = CornerSize(0.dp),
             bottomEnd = CornerSize(0.dp),
         )
 
-    Scaffold(
-        modifier = Modifier.clip(sheetShape),
-        containerColor = MaterialTheme.colorScheme.surface,
-        topBar = {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = Space.sm),
-            ) {
-                // 드래그 핸들 모양의 장식 바.
-                Box(
-                    Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        Modifier
-                            .size(width = 36.dp, height = 4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.outlineVariant),
-                    )
-                }
-                Row(
+    BoxWithConstraints {
+        val keyRowHeight = if (maxHeight < 700.dp) 48.dp else 56.dp
+        Scaffold(
+            modifier = Modifier.clip(sheetShape),
+            containerColor = MaterialTheme.colorScheme.surface,
+            topBar = {
+                Column(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = ScreenHorizontalPadding, end = Space.xs),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .statusBarsPadding()
+                        .padding(top = Space.sm),
                 ) {
-                    Text(
-                        text =
-                            if (transactionId == null) {
-                                stringResource(R.string.edit_title_new)
-                            } else {
-                                stringResource(R.string.edit_title_edit)
-                            },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (transactionId != null) {
-                        IconButton(
-                            onClick = { showDeleteConfirm = true },
-                            enabled = !ui.isSaving,
-                        ) {
+                    // 드래그 핸들 모양의 장식 바.
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier
+                                .size(width = 36.dp, height = 4.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.outlineVariant),
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .padding(horizontal = Space.sm),
+                    ) {
+                        if (transactionId != null) {
+                            IconButton(
+                                onClick = { showDeleteConfirm = true },
+                                enabled = !ui.isSaving,
+                                modifier = Modifier.align(Alignment.CenterStart),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(R.string.edit_delete),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        KindSelector(
+                            selected = ui.kind,
+                            onSelect = vm::setKind,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                        IconButton(onClick = requestClose, modifier = Modifier.align(Alignment.CenterEnd)) {
                             Icon(
-                                Icons.Outlined.Delete,
-                                contentDescription = stringResource(R.string.edit_delete),
+                                Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.common_back),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-                    IconButton(onClick = requestClose) {
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.common_back),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp,
-            ) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .imePadding()
-                        .padding(horizontal = ScreenHorizontalPadding, vertical = Space.md),
-                    verticalArrangement = Arrangement.spacedBy(Space.sm),
-                ) {
-                    if (!ui.canSave) {
-                        Text(
-                            text =
-                                stringResource(
-                                    if (ui.amountMinor <= 0L) R.string.edit_hint_enter_amount
-                                    else R.string.edit_hint_pick_category,
-                                ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (keypadVisible) {
-                        AmountKeypad(
-                            onDigits = vm::appendAmountDigits,
-                            onDelete = vm::deleteLastAmountDigit,
-                            onClear = vm::clearAmount,
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            vm.save(
-                                onSuccess = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onClose()
-                                },
-                                onInvalid = { /* 버튼이 유효할 때만 활성화되므로 도달하지 않는다. */ },
-                            )
-                        },
-                        enabled = ui.canSave && !ui.isSaving,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 52.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                    ) {
-                        if (ui.isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Text(
-                                stringResource(R.string.edit_save),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                }
-            }
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = ScreenHorizontalPadding, vertical = Space.lg),
-            verticalArrangement = Arrangement.spacedBy(Space.md),
-        ) {
-            // ── 카드 1: 금액 + 종류 + 날짜 (얼마 → 언제) ──
-            EditCard {
-                // 큰 금액 디스플레이. 탭하면 내장 키패드를 다시 연다.
-                val amountEmpty = ui.amountText.isEmpty()
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .clickable {
-                            focusManager.clearFocus()
-                            keypadVisible = true
-                        },
-                    contentAlignment = Alignment.CenterStart,
-                ) {
+                    // 금액은 스크롤 밖에 고정한다. 누르면 메모 포커스를 풀고 키패드를 다시 연다.
+                    val amountEmpty = ui.amountText.isEmpty()
                     Text(
                         text =
                             if (amountEmpty) {
                                 stringResource(R.string.edit_amount_zero)
                             } else {
-                                stringResource(
-                                    R.string.edit_amount_display,
-                                    kindSignPrefix(ui.kind),
-                                    formatDigitsGrouped(ui.amountText),
-                                )
+                                stringResource(R.string.edit_amount_display, formatDigitsGrouped(ui.amountText))
                             },
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.displaySmall,
                         color =
                             if (amountEmpty) MaterialTheme.colorScheme.onSurfaceVariant
-                            else kindAccent(ui.kind),
+                            else MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = Space.md)
+                                .clickable(
+                                    interactionSource = null,
+                                    indication = null,
+                                ) { focusManager.clearFocus() },
                     )
+                    Box(Modifier.fillMaxWidth().padding(bottom = Space.sm), contentAlignment = Alignment.Center) {
+                        // 메뉴가 알약 아래에 붙도록 알약 크기의 Box 에 둔다.
+                        Box {
+                            DatePill(
+                                label = datePillLabel(ui.date, today),
+                                onClick = { showDateMenu = true },
+                            )
+                            DropdownMenu(
+                                expanded = showDateMenu,
+                                onDismissRequest = { showDateMenu = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_date_today)) },
+                                    onClick = {
+                                        vm.setDate(today)
+                                        showDateMenu = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_date_yesterday)) },
+                                    onClick = {
+                                        vm.setDate(today.minusDays(1))
+                                        showDateMenu = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_pick_date)) },
+                                    onClick = {
+                                        showDateMenu = false
+                                        showDatePicker = true
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
-
-                KindSelector(selected = ui.kind, onSelect = vm::setKind)
-
-                // 날짜: 현재 라벨 + 빠른 선택 칩.
-                Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+            },
+            bottomBar = {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .navigationBarsPadding()
+                        .imePadding(),
+                ) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Column(
+                        Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Space.md),
+                        verticalArrangement = Arrangement.spacedBy(Space.sm),
                     ) {
+                        if (!memoFocused) {
+                            AmountKeypad(
+                                rowHeight = keyRowHeight,
+                                onDigits = vm::appendAmountDigits,
+                                onDelete = vm::deleteLastAmountDigit,
+                                onClear = vm::clearAmount,
+                            )
+                        }
+                        SaveButton(
+                            label =
+                                when {
+                                    ui.amountMinor <= 0L -> stringResource(R.string.edit_save_need_amount)
+                                    ui.categoryId == null -> stringResource(R.string.edit_save_need_category)
+                                    else -> stringResource(R.string.edit_save_amount, ui.amountMinor.formatWon())
+                                },
+                            enabled = ui.canSave && !ui.isSaving,
+                            saving = ui.isSaving,
+                            onClick = {
+                                vm.save(
+                                    onSuccess = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onClose()
+                                    },
+                                    onInvalid = { /* 버튼이 유효할 때만 활성화되므로 도달하지 않는다. */ },
+                                )
+                            },
+                        )
+                    }
+                }
+            },
+        ) { padding ->
+            Column(
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = ScreenHorizontalPadding, vertical = Space.sm),
+                verticalArrangement = Arrangement.spacedBy(Space.sm),
+            ) {
+                // 카테고리 한 줄 상태 — 선택 결과의 유일한 표시.
+                val selectedParent = parents.firstOrNull { it.id == ui.parentId }
+                val selectedLeaf = leaves.firstOrNull { it.id == ui.categoryId }
+                Row(
+                    Modifier.heightIn(min = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Space.sm),
+                ) {
+                    if (selectedParent != null && selectedLeaf != null) {
                         Text(
-                            text = ui.date.formatDayLabel(today),
+                            text = stringResource(R.string.edit_category_selected, selectedParent.name, selectedLeaf.name),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        if (ui.date.isAfter(today)) {
-                            Text(
-                                text = stringResource(R.string.edit_date_future_badge),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                        DateQuickChip(
-                            selected = ui.date == today,
-                            label = stringResource(R.string.edit_date_today),
-                            onClick = { vm.setDate(today) },
+                        Icon(
+                            Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
                         )
-                        DateQuickChip(
-                            selected = ui.date == today.minusDays(1),
-                            label = stringResource(R.string.edit_date_yesterday),
-                            onClick = { vm.setDate(today.minusDays(1)) },
-                        )
-                        DateQuickChip(
-                            selected = ui.date != today && ui.date != today.minusDays(1),
-                            label = stringResource(R.string.edit_pick_date),
-                            onClick = { showDatePicker = true },
-                        )
-                    }
-                }
-            }
-
-            // ── 카드 2: 카테고리 ──
-            EditCard {
-                Text(
-                    text = stringResource(R.string.edit_category),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                if (recentLeaves.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.edit_recent_categories),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                        verticalArrangement = Arrangement.spacedBy(Space.xs),
-                    ) {
-                        recentLeaves.forEach { leaf ->
-                            val pid = leaf.parentId ?: return@forEach
-                            FilterChip(
-                                selected = ui.categoryId == leaf.id,
-                                onClick = { vm.setParent(pid, leaf) },
-                                label = { Text(leaf.name) },
-                                colors = leafChipColors(),
-                            )
-                        }
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.edit_category_parent),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                    verticalArrangement = Arrangement.spacedBy(Space.xs),
-                ) {
-                    parents.forEach { parent ->
-                        FilterChip(
-                            selected = ui.parentId == parent.id,
-                            onClick = {
-                                val first = childrenByParent[parent.id]?.firstOrNull()
-                                vm.setParent(parent.id, first)
-                            },
-                            label = { Text(categoryLabel(parent.name)) },
-                            leadingIcon = { CategoryDot(categoryStyleOf(parent.name).color) },
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                        )
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.edit_category_child),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                when {
-                    ui.parentId == null || leaves.isEmpty() -> {
+                    } else {
                         Text(
-                            text = stringResource(R.string.edit_category_pick_parent_first),
+                            text = stringResource(R.string.edit_category),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    leaves.size > LEAF_SHEET_THRESHOLD -> {
-                        Surface(
-                            onClick = { showCategorySheet = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        ) {
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 48.dp)
-                                    .padding(horizontal = Space.md),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text =
-                                        leaves.firstOrNull { it.id == ui.categoryId }?.name
-                                            ?: stringResource(R.string.edit_hint_pick_category),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Icon(
-                                    Icons.Filled.KeyboardArrowDown,
-                                    contentDescription = stringResource(R.string.edit_category_open_picker),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                    else -> {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                            verticalArrangement = Arrangement.spacedBy(Space.xs),
-                        ) {
-                            leaves.forEach { leaf ->
-                                FilterChip(
-                                    selected = ui.categoryId == leaf.id,
-                                    onClick = { vm.setCategoryId(leaf.id) },
-                                    label = { Text(leaf.name) },
-                                    colors = leafChipColors(),
-                                )
-                            }
-                        }
-                    }
                 }
-                if (ui.loadFinished && ui.categoryId == null) {
-                    Text(
-                        text = stringResource(R.string.edit_hint_pick_category),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
 
-            // ── 카드 3: 메모 (한 줄 → 탭하면 입력 필드로 확장) ──
-            EditCard {
-                if (!memoExpanded) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.medium)
-                            .clickable {
-                                memoExpanded = true
-                                memoFocusPending = true
-                            }
-                            .heightIn(min = 48.dp),
+                if (recentLeaves.isNotEmpty()) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(Space.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = stringResource(R.string.edit_memo_collapsed),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    OutlinedTextField(
-                        value = ui.memo,
-                        onValueChange = vm::setMemo,
-                        label = { Text(stringResource(R.string.edit_memo)) },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .focusRequester(memoFocusRequester)
-                                .onFocusChanged { if (it.isFocused) keypadVisible = false },
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            ),
-                    )
-                    // 사용자가 직접 탭해서 펼친 경우에만 포커스를 준다 (수정 모드 자동 확장 제외).
-                    LaunchedEffect(Unit) {
-                        if (memoFocusPending) {
-                            memoFocusPending = false
-                            memoFocusRequester.requestFocus()
+                        item {
+                            Text(
+                                text = stringResource(R.string.edit_recent_categories),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        items(recentLeaves, key = { it.id }) { leaf ->
+                            CategoryChip(
+                                label = leaf.name,
+                                selected = false,
+                                onClick = { vm.setParent(leaf.parentId!!, leaf) },
+                            )
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(Space.sm))
+                // 종류를 바꾸면 펼쳐 둔 대분류를 접는다.
+                key(ui.kind) {
+                    CategoryPicker(
+                        parents = parents,
+                        childrenByParent = childrenByParent,
+                        selectedLeafId = ui.categoryId,
+                        onLeafSelected = { leaf -> vm.setParent(leaf.parentId!!, leaf) },
+                        onMore = { showCategorySheet = true },
+                    )
+                }
+
+                BasicTextField(
+                    value = ui.memo,
+                    onValueChange = vm::setMemo,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier =
+                        Modifier
+                            .padding(top = Space.sm)
+                            .fillMaxWidth()
+                            .onFocusChanged { memoFocused = it.isFocused },
+                    decorationBox = { inner ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(MaterialTheme.shapes.small)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = Space.lg),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            if (ui.memo.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.edit_memo_hint),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+            }
         }
     }
 
@@ -598,7 +467,6 @@ fun EditTransactionScreen(
                 Text(
                     text = stringResource(R.string.edit_category_sheet_title),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 OutlinedTextField(
@@ -607,7 +475,7 @@ fun EditTransactionScreen(
                     placeholder = { Text(stringResource(R.string.edit_category_search_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = MaterialTheme.shapes.small,
                     colors =
                         OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -629,7 +497,7 @@ fun EditTransactionScreen(
                 if (sections.isEmpty()) {
                     Text(
                         text = stringResource(R.string.edit_category_search_empty),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = Space.xl),
                     )
@@ -653,7 +521,7 @@ fun EditTransactionScreen(
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
-                                        .clip(MaterialTheme.shapes.medium)
+                                        .clip(MaterialTheme.shapes.small)
                                         .clickable {
                                             vm.setParent(parent.id, leaf)
                                             showCategorySheet = false
@@ -670,7 +538,7 @@ fun EditTransactionScreen(
                                     )
                                     if (ui.categoryId == leaf.id) {
                                         Icon(
-                                            Icons.Filled.Check,
+                                            Icons.Rounded.Check,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
@@ -767,34 +635,50 @@ fun EditTransactionScreen(
     }
 }
 
-/** 화면 공통 카드 컨테이너. */
+/** "오늘 · 11.22 (일)". 오늘·어제·미래가 아니면 날짜만. */
 @Composable
-private fun EditCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Surface(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = MaterialTheme.shapes.large,
-                ),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
+private fun datePillLabel(date: LocalDate, today: LocalDate): String {
+    val short = date.formatShortDayLabel()
+    val prefix =
+        when {
+            date == today -> stringResource(R.string.edit_date_today)
+            date == today.minusDays(1) -> stringResource(R.string.edit_date_yesterday)
+            date.isAfter(today) -> stringResource(R.string.edit_date_future_badge)
+            else -> return short
+        }
+    return stringResource(R.string.edit_date_pill, prefix, short)
+}
+
+@Composable
+private fun DatePill(label: String, onClick: () -> Unit) {
+    // 보이는 알약은 32dp, 터치 영역은 48dp.
+    Box(
+        Modifier
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Column(
-            Modifier.padding(Space.lg),
-            verticalArrangement = Arrangement.spacedBy(Space.md),
-            content = content,
-        )
+        Row(
+            Modifier
+                .height(32.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(start = Space.md, end = Space.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.xs),
+        ) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+            Icon(
+                Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 
-/** 수입/지출/저축 3분할 세그먼트. 선택 색은 종류별 컨테이너 색을 쓴다. */
+/** 지출/수입/저축 3칸 세그먼트. 트랙 `surfaceVariant`, 선택 칸 `surface`. */
 @Composable
 private fun KindSelector(
     selected: CategoryKind,
@@ -803,45 +687,46 @@ private fun KindSelector(
 ) {
     val entries =
         listOf(
-            CategoryKind.INCOME to stringResource(R.string.edit_income),
             CategoryKind.EXPENSE to stringResource(R.string.edit_expense),
+            CategoryKind.INCOME to stringResource(R.string.edit_income),
             CategoryKind.SAVINGS to stringResource(R.string.edit_savings),
         )
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Space.sm),
-    ) {
-        entries.forEach { (kind, label) ->
-            val isSelected = kind == selected
-            Surface(
-                onClick = { onSelect(kind) },
-                modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.medium,
-                color =
-                    if (isSelected) kindContainer(kind)
-                    else MaterialTheme.colorScheme.surface,
-                contentColor =
-                    if (isSelected) kindOnContainer(kind)
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                border =
-                    BorderStroke(
-                        width = 1.dp,
-                        color =
-                            if (isSelected) kindAccent(kind)
-                            else MaterialTheme.colorScheme.outlineVariant,
-                    ),
-            ) {
+    // 보이는 트랙은 36dp, 각 칸의 터치 영역은 48dp.
+    Box(modifier.width(240.dp).height(48.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
+        Row(Modifier.fillMaxSize().selectableGroup()) {
+            entries.forEach { (kind, label) ->
+                val isSelected = kind == selected
                 Box(
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 44.dp),
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(kind) }),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    )
+                    Box(
+                        Modifier
+                            .padding(horizontal = Space.xs)
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color =
+                                if (isSelected) MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -849,83 +734,82 @@ private fun KindSelector(
 }
 
 @Composable
-private fun DateQuickChip(
-    selected: Boolean,
+private fun SaveButton(
     label: String,
+    enabled: Boolean,
+    saving: Boolean,
     onClick: () -> Unit,
 ) {
-    FilterChip(
-        selected = selected,
+    Button(
         onClick = onClick,
-        label = { Text(label) },
-        colors = leafChipColors(),
-    )
+        enabled = enabled,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        shape = MaterialTheme.shapes.small,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+    ) {
+        if (saving) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+        }
+    }
 }
-
-@Composable
-private fun leafChipColors() =
-    FilterChipDefaults.filterChipColors(
-        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    )
 
 /** 내장 숫자 키패드 (1~9 / 00 / 0 / ⌫). 시스템 키보드 대신 쓴다. */
 @Composable
 private fun AmountKeypad(
+    rowHeight: Dp,
     onDigits: (String) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Space.xs),
+        Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
         KeypadRows.forEach { row ->
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Space.xs),
+                horizontalArrangement = Arrangement.spacedBy(Space.sm),
             ) {
                 row.forEach { key ->
-                    if (key == KEY_DELETE) {
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .heightIn(min = 52.dp)
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .combinedClickable(
-                                    onClick = onDelete,
-                                    onLongClick = onClear,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(rowHeight)
+                            .clip(MaterialTheme.shapes.small)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .combinedClickable(
+                                onClick = { if (key == KEY_DELETE) onDelete() else onDigits(key) },
+                                onLongClick = if (key == KEY_DELETE) onClear else null,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (key == KEY_DELETE) {
                             Icon(
-                                Icons.AutoMirrored.Filled.Backspace,
+                                Icons.AutoMirrored.Rounded.Backspace,
                                 contentDescription = stringResource(R.string.edit_keypad_backspace),
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
-                        }
-                    } else {
-                        Surface(
-                            onClick = { onDigits(key) },
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 52.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = key,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
+                        } else {
+                            Text(
+                                text = key,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
                         }
                     }
                 }
