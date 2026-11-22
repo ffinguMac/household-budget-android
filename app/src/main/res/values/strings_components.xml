@@ -6,7 +6,7 @@
     <string name="summary_savings">저축</string>
 
     <!-- BudgetProgressBar (ui/components/BudgetBar.kt) -->
-    <string name="budget_bar_spent">%1$s 씀</string>
-    <string name="budget_bar_left">예산 %1$s 중 %2$d%% 남음</string>
-    <string name="budget_bar_over">예산 %1$s 초과</string>
+    <string name="budget_bar_spent">%1$s 썼어요</string>
+    <string name="budget_bar_left">예산 %1$s 중 %2$d%% 남았어요</string>
+    <string name="budget_bar_over">예산 %1$s을 넘었어요</string>
 </resources>

@@ -400,7 +400,11 @@ fun EditTransactionScreen(
                         parents = parents,
                         childrenByParent = childrenByParent,
                         selectedLeafId = ui.categoryId,
-                        onLeafSelected = { leaf -> vm.setParent(leaf.parentId!!, leaf) },
+                        onLeafSelected = { leaf ->
+                            // 하드웨어 키보드는 IME 가 안 떠서 메모 포커스가 남아 키패드가 숨은 채로 남는다.
+                            focusManager.clearFocus()
+                            vm.setParent(leaf.parentId!!, leaf)
+                        },
                         onMore = { showCategorySheet = true },
                     )
                 }

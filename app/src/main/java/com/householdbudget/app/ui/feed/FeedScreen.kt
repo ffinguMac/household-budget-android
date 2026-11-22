@@ -66,10 +66,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.BudgetPeriod
-import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.archive.archiveMonthTitle
+import com.householdbudget.app.ui.archive.periodResolver
 import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -410,7 +410,7 @@ private fun FeedTopBar(
             )
         }
         if (period != null) {
-            val month = PeriodResolver().nominalMonth(period.startInclusive, paydayDom)
+            val month = periodResolver.nominalMonth(period.startInclusive, paydayDom)
             Box(modifier = periodEnter, contentAlignment = Alignment.Center) {
                 Text(
                     text = archiveMonthTitle(month.withMonth(12), today),

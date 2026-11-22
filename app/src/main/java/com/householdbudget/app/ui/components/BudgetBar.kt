@@ -24,8 +24,8 @@ import com.householdbudget.app.ui.util.formatWon
 import kotlin.math.roundToInt
 
 /**
- * 예산 진행 바(8dp) + 아래 두 줄: 왼쪽 "187,600원 씀", 오른쪽 "예산 1,200,000원 중 84% 남음".
- * 초과면 막대 전체가 error, 오른쪽은 "예산 1,200,000원 초과".
+ * 예산 진행 바(8dp) + 아래 두 줄: 왼쪽 "187,600원 썼어요", 오른쪽 "예산 1,200,000원 중 84% 남았어요".
+ * 초과면 막대 전체가 error, 오른쪽은 "예산 1,200,000원을 넘었어요".
  */
 @Composable
 fun BudgetProgressBar(

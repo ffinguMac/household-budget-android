@@ -18,7 +18,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,7 +47,7 @@ import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
-import com.householdbudget.app.domain.PeriodResolver
+import com.householdbudget.app.ui.archive.periodResolver
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -98,7 +98,7 @@ fun StatsScreen(
     // 집계는 (periodData) 가 바뀔 때만 다시 계산한다.
     val stats = remember(periodData) { periodData?.let(::computePeriodStats) }
 
-    val month = stats?.let { PeriodResolver().nominalMonth(it.period.startInclusive, paydayDom).monthValue }
+    val month = stats?.let { periodResolver.nominalMonth(it.period.startInclusive, paydayDom).monthValue }
 
     val mapRows = remember(stats) { stats?.let { buildMapRows(it.parents) }.orEmpty() }
 
@@ -580,7 +580,7 @@ private fun WeeklySpendCard(
                                 Modifier
                                     .fillMaxWidth(0.55f)
                                     .height((6 + 86 * fraction).dp)
-                                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                                    .clip(MaterialTheme.shapes.small.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)))
                                     .background(barColor),
                         )
                         Text(

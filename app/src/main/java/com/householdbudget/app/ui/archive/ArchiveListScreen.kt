@@ -1,7 +1,6 @@
 package com.householdbudget.app.ui.archive
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +30,7 @@ import com.householdbudget.app.domain.PeriodResolver
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
+import com.householdbudget.app.ui.components.cardBorder
 import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
@@ -43,6 +43,13 @@ import java.time.YearMonth
  * 시작일의 달로 부르면 앞 달로 당겨진 월급일(1월 1일 → 12월 31일)에서 "12월"이 두 번 나온다.
  */
 @Composable
+internal fun archiveMonthTitle(start: LocalDate, paydayDom: Int, today: LocalDate): String =
+    archiveMonthTitle(periodResolver.nominalMonth(start, paydayDom), today)
+
+/** 상태 없는 계산기라 하나만 두고 제목 호출부가 같이 쓴다. */
+internal val periodResolver = PeriodResolver()
+
+@Composable
 internal fun archiveMonthTitle(month: YearMonth, today: LocalDate): String =
     if (month.year == today.year) {
         stringResource(R.string.archive_month_label, month.monthValue)
@@ -53,6 +60,7 @@ internal fun archiveMonthTitle(month: YearMonth, today: LocalDate): String =
 @Composable
 fun ArchiveListScreen(
     repository: BudgetRepository,
+    paydayDom: Int,
     onOpenDetail: (Long) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -60,7 +68,6 @@ fun ArchiveListScreen(
     val rows by remember(repository) { repository.observeArchivedPeriods() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val today by repository.today.collectAsStateWithLifecycle()
-    val paydayDom by repository.paydayDom.collectAsStateWithLifecycle(initialValue = 25)
 
     LazyColumn(
         modifier = modifier
@@ -115,16 +122,16 @@ private fun ArchiveCard(
     )
     val periodLabel = stringResource(
         R.string.archive_card_period,
-        archiveMonthTitle(PeriodResolver().nominalMonth(period.startInclusive, paydayDom), today),
+        archiveMonthTitle(period.startInclusive, paydayDom, today),
         period.formatRangeShort(),
     )
     val netMinor = row.totalIncomeMinor - row.totalExpenseMinor - row.totalSavingsMinor
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
+        border = cardBorder(),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
     ) {
