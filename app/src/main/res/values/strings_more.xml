@@ -54,7 +54,7 @@
     <string name="budget_settings_spent_over">\u0020· %s 초과</string>
     <string name="budget_settings_monthly_row">한 달 전체 예산</string>
     <string name="budget_settings_category_section">카테고리별 예산</string>
-    <string name="budget_settings_category_desc">정해 두면 통계에서 얼마나 썼는지 보여 드려요</string>
+    <string name="budget_settings_category_desc">정해 두면 통계에서 얼마나 썼는지 보여드려요</string>
     <string name="budget_settings_spent">%s 썼어요</string>
     <string name="budget_settings_none_option">예산 없음</string>
     <string name="budget_settings_sheet_hint">한 달에 쓸 금액을 입력해 주세요.</string>
