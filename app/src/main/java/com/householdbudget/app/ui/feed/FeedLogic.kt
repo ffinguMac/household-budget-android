@@ -33,3 +33,16 @@ fun groupFeedDays(rows: List<TransactionWithCategoryRow>): List<FeedDay> =
 fun slideDirection(previousStartEpochDay: Long?, newStartEpochDay: Long?): Int =
     if (previousStartEpochDay == null || newStartEpochDay == null) 0
     else newStartEpochDay.compareTo(previousStartEpochDay).coerceIn(-1, 1)
+
+/** 홈 히어로의 예산 상태. [remainingMinor] 가 음수면 초과. */
+data class BudgetStatus(val remainingMinor: Long, val dailyAllowanceMinor: Long, val usedFraction: Float)
+
+/** 하루 여유는 남은 날(오늘 포함, 최소 1)로 나눠 100원 단위로 내린다. 예산 0 이하는 썼으면 100% 사용. */
+fun budgetStatus(budgetMinor: Long, spentMinor: Long, daysRemaining: Int): BudgetStatus {
+    val remaining = budgetMinor - spentMinor
+    val daily = remaining.coerceAtLeast(0L) / daysRemaining.coerceAtLeast(1) / 100 * 100
+    val used =
+        if (budgetMinor <= 0L) (if (spentMinor > 0L) 1f else 0f)
+        else (spentMinor.toDouble() / budgetMinor).toFloat().coerceIn(0f, 1f)
+    return BudgetStatus(remaining, daily, used)
+}

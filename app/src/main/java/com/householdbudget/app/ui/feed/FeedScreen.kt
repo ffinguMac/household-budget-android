@@ -15,17 +15,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -43,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,30 +56,24 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.HomeSummary
+import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.archive.archiveMonthTitle
-import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
+import com.householdbudget.app.ui.components.KindSummaryRow
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
+import com.householdbudget.app.ui.components.cardBorder
 import com.householdbudget.app.ui.theme.Space
-import com.householdbudget.app.ui.theme.heroGradient
-import com.householdbudget.app.ui.theme.kindAccent
-import com.householdbudget.app.ui.theme.kindContainer
-import com.householdbudget.app.ui.theme.kindOnContainer
-import com.householdbudget.app.ui.theme.kindSignPrefix
-import com.householdbudget.app.ui.theme.onHeroColor
-import com.householdbudget.app.ui.theme.onHeroMutedColor
-import com.householdbudget.app.ui.util.formatDayLabel
 import com.householdbudget.app.ui.util.formatRangeShort
+import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.paydayCountdownLabel
 import java.time.LocalDate
@@ -101,7 +92,7 @@ private class PeriodEnter(val direction: Int) {
 /**
  * 홈 + 내역을 합친 "가계부" 피드.
  *
- * 히어로(월급 카운트다운·남은 금액·예산 바) + 한 줄 요약 + 검색/필터 + 날짜 그룹 피드.
+ * 상단 바(‹ 11월 › · 검색) + 남은 예산 히어로 + 수입·지출·저축 + 확인 필요 띠 + 필터 + 날짜별 카드.
  * 월 이동은 [BudgetViewModel.ledgerPeriodOffset]을 그대로 재사용한다.
  */
 @Composable
@@ -112,6 +103,7 @@ fun FeedScreen(
     listState: LazyListState = rememberLazyListState(),
     pendingCount: Int = 0,
     onOpenPending: () -> Unit = {},
+    onOpenBudget: () -> Unit = {},
 ) {
     val summary by budgetViewModel.ledgerSummary.collectAsStateWithLifecycle()
     val periodOffset by budgetViewModel.ledgerPeriodOffset.collectAsStateWithLifecycle()
@@ -119,6 +111,7 @@ fun FeedScreen(
     val today by budgetViewModel.today.collectAsStateWithLifecycle()
 
     var query by rememberSaveable { mutableStateOf("") }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
     var kindFilterStorage by rememberSaveable { mutableStateOf(FILTER_ALL) }
 
     val currentSummary = summary
@@ -172,52 +165,35 @@ fun FeedScreen(
         contentPadding = PaddingValues(bottom = FabContentBottomPadding),
     ) {
         item(key = "header", contentType = "header") {
-            AppTopBar(title = stringResource(R.string.nav_feed))
-        }
-
-        if (pendingCount > 0) {
-            item(key = "pendingBanner", contentType = "pendingBanner") {
-                Text(
-                    text = stringResource(R.string.auto_pending_banner, pendingCount),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = ScreenHorizontalPadding)
-                            .padding(bottom = Space.sm)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable(onClick = onOpenPending)
-                            .padding(Space.md),
-                )
-            }
+            FeedTopBar(
+                period = currentSummary?.period,
+                periodOffset = periodOffset,
+                today = today,
+                periodEnter = periodEnter,
+                onPrevious = budgetViewModel::previousPeriod,
+                onNext = budgetViewModel::nextPeriod,
+                onToggleSearch = {
+                    showSearch = !showSearch
+                    // 닫힌 검색어가 목록을 몰래 거르지 않게 한다.
+                    if (!showSearch) query = ""
+                },
+            )
         }
 
         item(key = "hero", contentType = "hero") {
+            val heroModifier = Modifier.fillMaxWidth().padding(horizontal = ScreenHorizontalPadding)
             if (currentSummary != null) {
                 FeedHeroCard(
                     summary = currentSummary,
-                    periodOffset = periodOffset,
                     monthlyBudgetMinor = monthlyBudgetMinor,
                     today = today,
                     periodEnter = periodEnter,
-                    onPrevious = budgetViewModel::previousPeriod,
-                    onNext = budgetViewModel::nextPeriod,
                     onResetPeriod = budgetViewModel::resetPeriod,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = ScreenHorizontalPadding),
+                    onOpenBudget = onOpenBudget,
+                    modifier = heroModifier,
                 )
             } else {
-                HeroSkeleton(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = ScreenHorizontalPadding),
-                )
+                HeroSkeleton(modifier = heroModifier)
             }
         }
 
@@ -227,57 +203,54 @@ fun FeedScreen(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = ScreenHorizontalPadding)
-                        .padding(top = Space.md, bottom = Space.xs),
-                verticalArrangement = Arrangement.spacedBy(Space.md),
+                        .padding(top = Space.lg),
+                verticalArrangement = Arrangement.spacedBy(Space.lg),
             ) {
                 if (currentSummary != null) {
-                    KindInlineSummary(
+                    KindSummaryRow(
                         incomeMinor = currentSummary.totalIncomeMinor,
                         expenseMinor = currentSummary.totalExpenseMinor,
                         savingsMinor = currentSummary.totalSavingsMinor,
-                        modifier = Modifier.fillMaxWidth().then(periodEnter),
-                    )
-                } else {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(20.dp)
-                                .clip(MaterialTheme.shapes.small)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        modifier = Modifier.then(periodEnter),
                     )
                 }
 
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(text = stringResource(R.string.ledger_search_placeholder))
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = null,
-                        )
-                    },
-                    trailingIcon =
-                        if (query.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { query = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription =
-                                            stringResource(R.string.ledger_search_clear),
-                                    )
-                                }
-                            }
-                        } else {
-                            null
+                if (pendingCount > 0) {
+                    PendingStrip(count = pendingCount, onClick = onOpenPending)
+                }
+
+                if (showSearch) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text(text = stringResource(R.string.ledger_search_placeholder))
                         },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
-                )
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = null,
+                            )
+                        },
+                        trailingIcon =
+                            if (query.isNotEmpty()) {
+                                {
+                                    IconButton(onClick = { query = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription =
+                                                stringResource(R.string.ledger_search_clear),
+                                        )
+                                    }
+                                }
+                            } else {
+                                null
+                            },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.small,
+                    )
+                }
 
                 Row(
                     modifier =
@@ -290,16 +263,12 @@ fun FeedScreen(
                         selected = selectedKind == null,
                         onClick = { kindFilterStorage = FILTER_ALL },
                         label = stringResource(R.string.ledger_filter_all),
-                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
-                    CategoryKind.entries.forEach { kind ->
+                    FILTER_ORDER.forEach { kind ->
                         KindFilterChip(
                             selected = selectedKind == kind,
                             onClick = { kindFilterStorage = kind.storage },
                             label = stringResource(kindFilterLabelRes(kind)),
-                            selectedContainerColor = kindContainer(kind),
-                            selectedLabelColor = kindOnContainer(kind),
                         )
                     }
                 }
@@ -354,8 +323,7 @@ fun FeedScreen(
                             }
                         Text(
                             text = text,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier =
                                 Modifier
@@ -368,87 +336,19 @@ fun FeedScreen(
                 }
 
                 days.forEach { day ->
-                    item(key = "header_${day.epochDay}", contentType = "dayHeader") {
-                        val date = LocalDate.ofEpochDay(day.epochDay)
-                        val isToday = date == today
-                        // 회계월 안에서 월급날은 기간 시작일 하나뿐이다 (클램프 포함).
-                        val isPayday = date == currentSummary.period.startInclusive
-                        Row(
+                    // 하루에 카드 하나: 그날의 행을 한 카드에 담는다.
+                    item(key = "day_${day.epochDay}", contentType = "day") {
+                        FeedDayCard(
+                            day = day,
+                            today = today,
+                            onTransactionClick = onTransactionClick,
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = ScreenHorizontalPadding)
-                                    .padding(top = Space.xl, bottom = Space.sm)
+                                    .padding(top = Space.xl)
                                     .then(periodEnter),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                        ) {
-                            Text(
-                                text = date.formatDayLabel(today),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color =
-                                    if (isToday) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                            )
-                            if (isPayday) {
-                                Text(
-                                    text = stringResource(R.string.feed_payday_badge),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = kindOnContainer(CategoryKind.INCOME),
-                                    modifier =
-                                        Modifier
-                                            .clip(RoundedCornerShape(percent = 50))
-                                            .background(kindContainer(CategoryKind.INCOME))
-                                            .padding(horizontal = Space.sm, vertical = Space.xs),
-                                )
-                            }
-                            Spacer(Modifier.weight(1f))
-                            CategoryKind.entries.forEach { kind ->
-                                val dayTotal = day.totalOf(kind)
-                                if (dayTotal > 0) {
-                                    Text(
-                                        text = kindSignPrefix(kind) + dayTotal.formatWon(),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = kindAccent(kind),
-                                    )
-                                }
-                            }
-                        }
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = ScreenHorizontalPadding).then(periodEnter),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                         )
-                    }
-
-                    items(day.rows, key = { "tx_${it.id}" }, contentType = { "tx" }) { row ->
-                        Surface(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        horizontal = ScreenHorizontalPadding,
-                                        vertical = 3.dp,
-                                    )
-                                    .then(periodEnter),
-                            shape = MaterialTheme.shapes.large,
-                            color = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 0.dp,
-                        ) {
-                            TransactionRow(
-                                categoryName = row.categoryName,
-                                parentCategoryName = row.parentCategoryName,
-                                memo = row.memo,
-                                amountMinor = row.amountMinor,
-                                kind = CategoryKind.fromStorage(row.kind),
-                                onClick = { onTransactionClick(row.id) },
-                            )
-                        }
                     }
                 }
             }
@@ -457,171 +357,199 @@ fun FeedScreen(
 }
 
 /**
- * 히어로 카드: 월 이동(‹ 9월 ›) + "다음 월급까지 N일" + 기간 + 남은 금액 + 예산 진행 바.
- * 지난 기간을 보는 중에는 카운트다운·예산 바 대신 "오늘로" 버튼을 보여준다.
- * 같은 해 안에서는 화살표 위치가 고정된다(연타해도 손가락 밑에서 움직이지 않는다).
- * 라벨에 연도가 붙는 순간(올해 → 지난해)에만 한 번 옮겨진다.
+ * 상단 바(56dp): ‹ 11월 › + 기간 "11.20 ~ 12.17", 오른쪽 검색 토글.
+ * 같은 해 안에서는 화살표 위치가 고정된다(가장 넓은 "12월" 폭으로 라벨을 잡는다).
  */
 @Composable
-private fun FeedHeroCard(
-    summary: HomeSummary,
+private fun FeedTopBar(
+    period: BudgetPeriod?,
     periodOffset: Int,
-    monthlyBudgetMinor: Long?,
     today: LocalDate,
     periodEnter: Modifier,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onToggleSearch: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(horizontal = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onPrevious, modifier = Modifier.size(48.dp)) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.ledger_prev_period),
+            )
+        }
+        if (period != null) {
+            val start = period.startInclusive
+            Box(modifier = periodEnter, contentAlignment = Alignment.Center) {
+                Text(
+                    text = archiveMonthTitle(start.withMonth(12), today),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.alpha(0f).clearAndSetSemantics { },
+                )
+                Text(
+                    text = archiveMonthTitle(start, today),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        IconButton(
+            onClick = onNext,
+            enabled = periodOffset < 0,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.ledger_next_period),
+            )
+        }
+        if (period != null) {
+            Text(
+                text = period.formatRangeShort(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = periodEnter,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = onToggleSearch, modifier = Modifier.size(48.dp)) {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = stringResource(R.string.feed_open_search),
+            )
+        }
+    }
+}
+
+/**
+ * 히어로: 남은 예산(또는 초과액·남은 돈) 하나를 크게.
+ * 지난 기간이면 오른쪽 카운트다운 자리에 "오늘로" 칩. 하루 여유는 현재 기간이고 남았을 때만.
+ */
+@Composable
+private fun FeedHeroCard(
+    summary: HomeSummary,
+    monthlyBudgetMinor: Long?,
+    today: LocalDate,
+    periodEnter: Modifier,
     onResetPeriod: () -> Unit,
+    onOpenBudget: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val period = summary.period
     // 오프셋은 탭 즉시 바뀌고 데이터는 조금 뒤에 오므로, 보이는 부분은 데이터의 기간으로 가른다.
     val isCurrent = period.contains(today)
-    // 0원에는 부호를 붙이지 않는다.
-    val netPrefix =
-        when {
-            summary.netMinor > 0 -> "+"
-            summary.netMinor < 0 -> "−"
-            else -> ""
-        }
-    val absNet = if (summary.netMinor < 0) -summary.netMinor else summary.netMinor
-    val start = period.startInclusive
-    val monthLabel = archiveMonthTitle(start, today)
-    // 같은 해 안에서 가장 넓은 "12월" 기준으로 라벨 폭을 고정한다(연도가 붙으면 폭이 한 번 바뀐다).
-    val monthLabelFrame = archiveMonthTitle(start.withMonth(12), today)
-    val daysRemaining =
-        (period.endExclusive.toEpochDay() - today.toEpochDay())
-            .coerceAtLeast(0L)
-            .toInt()
+    val daysRemaining = (period.endExclusive.toEpochDay() - today.toEpochDay()).coerceAtLeast(0L).toInt()
+    val status = monthlyBudgetMinor?.let { budgetStatus(it, summary.totalExpenseMinor, daysRemaining) }
+    val over = status != null && status.remainingMinor < 0
 
-    Box(
-        modifier =
-            modifier
-                .clip(MaterialTheme.shapes.large)
-                .background(heroGradient()),
+    val label: String
+    val amount: String
+    val suffix: String?
+    when {
+        status == null -> {
+            label = stringResource(R.string.feed_hero_no_budget_label)
+            // 0원에는 부호를 붙이지 않는다.
+            amount = (if (summary.netMinor < 0) "−" else "") + kotlin.math.abs(summary.netMinor).formatWon()
+            suffix = null
+        }
+        over -> {
+            label = stringResource(R.string.feed_hero_over_label)
+            amount = (-status!!.remainingMinor).formatWon()
+            suffix = stringResource(R.string.feed_hero_over_suffix)
+        }
+        else -> {
+            label = stringResource(R.string.feed_hero_left_label)
+            amount = status!!.remainingMinor.formatWon()
+            suffix = stringResource(R.string.feed_hero_left_suffix)
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        border = cardBorder(),
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .animateContentSize(tween(PERIOD_ENTER_MS))
-                    .padding(horizontal = Space.xl, vertical = Space.lg),
+                    .padding(Space.xl)
+                    .then(periodEnter),
             verticalArrangement = Arrangement.spacedBy(Space.xs),
         ) {
-            // ── 상단: 왼쪽 라벨/기간 · 오른쪽 컴팩트 월 이동 ‹ 8월 › ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = Modifier.weight(1f).then(periodEnter),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Box(
-                        modifier = Modifier.heightIn(min = 24.dp),
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
-                        if (isCurrent) {
-                            Text(
-                                text = period.paydayCountdownLabel(today),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = onHeroColor(),
-                            )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.ledger_back_to_today),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = onHeroColor(),
-                                modifier =
-                                    Modifier
-                                        .clip(CircleShape)
-                                        .background(onHeroColor().copy(alpha = 0.14f))
-                                        .clickable(onClick = onResetPeriod)
-                                        .padding(horizontal = Space.md, vertical = Space.xs),
-                            )
-                        }
-                    }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (isCurrent) {
                     Text(
-                        text = period.formatRangeShort(),
+                        text = period.paydayCountdownLabel(today),
                         style = MaterialTheme.typography.bodySmall,
-                        color = onHeroMutedColor(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                // 48dp 터치 영역 안 20dp 글리프의 오른쪽 끝이 카드 안쪽 여백에 맞도록 14dp 민다.
-                Row(
-                    modifier = Modifier.offset(x = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onPrevious, modifier = Modifier.size(48.dp)) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = stringResource(R.string.ledger_prev_period),
-                            tint = onHeroColor(),
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                    Box(modifier = periodEnter, contentAlignment = Alignment.Center) {
-                        Text(
-                            text = monthLabelFrame,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.alpha(0f).clearAndSetSemantics { },
-                        )
-                        Text(
-                            text = monthLabel,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = onHeroColor(),
-                        )
-                    }
-                    IconButton(
-                        onClick = onNext,
-                        enabled = periodOffset < 0,
-                        modifier = Modifier.size(48.dp),
+                } else {
+                    Surface(
+                        onClick = onResetPeriod,
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = stringResource(R.string.ledger_next_period),
-                            tint =
-                                if (periodOffset < 0) {
-                                    onHeroColor()
-                                } else {
-                                    onHeroColor().copy(alpha = 0.3f)
-                                },
-                            modifier = Modifier.size(20.dp),
+                        Text(
+                            text = stringResource(R.string.ledger_back_to_today),
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = Space.md, vertical = Space.xs),
                         )
                     }
                 }
             }
-
-            Text(
-                text = stringResource(R.string.home_net),
-                style = MaterialTheme.typography.labelMedium,
-                color = onHeroMutedColor(),
-                modifier = periodEnter,
-            )
-            Text(
-                text = netPrefix + absNet.formatWon(),
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = onHeroColor(),
-                modifier = periodEnter,
-            )
-
-            if (isCurrent) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = amount,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                if (suffix != null) {
+                    Text(
+                        text = suffix,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = Space.xs).alignByBaseline(),
+                    )
+                }
+            }
+            if (status != null && isCurrent && status.remainingMinor > 0) {
+                Text(
+                    text = stringResource(R.string.feed_hero_daily, status.dailyAllowanceMinor.formatWon()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (monthlyBudgetMinor != null) {
                 BudgetProgressBar(
                     spentMinor = summary.totalExpenseMinor,
                     budgetMinor = monthlyBudgetMinor,
-                    daysRemaining = daysRemaining,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = Space.sm)
-                            .then(periodEnter),
-                    onHero = true,
+                    modifier = Modifier.padding(top = Space.md),
                 )
+            } else {
+                TextButton(onClick = onOpenBudget) {
+                    Text(text = stringResource(R.string.feed_set_budget))
+                }
             }
         }
     }
@@ -639,89 +567,145 @@ private fun HeroSkeleton(modifier: Modifier = Modifier) {
     )
 }
 
-/** 수입/지출/저축 한 줄 요약 (목업의 컴팩트 한 줄 텍스트). */
+/** 확인 필요 띠(48dp). 띠 전체가 버튼. */
 @Composable
-private fun KindInlineSummary(
-    incomeMinor: Long,
-    expenseMinor: Long,
-    savingsMinor: Long,
+private fun PendingStrip(
+    count: Int,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(MaterialTheme.shapes.small)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .clickable(onClick = onClick)
+                .padding(horizontal = Space.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+        Text(
+            text = stringResource(R.string.feed_pending_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(R.string.feed_pending_action),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/** 날짜 머리줄("오늘 · 11.22 (일)" · "101,000원 씀") + 그날 행을 담은 카드 하나. */
+@Composable
+private fun FeedDayCard(
+    day: FeedDay,
+    today: LocalDate,
+    onTransactionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(Space.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        KindInlineItem(
-            label = stringResource(R.string.ledger_filter_income),
-            amountMinor = incomeMinor,
-            kind = CategoryKind.INCOME,
-        )
-        KindInlineItem(
-            label = stringResource(R.string.ledger_filter_expense),
-            amountMinor = expenseMinor,
-            kind = CategoryKind.EXPENSE,
-        )
-        KindInlineItem(
-            label = stringResource(R.string.ledger_filter_savings),
-            amountMinor = savingsMinor,
-            kind = CategoryKind.SAVINGS,
-        )
+    val date = LocalDate.ofEpochDay(day.epochDay)
+    val shortLabel = date.formatShortDayLabel()
+    val dayLabel =
+        when (date) {
+            today -> stringResource(R.string.feed_day_relative, stringResource(R.string.feed_day_today), shortLabel)
+            today.minusDays(1) -> stringResource(R.string.feed_day_relative, stringResource(R.string.feed_day_yesterday), shortLabel)
+            else -> shortLabel
+        }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = dayLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            if (day.expenseMinor > 0) {
+                Text(
+                    text = stringResource(R.string.feed_day_spent, day.expenseMinor.formatWon()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+            border = cardBorder(),
+        ) {
+            Column {
+                day.rows.forEachIndexed { index, row ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 72.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                    TransactionRow(
+                        categoryName = row.categoryName,
+                        parentCategoryName = row.parentCategoryName,
+                        memo = row.memo,
+                        amountMinor = row.amountMinor,
+                        kind = CategoryKind.fromStorage(row.kind),
+                        onClick = { onTransactionClick(row.id) },
+                    )
+                }
+            }
+        }
     }
 }
 
-@Composable
-private fun KindInlineItem(
-    label: String,
-    amountMinor: Long,
-    kind: CategoryKind,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Space.xs),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            // 0원에는 부호를 붙이지 않는다 ("지출 −0원" 방지).
-            text =
-                if (amountMinor > 0) {
-                    kindSignPrefix(kind) + amountMinor.formatWon()
-                } else {
-                    amountMinor.formatWon()
-                },
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            color = kindAccent(kind),
-        )
-    }
-}
-
+/** 필터 칩: 36dp 알약, 선택 primaryContainer, 미선택 1dp outline. 터치는 48dp(M3 기본). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun KindFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
-    selectedContainerColor: Color,
-    selectedLabelColor: Color,
-    modifier: Modifier = Modifier,
 ) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(text = label) },
-        modifier = modifier,
+        modifier = Modifier.height(36.dp),
+        shape = CircleShape,
         colors =
             FilterChipDefaults.filterChipColors(
-                selectedContainerColor = selectedContainerColor,
-                selectedLabelColor = selectedLabelColor,
+                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
+        border =
+            FilterChipDefaults.filterChipBorder(
+                enabled = true,
+                selected = selected,
+                borderColor = MaterialTheme.colorScheme.outline,
+                selectedBorderColor = Color.Transparent,
+                borderWidth = 1.dp,
             ),
     )
 }
+
+/** 칩 순서: 전체 · 지출 · 수입 · 저축. */
+private val FILTER_ORDER = listOf(CategoryKind.EXPENSE, CategoryKind.INCOME, CategoryKind.SAVINGS)
 
 private fun kindFilterLabelRes(kind: CategoryKind): Int =
     when (kind) {

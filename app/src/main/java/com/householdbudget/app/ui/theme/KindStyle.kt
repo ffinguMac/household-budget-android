@@ -2,9 +2,7 @@ package com.householdbudget.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import com.householdbudget.app.domain.CategoryKind
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -53,15 +51,3 @@ fun kindSignPrefix(kind: CategoryKind): String =
         CategoryKind.EXPENSE -> "−"
         CategoryKind.SAVINGS -> "↑"
     }
-
-/** 히어로 카드 배경 — 이제 단색 surface. (Task 4에서 삭제 예정) */
-@Composable
-fun heroGradient(): Brush = SolidColor(MaterialTheme.colorScheme.surface)
-
-/** 히어로 카드 위 본문 텍스트 색. 금액 강조는 호출자가 [kindAccent] 로. */
-@Composable
-fun onHeroColor(): Color = MaterialTheme.colorScheme.onSurface
-
-/** 히어로 카드 위 보조 텍스트 색. */
-@Composable
-fun onHeroMutedColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant

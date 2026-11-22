@@ -215,6 +215,10 @@ fun MainTabScaffold(
                             selectedOrdinal = MainTab.SETTINGS.ordinal
                             settingsPane = SettingsPane.Pending
                         },
+                        onOpenBudget = {
+                            selectedOrdinal = MainTab.SETTINGS.ordinal
+                            settingsPane = SettingsPane.Budget
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 MainTab.CALENDAR ->
