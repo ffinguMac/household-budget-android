@@ -78,6 +78,13 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[APP_LOCK_ENABLED] = value }
     }
 
+    val darkTheme: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[DARK_THEME] ?: false }
+
+    suspend fun setDarkTheme(value: Boolean) {
+        dataStore.edit { it[DARK_THEME] = value }
+    }
+
     companion object {
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
         private val LAST_SEEN_PERIOD_START = longPreferencesKey("last_seen_period_start_epoch_day")
@@ -85,6 +92,7 @@ class UserPreferencesRepository(context: Context) {
         private val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         private val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         private val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        private val DARK_THEME = booleanPreferencesKey("dark_theme")
         private const val DEFAULT_PAYDAY_DOM = 25
         private const val DEFAULT_REMINDER_HOUR = 21
     }

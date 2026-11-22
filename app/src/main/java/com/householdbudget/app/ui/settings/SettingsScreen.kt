@@ -6,6 +6,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -99,15 +104,18 @@ fun SettingsScreen(
     val monthlyBudgetMinor by prefs.monthlyBudgetMinor.collectAsStateWithLifecycle(initialValue = null)
     val reminderEnabled by prefs.reminderEnabled.collectAsStateWithLifecycle(initialValue = false)
     val reminderHour by prefs.reminderHour.collectAsStateWithLifecycle(initialValue = 21)
+    val darkTheme by prefs.darkTheme.collectAsStateWithLifecycle(initialValue = false)
     val appLockEnabled by prefs.appLockEnabled.collectAsStateWithLifecycle(initialValue = false)
 
     var showPaydaySheet by remember { mutableStateOf(false) }
+    var showThemeSheet by remember { mutableStateOf(false) }
     var showReminderHourSheet by remember { mutableStateOf(false) }
     var reminderPermissionDenied by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportFailed by remember { mutableStateOf(false) }
     val paydaySheetState = rememberModalBottomSheetState()
     val reminderSheetState = rememberModalBottomSheetState()
+    val themeSheetState = rememberModalBottomSheetState()
 
     fun enableReminder() {
         reminderPermissionDenied = false
@@ -188,6 +196,15 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_payday_title_v2),
                     subtitle = stringResource(R.string.settings_payday_subtitle_v2, payday, nextPayday.formatMonthDayWeekday()),
                     onClick = { showPaydaySheet = true },
+                )
+                SettingsRowDivider()
+                SettingsActionRow(
+                    icon = Icons.Rounded.Palette,
+                    iconContainer = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    title = stringResource(R.string.settings_theme_title),
+                    subtitle = stringResource(if (darkTheme) R.string.settings_theme_dark else R.string.settings_theme_light),
+                    onClick = { showThemeSheet = true },
                 )
                 if (onOpenBudget != null) {
                     SettingsRowDivider()
@@ -403,6 +420,48 @@ fun SettingsScreen(
                             repeat(7 - rowDays.size) {
                                 Spacer(Modifier.weight(1f).aspectRatio(1f))
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showThemeSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showThemeSheet = false },
+            sheetState = themeSheetState,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Space.xxxl)
+                    .selectableGroup(),
+            ) {
+                listOf(false to R.string.settings_theme_light, true to R.string.settings_theme_dark).forEach { (isDark, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .selectable(
+                                selected = darkTheme == isDark,
+                                role = Role.RadioButton,
+                                onClick = {
+                                    scope.launch { prefs.setDarkTheme(isDark) }
+                                    showThemeSheet = false
+                                },
+                            )
+                            .padding(horizontal = ScreenHorizontalPadding),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (darkTheme == isDark) {
+                            Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }

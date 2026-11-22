@@ -7,8 +7,11 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.security.AppLockGate
@@ -18,6 +21,8 @@ import com.householdbudget.app.ui.BudgetViewModelFactory
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.calendar.CalendarViewModelFactory
 import com.householdbudget.app.ui.theme.HouseholdBudgetTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 // BiometricPrompt(AppLockGate)가 FragmentActivity 를 요구해 ComponentActivity 대신 상속한다.
 class MainActivity : FragmentActivity() {
@@ -27,15 +32,15 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) consumeOpenPending(intent)
-        // 미드나잇 다크 단일 테마: 시스템 설정과 무관하게 상태바/내비바 아이콘은 항상 라이트.
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-        )
         val app = application as BudgetApplication
         val preferences = app.container.userPreferencesRepository
+        // shortcut: 첫 읽기를 막고 기다린다(수 ms). 느려지면 스플래시로 옮긴다
+        val initialDark = runBlocking { preferences.darkTheme.first() }
+        applySystemBars(initialDark)
         setContent {
-            HouseholdBudgetTheme {
+            val dark by preferences.darkTheme.collectAsStateWithLifecycle(initialDark)
+            LaunchedEffect(dark) { applySystemBars(dark) }
+            HouseholdBudgetTheme(dark = dark) {
                 AppLockGate(preferences = preferences) {
                     BudgetApp(
                         budgetViewModel =
@@ -57,6 +62,14 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    // 시스템 다크모드와 무관하게 고른 테마에 맞춰 상태바/내비바 아이콘 색을 정한다.
+    private fun applySystemBars(dark: Boolean) {
+        val style =
+            if (dark) SystemBarStyle.dark(Color.TRANSPARENT)
+            else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
     override fun onNewIntent(intent: Intent) {

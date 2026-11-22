@@ -18,6 +18,9 @@
     <!-- 설정 -->
     <string name="settings_group_basic">기본</string>
     <string name="settings_group_automation">자동화 · 알림</string>
+    <string name="settings_theme_title">화면 테마</string>
+    <string name="settings_theme_light">라이트 블루</string>
+    <string name="settings_theme_dark">다크 블루</string>
     <string name="settings_group_data">데이터</string>
     <string name="settings_group_security">보안</string>
     <string name="settings_payday_value">매월 %d일</string>
