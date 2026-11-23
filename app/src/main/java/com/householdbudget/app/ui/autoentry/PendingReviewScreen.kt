@@ -84,6 +84,7 @@ fun reasonLabelRes(reason: String?): Int =
         "DUP_CROSS_APP", "DUP_MANUAL", "DUP_REPOST" -> R.string.auto_reason_duplicate
         "UNKNOWN_DIRECTION" -> R.string.auto_reason_direction
         "RESTORED" -> R.string.auto_reason_restored
+        "SELF_TRANSFER" -> R.string.auto_reason_self_transfer
         else -> R.string.auto_reason_unclassified
     }
 
