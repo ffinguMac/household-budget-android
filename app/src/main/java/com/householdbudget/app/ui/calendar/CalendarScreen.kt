@@ -1,6 +1,9 @@
 package com.householdbudget.app.ui.calendar
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,7 +63,6 @@ import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
 import com.householdbudget.app.ui.components.cardBorder
-import com.householdbudget.app.ui.stats.compactAmountLabel
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatRangeShort
 import com.householdbudget.app.ui.util.formatWon
@@ -284,20 +286,22 @@ private fun CalendarCell(
     val income = total?.incomeMinor ?: 0L
     val primary = MaterialTheme.colorScheme.primary
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    // 수입·지출은 둘 다 있으면 두 줄. 둘 다 없을 때만 월급·달 바뀜 표시.
-    val labels = buildList {
-        if (income > 0) add("+" + compactAmountLabel(income) to primary)
-        if (expense > 0) add(compactAmountLabel(expense) to muted)
-        if (isEmpty()) {
-            when {
-                date == period.startInclusive || isNextPayday -> add(stringResource(R.string.cal_payday) to primary)
-                date.dayOfMonth == 1 -> add(stringResource(R.string.archive_month_label, date.monthValue) to muted)
-            }
-        }
+    // 금액은 점으로만 보여 주고, 아무 내역이 없을 때만 월급·달 바뀜 글자를 쓴다.
+    val label = when {
+        income > 0 || expense > 0 -> null
+        date == period.startInclusive || isNextPayday -> stringResource(R.string.cal_payday) to primary
+        date.dayOfMonth == 1 -> stringResource(R.string.archive_month_label, date.monthValue) to muted
+        else -> null
     }
+    val description = listOfNotNull(
+        stringResource(R.string.cal_cell_day, date.dayOfMonth),
+        if (income > 0) stringResource(R.string.cal_cell_income, income.formatWon()) else null,
+        if (expense > 0) stringResource(R.string.cal_cell_expense, expense.formatWon()) else null,
+    ).joinToString(", ")
     Column(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
+            .semantics(mergeDescendants = true) { contentDescription = description }
             .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
             .then(
                 if (isNextPayday) Modifier else Modifier.selectable(selected = isSelected, onClick = onClick),
@@ -305,7 +309,7 @@ private fun CalendarCell(
             .padding(top = Space.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // 숫자 칸은 28dp, 오늘 링(32dp)은 칸 밖으로 그려 두 줄이 들어갈 자리를 남긴다.
+        // 숫자 칸은 28dp, 오늘 링(32dp)은 칸 밖으로 그려 점·글자가 들어갈 자리를 남긴다.
         Box(
             modifier = Modifier
                 .size(28.dp)
@@ -327,13 +331,14 @@ private fun CalendarCell(
                 color = if (isNextPayday) muted else MaterialTheme.colorScheme.onSurface,
             )
         }
-        labels.forEach { (text, color) ->
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = color,
-                maxLines = 1,
-            )
+        if (income > 0 || expense > 0) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 2.dp)) {
+                if (expense > 0) Box(Modifier.size(6.dp).background(muted, CircleShape))
+                if (income > 0) Box(Modifier.size(6.dp).background(primary, CircleShape))
+            }
+        }
+        label?.let { (text, color) ->
+            Text(text = text, style = MaterialTheme.typography.bodySmall, color = color, maxLines = 1)
         }
     }
 }
