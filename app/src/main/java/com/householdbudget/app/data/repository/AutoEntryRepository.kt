@@ -20,6 +20,7 @@ import com.householdbudget.app.domain.autoentry.ReviewReason
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.ZoneId
+import kotlin.math.abs
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
@@ -106,7 +107,8 @@ class AutoEntryRepository(
             merchant = parsed.merchant, merchantKey = key, status = AutoEntryStatus.PENDING,
         )
         if (sameKeyTexts.isNotEmpty()) return pending(entry, ReviewReason.DUP_REPOST)
-        // shortcut: 카드 결제와 무관한 입금이 다른 앱에서 3분 안에 똑같은 금액으로 오면 둘 다 건너뛴다, 사용자는 건너뛴 항목에서 되살릴 수 있다.
+        // shortcut: 카드 결제와 무관한 입금이 다른 앱에서 3분 안에 똑같은 금액으로 오면 둘 다 건너뛰고, 이체 직후 5분 안에 다른 앱이
+        // 같은 금액 출금을 알리면 메아리로 보고 건너뛴다. 규칙으로 무시된 출금이 먼저 오면 짝을 못 찾는다. 사용자는 건너뛴 항목에서 되살릴 수 있다.
         if (selfTransfer(entry)) {
             entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED, reason = ReviewReason.SELF_TRANSFER.name))
             return HandleOutcome.IGNORED
@@ -140,25 +142,38 @@ class AutoEntryRepository(
             ) > 0
 
     /**
-     * 다른 앱의 반대 방향 같은 금액(내 계좌끼리 옮긴 돈)이면 그쪽과 같은 출금의 다른 앱 알림을 건너뛴 항목으로 돌리고 true.
-     * 이미 건너뛴 이체의 같은 방향 알림(토스 등의 메아리)도 true.
+     * 다른 앱의 반대 방향 같은 금액(내 계좌끼리 옮긴 돈)이면 그쪽과 그 출금의 다른 앱 중복 알림을 건너뛴 항목으로 돌리고 true.
+     * 이미 건너뛴 이체의 출금을 다른 앱이 늦게 알린 것(토스 등)과, 건너뛴 출금의 같은 앱 취소도 true.
      */
     private suspend fun selfTransfer(e: AutoEntryEntity): Boolean {
-        val dirs = setOf(Direction.IN.name, Direction.OUT.name)
-        if (e.direction !in dirs) return false
-        val near = entryDao.listOtherAppsSameAmount(
-            e.amountMinor, e.packageName, e.postedAtMs - SELF_TRANSFER_WINDOW_MS, e.postedAtMs + SELF_TRANSFER_WINDOW_MS,
-        )
         val skipped = ReviewReason.SELF_TRANSFER.name
-        if (near.any { it.direction == e.direction && it.reason == skipped }) return true
-        val opposite = near.filter {
-            it.direction in dirs && it.direction != e.direction && it.reason != ReviewReason.RESTORED.name &&
-                (it.status == AutoEntryStatus.REGISTERED || it.status == AutoEntryStatus.PENDING)
+        val all = entryDao.listSameAmount(e.amountMinor, e.postedAtMs - CROSS_APP_WINDOW_MS, e.postedAtMs + CROSS_APP_WINDOW_MS)
+        val (own, others) = all.partition { it.packageName == e.packageName }
+        val close = all.filter { abs(it.postedAtMs - e.postedAtMs) <= SELF_TRANSFER_WINDOW_MS }
+        fun List<AutoEntryEntity>.hasSkipped(dir: Direction) = any { it.direction == dir.name && it.reason == skipped }
+        // 출금을 이체로 건너뛴 뒤 같은 앱이 취소를 알리면 취소 수입만 남지 않게 함께 건너뛴다.
+        if (e.direction == Direction.REFUND.name) return close.filter { it.packageName == e.packageName }.hasSkipped(Direction.OUT)
+        // 늦게 온 출금 메아리. 들어온 쪽도 건너뛰었어야 하고(메아리끼리 이어지지 않게), 이 앱의 같은 출금이 이미 건너뛰어졌으면 새 거래다.
+        if (e.direction == Direction.OUT.name && !own.hasSkipped(Direction.OUT) &&
+            others.hasSkipped(Direction.OUT) && others.hasSkipped(Direction.IN)
+        ) return true
+        val opposite = when (e.direction) {
+            Direction.IN.name -> Direction.OUT.name
+            Direction.OUT.name -> Direction.IN.name
+            else -> return false
         }
-        val matched = opposite.firstOrNull { it.reason != ReviewReason.DUP_CROSS_APP.name } ?: opposite.firstOrNull()
-            ?: return false
-        val echoes = near.filter { it.reason == ReviewReason.DUP_CROSS_APP.name && it.status != AutoEntryStatus.IGNORED }
-        (listOf(matched) + echoes).distinctBy { it.id }.forEach { m ->
+        // 같은 금액 취소가 가까이 있으면 결제 취소의 입금일 수 있어 예전처럼 둔다.
+        if (close.any { it.direction == Direction.REFUND.name }) return false
+        val matched = close.firstOrNull {
+            it.packageName != e.packageName && it.direction == opposite &&
+                it.reason != ReviewReason.RESTORED.name && it.reason != ReviewReason.DUP_CROSS_APP.name &&
+                (it.status == AutoEntryStatus.REGISTERED || it.status == AutoEntryStatus.PENDING)
+        } ?: return false
+        val echoes = if (matched.direction != Direction.OUT.name) emptyList() else others.filter {
+            it.direction == Direction.OUT.name && it.reason == ReviewReason.DUP_CROSS_APP.name &&
+                it.status != AutoEntryStatus.IGNORED
+        }
+        (listOf(matched) + echoes).forEach { m ->
             m.transactionId?.let { transactionDao.getById(it) }?.takeIf { it.source == TransactionSource.AUTO }
                 ?.let { transactionDao.delete(it) }
             entryDao.update(m.copy(status = AutoEntryStatus.IGNORED, reason = skipped, transactionId = null))

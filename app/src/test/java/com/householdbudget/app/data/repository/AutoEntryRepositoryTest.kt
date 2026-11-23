@@ -491,18 +491,23 @@ class AutoEntryRepositoryTest {
 
     private suspend fun cafeOut(at: Long = T0) = handle(n(CARD, "가짜카드", "승인 100,000원\n가짜커피", "c1", at))
 
-    private suspend fun bankIn(at: Long = T0 + 60_000, amount: String = "100,000") =
-        handle(n(KBANK, "입금 ${amount}원", "김가짜 | 가짜통장(1234)", "k9", at))
+    /** 다른 은행 앱의 이체 출금. */
+    private suspend fun transferOut(at: Long = T0, key: String = "c1") =
+        handle(n(CARD, "가짜은행", "이체 100,000원\n김가짜", key, at))
+
+    private suspend fun bankIn(at: Long = T0 + 60_000, amount: String = "100,000", key: String = "k9") =
+        handle(n(KBANK, "입금 ${amount}원", "김가짜 | 가짜통장(1234)", key, at))
+
+    private suspend fun payEcho(at: Long, pkg: String = NPAY) = handle(n(pkg, "가짜페이", "출금 100,000원\n김가짜", "n$at", at))
 
     private suspend fun ignored(): List<AutoEntryEntity> = repo.observeIgnored().first()
 
-    @Test fun selfTransfer_outThenIn_bothSkipped_andRegisteredTxDeleted() = runBlocking {
-        assertEquals(HandleOutcome.REGISTERED, cafeOut())
+    @Test fun selfTransfer_outThenIn_bothSkipped() = runBlocking {
+        assertEquals(HandleOutcome.PENDING, transferOut())
         assertEquals(HandleOutcome.IGNORED, bankIn())
         assertEquals(0, txCount())
         assertEquals(emptyList<AutoEntryEntity>(), pending())
         assertEquals(listOf("SELF_TRANSFER", "SELF_TRANSFER"), ignored().map { it.reason })
-        assertEquals(listOf<Long?>(null, null), ignored().map { it.transactionId })
         repo.restoreIgnored(ignored().single { it.packageName == KBANK }.id)
         assertEquals("RESTORED", pending().single().reason)
         assertEquals(0, db.merchantRuleDao().count())
@@ -510,39 +515,123 @@ class AutoEntryRepositoryTest {
 
     @Test fun selfTransfer_inThenOut_bothSkipped() = runBlocking {
         assertEquals(HandleOutcome.PENDING, bankIn(at = T0))
-        assertEquals(HandleOutcome.IGNORED, handle(n(CARD, "가짜은행", "출금 100,000원\n김가짜", "c1", T0 + 150_000)))
+        assertEquals(HandleOutcome.IGNORED, transferOut(T0 + 150_000))
         assertEquals(0, txCount())
         assertEquals(emptyList<AutoEntryEntity>(), pending())
         assertEquals(2, ignored().count { it.reason == "SELF_TRANSFER" })
     }
 
+    @Test fun selfTransfer_registeredHalf_autoTxDeleted() = runBlocking {
+        assertEquals(HandleOutcome.REGISTERED, cafeOut())
+        assertEquals(HandleOutcome.IGNORED, bankIn())
+        assertEquals(0, txCount())
+        assertEquals(listOf<Long?>(null, null), ignored().map { it.transactionId })
+    }
+
+    @Test fun selfTransfer_neverDeletesManualOrMissingTx() = runBlocking {
+        cafeOut()
+        val auto = lastTx()
+        db.transactionDao().delete(auto)
+        db.transactionDao().insert(auto.copy(id = 0, source = TransactionSource.MANUAL))
+        assertEquals(HandleOutcome.IGNORED, bankIn())
+        assertEquals(1, txCount())
+        assertEquals(TransactionSource.MANUAL, lastTx().source)
+    }
+
     @Test fun selfTransfer_withPaymentAppEcho_recordsNothing_eitherOrder() = runBlocking {
         watched = setOf(KBANK, CARD, NPAY)
-        val echo = { at: Long -> runBlocking { handle(n(NPAY, "가짜페이", "출금 100,000원\n김가짜", "n$at", at)) } }
         cafeOut()
-        assertEquals(HandleOutcome.PENDING, echo(T0 + 10_000))
+        assertEquals(HandleOutcome.PENDING, payEcho(T0 + 10_000))
         assertEquals(HandleOutcome.IGNORED, bankIn())
         assertEquals(0, txCount())
         assertEquals(emptyList<AutoEntryEntity>(), pending())
         assertEquals(3, ignored().count { it.reason == "SELF_TRANSFER" })
 
-        cafeOut(T0 + 86_400_000)
+        transferOut(T0 + 86_400_000)
         bankIn(T0 + 86_400_000 + 30_000)
-        assertEquals(HandleOutcome.IGNORED, echo(T0 + 86_400_000 + 60_000))
+        assertEquals(HandleOutcome.IGNORED, payEcho(T0 + 86_400_000 + 60_000))
         assertEquals(0, txCount())
         assertEquals(emptyList<AutoEntryEntity>(), pending())
     }
 
-    @Test fun selfTransfer_nonCases_keepTodaysBehaviour() = runBlocking {
+    @Test fun selfTransfer_userRegisteredEcho_isSkippedAndTxDeleted() = runBlocking {
+        watched = setOf(KBANK, CARD, NPAY)
+        cafeOut()
+        payEcho(T0 + 5_000)
+        repo.resolvePending(pending().single().id, leafId("EXPENSE", "유동 지출", "기본"))
+        assertEquals(2, txCount())
+        assertEquals(HandleOutcome.IGNORED, bankIn())
+        assertEquals(0, txCount())
+        assertEquals(3, ignored().count { it.reason == "SELF_TRANSFER" && it.transactionId == null })
+    }
+
+    @Test fun selfTransfer_secondTransferAfterEcho_isPairedNotSwallowed() = runBlocking {
+        watched = setOf(KBANK, CARD, NPAY)
+        transferOut(T0)
+        payEcho(T0 + 5_000)
+        assertEquals(HandleOutcome.IGNORED, bankIn())
+        assertEquals(HandleOutcome.PENDING, transferOut(T0 + 120_000, "c2"))
+        assertEquals(HandleOutcome.IGNORED, bankIn(T0 + 150_000, key = "k8"))
+        assertEquals(emptyList<AutoEntryEntity>(), pending())
+        assertEquals(0, txCount())
+    }
+
+    @Test fun selfTransfer_echoDoesNotChain() = runBlocking {
+        watched = setOf(KBANK, CARD, NPAY, BANK2)
+        transferOut(T0)
+        bankIn()
+        assertEquals(HandleOutcome.IGNORED, payEcho(T0 + 200_000))
+        assertEquals(HandleOutcome.PENDING, payEcho(T0 + 380_000, BANK2))
+    }
+
+    @Test fun selfTransfer_sameBankTransferWithEcho_notMatched() = runBlocking {
+        watched = setOf(KBANK, CARD, NPAY)
+        kimOut(amount = "100,000")
+        assertEquals(HandleOutcome.PENDING, payEcho(T0 + 5_000))
+        assertEquals(HandleOutcome.PENDING, bankIn())
+        assertEquals(3, pending().size)
+    }
+
+    @Test fun selfTransfer_cardCancel_refundFirst_notMatched() = runBlocking {
+        cafeOut()
+        handle(n(CARD, "가짜카드", "승인취소 100,000원\n가짜커피", "c2", T0 + 30_000))
+        assertEquals(HandleOutcome.PENDING, bankIn())
+        assertEquals(2, txCount())
+    }
+
+    @Test fun selfTransfer_cardCancel_refundAfterPairing_isSkippedToo() = runBlocking {
+        cafeOut()
+        bankIn()
+        assertEquals(HandleOutcome.IGNORED, handle(n(CARD, "가짜카드", "승인취소 100,000원\n가짜커피", "c2", T0 + 90_000)))
+        assertEquals(0, txCount())
+        assertEquals(emptyList<AutoEntryEntity>(), pending())
+    }
+
+    @Test fun selfTransfer_restoredHalf_staysRestoredAfterLateNotification() = runBlocking {
+        watched = setOf(KBANK, CARD, NPAY)
+        transferOut()
+        bankIn()
+        repo.restoreIgnored(ignored().single { it.packageName == KBANK }.id)
+        assertEquals(HandleOutcome.PENDING, payEcho(T0 + 90_000))
+        assertEquals("RESTORED", pending().single { it.packageName == KBANK }.reason)
+    }
+
+    @Test fun selfTransfer_windowIs180sInclusive() = runBlocking {
+        transferOut(T0)
+        assertEquals(HandleOutcome.IGNORED, bankIn(T0 + 180_000))
+        transferOut(T0 + 86_400_000, "c2")
+        assertEquals(HandleOutcome.PENDING, bankIn(T0 + 86_400_000 + 180_001, key = "k8"))
+    }
+
+    @Test fun selfTransfer_samePackage_notMatched() = runBlocking {
         kimOut(amount = "100,000")
         assertEquals(HandleOutcome.PENDING, bankIn())
         assertEquals(2, pending().size)
     }
 
-    @Test fun selfTransfer_differentAmountOrOver3Min_notMatched() = runBlocking {
+    @Test fun selfTransfer_differentAmount_notMatched() = runBlocking {
         cafeOut()
         assertEquals(HandleOutcome.PENDING, bankIn(amount = "99,000"))
-        assertEquals(HandleOutcome.PENDING, bankIn(at = T0 + 181_000 + 60_000))
         assertEquals(1, txCount())
         assertEquals(0, ignored().size)
     }
@@ -551,6 +640,7 @@ class AutoEntryRepositoryTest {
         const val KBANK = "com.kbankwith.smartbank"
         const val CARD = "com.fake.card"
         const val NPAY = "com.naverfin.payapp"
+        const val BANK2 = "com.fake.bank2"
         const val T0 = 1_800_000_000_000L
         val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
     }

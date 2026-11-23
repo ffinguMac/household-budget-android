@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.BudgetApplication
 import com.householdbudget.app.R
+import com.householdbudget.app.domain.autoentry.ReviewReason
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.SectionHeader
@@ -197,7 +198,7 @@ fun AutoEntrySettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        if (e.reason == "SELF_TRANSFER") {
+                        if (e.reason == ReviewReason.SELF_TRANSFER.name) {
                             Text(
                                 stringResource(reasonLabelRes(e.reason)),
                                 style = MaterialTheme.typography.bodySmall,
