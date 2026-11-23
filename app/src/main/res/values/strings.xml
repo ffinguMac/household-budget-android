@@ -12,6 +12,9 @@
     <string name="cal_summary_expense">지출 %s</string>
     <string name="cal_summary_rest">" · 수입 %1$s · 저축 %2$s"</string>
     <string name="cal_payday">월급</string>
+    <string name="cal_cell_day">%1$d일</string>
+    <string name="cal_cell_income">수입 %1$s</string>
+    <string name="cal_cell_expense">지출 %1$s</string>
     <string name="cal_day_today">%s · 오늘</string>
     <string name="cal_day_summary">%1$d건 · %2$s</string>
     <string name="archive_title">지난 기록</string>

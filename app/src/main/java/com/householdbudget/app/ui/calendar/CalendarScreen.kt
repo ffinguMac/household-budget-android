@@ -293,11 +293,11 @@ private fun CalendarCell(
         date.dayOfMonth == 1 -> stringResource(R.string.archive_month_label, date.monthValue) to muted
         else -> null
     }
-    val description = buildString {
-        append("${date.dayOfMonth}일")
-        if (income > 0) append(", 수입 ${income.formatWon()}")
-        if (expense > 0) append(", 지출 ${expense.formatWon()}")
-    }
+    val description = listOfNotNull(
+        stringResource(R.string.cal_cell_day, date.dayOfMonth),
+        if (income > 0) stringResource(R.string.cal_cell_income, income.formatWon()) else null,
+        if (expense > 0) stringResource(R.string.cal_cell_expense, expense.formatWon()) else null,
+    ).joinToString(", ")
     Column(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
