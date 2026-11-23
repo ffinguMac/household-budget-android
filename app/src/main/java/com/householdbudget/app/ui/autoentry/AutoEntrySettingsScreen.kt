@@ -197,6 +197,13 @@ fun AutoEntrySettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (e.reason == "SELF_TRANSFER") {
+                            Text(
+                                stringResource(reasonLabelRes(e.reason)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     TextButton(onClick = { scope.launch { repo.restoreIgnored(e.id) } }) {
                         Text(stringResource(R.string.auto_ignored_restore))

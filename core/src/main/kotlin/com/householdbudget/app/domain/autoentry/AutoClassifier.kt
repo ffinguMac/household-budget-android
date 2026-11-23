@@ -4,7 +4,7 @@ import com.householdbudget.app.domain.CategoryKind.EXPENSE
 import com.householdbudget.app.domain.CategoryKind.INCOME
 import com.householdbudget.app.domain.category.CategoryPath
 
-enum class ReviewReason { UNKNOWN_DIRECTION, UNCLASSIFIED, DUP_CROSS_APP, DUP_MANUAL, DUP_REPOST, RESTORED }
+enum class ReviewReason { UNKNOWN_DIRECTION, UNCLASSIFIED, DUP_CROSS_APP, DUP_MANUAL, DUP_REPOST, RESTORED, SELF_TRANSFER }
 
 /** 호출자가 (정규화한 이름, 방향)으로 찾아 넘긴 규칙. categoryId == null 이면 "기록 안 함". */
 data class LearnedRule(val categoryId: Long?)

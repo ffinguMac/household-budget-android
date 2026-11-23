@@ -18,6 +18,7 @@ class PendingLabelsTest {
         assertEquals(R.string.auto_reason_unclassified, reasonLabelRes("UNCLASSIFIED"))
         assertEquals(R.string.auto_reason_unclassified, reasonLabelRes(null))
         assertEquals(R.string.auto_reason_restored, reasonLabelRes("RESTORED"))
+        assertEquals(R.string.auto_reason_self_transfer, reasonLabelRes("SELF_TRANSFER"))
     }
 
     @Test fun roParticle_followsFinalConsonant() {

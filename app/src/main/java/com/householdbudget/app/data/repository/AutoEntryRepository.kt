@@ -106,6 +106,11 @@ class AutoEntryRepository(
             merchant = parsed.merchant, merchantKey = key, status = AutoEntryStatus.PENDING,
         )
         if (sameKeyTexts.isNotEmpty()) return pending(entry, ReviewReason.DUP_REPOST)
+        // shortcut: 카드 결제와 무관한 입금이 다른 앱에서 3분 안에 똑같은 금액으로 오면 둘 다 건너뛴다, 사용자는 건너뛴 항목에서 되살릴 수 있다.
+        if (selfTransfer(entry)) {
+            entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED, reason = ReviewReason.SELF_TRANSFER.name))
+            return HandleOutcome.IGNORED
+        }
         val leaf = when (decision) {
             Decision.Ignore -> {
                 entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED))
@@ -133,6 +138,33 @@ class AutoEntryRepository(
                 e.amountMinor, e.occurredEpochDay, e.packageName,
                 e.postedAtMs - CROSS_APP_WINDOW_MS, e.postedAtMs + CROSS_APP_WINDOW_MS,
             ) > 0
+
+    /**
+     * 다른 앱의 반대 방향 같은 금액(내 계좌끼리 옮긴 돈)이면 그쪽과 같은 출금의 다른 앱 알림을 건너뛴 항목으로 돌리고 true.
+     * 이미 건너뛴 이체의 같은 방향 알림(토스 등의 메아리)도 true.
+     */
+    private suspend fun selfTransfer(e: AutoEntryEntity): Boolean {
+        val dirs = setOf(Direction.IN.name, Direction.OUT.name)
+        if (e.direction !in dirs) return false
+        val near = entryDao.listOtherAppsSameAmount(
+            e.amountMinor, e.packageName, e.postedAtMs - SELF_TRANSFER_WINDOW_MS, e.postedAtMs + SELF_TRANSFER_WINDOW_MS,
+        )
+        val skipped = ReviewReason.SELF_TRANSFER.name
+        if (near.any { it.direction == e.direction && it.reason == skipped }) return true
+        val opposite = near.filter {
+            it.direction in dirs && it.direction != e.direction && it.reason != ReviewReason.RESTORED.name &&
+                (it.status == AutoEntryStatus.REGISTERED || it.status == AutoEntryStatus.PENDING)
+        }
+        val matched = opposite.firstOrNull { it.reason != ReviewReason.DUP_CROSS_APP.name } ?: opposite.firstOrNull()
+            ?: return false
+        val echoes = near.filter { it.reason == ReviewReason.DUP_CROSS_APP.name && it.status != AutoEntryStatus.IGNORED }
+        (listOf(matched) + echoes).distinctBy { it.id }.forEach { m ->
+            m.transactionId?.let { transactionDao.getById(it) }?.takeIf { it.source == TransactionSource.AUTO }
+                ?.let { transactionDao.delete(it) }
+            entryDao.update(m.copy(status = AutoEntryStatus.IGNORED, reason = skipped, transactionId = null))
+        }
+        return true
+    }
 
     /** 규칙의 카테고리가 DB에 없으면 규칙이 없는 것으로 본다. */
     private suspend fun learnedRule(key: String, direction: String): LearnedRule? {
@@ -229,6 +261,7 @@ class AutoEntryRepository(
     companion object {
         const val ECHO_WINDOW_MS = 10_000L
         const val CROSS_APP_WINDOW_MS = 5 * 60_000L
+        const val SELF_TRANSFER_WINDOW_MS = 3 * 60_000L
         const val LOG_RETENTION_DAYS = 90L
         // 파서 조정용으로 항목을 만든 알림의 원문을 30일 남긴다(재게시 판별은 ±5분만 읽는다).
         const val LOG_TEXT_RETENTION_MS = 30 * 24 * 60 * 60_000L

@@ -45,6 +45,13 @@ interface AutoEntryDao {
     )
     suspend fun countCrossAppOut(amountMinor: Long, epochDay: Long, excludePackage: String, fromMs: Long, toMs: Long): Int
 
+    /** 다른 앱에서 같은 금액으로 온 항목(상태 무관). 내 계좌끼리 옮긴 돈 판별용. */
+    @Query(
+        "SELECT * FROM auto_entries WHERE amount_minor = :amountMinor AND package_name != :excludePackage " +
+            "AND posted_at_ms BETWEEN :fromMs AND :toMs ORDER BY posted_at_ms",
+    )
+    suspend fun listOtherAppsSameAmount(amountMinor: Long, excludePackage: String, fromMs: Long, toMs: Long): List<AutoEntryEntity>
+
     /** 같은 알림(앱·키)으로 앞서 온 알림의 "제목\n본문"(파서와 같은 길이로 자름). 상태와 상관없이 찾는다. */
     @Query(
         "SELECT substr(l.title, 1, ${NotificationParsers.TITLE_CAP}) || char(10) || " +
