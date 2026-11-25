@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ArchivedPeriodDao {
+    @Query("SELECT * FROM archived_periods ORDER BY id")
+    suspend fun all(): List<ArchivedPeriodEntity>
+
     @Query(
         """
         SELECT COUNT(*) FROM archived_periods

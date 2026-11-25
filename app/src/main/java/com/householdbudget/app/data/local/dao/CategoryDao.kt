@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY id")
+    suspend fun all(): List<CategoryEntity>
+
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun count(): Int
 

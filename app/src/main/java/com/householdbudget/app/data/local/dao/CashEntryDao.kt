@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CashEntryDao {
+    @Query("SELECT * FROM cash_entries ORDER BY id")
+    suspend fun all(): List<CashEntryEntity>
+
     @Query("SELECT * FROM cash_entries ORDER BY occurred_epoch_day DESC, id DESC")
     fun observeAll(): Flow<List<CashEntryEntity>>
 

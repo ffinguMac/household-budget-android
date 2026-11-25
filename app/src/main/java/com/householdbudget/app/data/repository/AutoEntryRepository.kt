@@ -44,15 +44,14 @@ class AutoEntryRepository(
     // 뮤텍스 앞의 값싼 사전 검사. 금융 앱이 아닌 알림이 결제 처리를 기다리지 않게 한다.
     private val isCandidate: suspend (String) -> Boolean = { true },
     private val zoneId: ZoneId = ZoneId.of("Asia/Seoul"),
+    // 알림 콜백이 겹쳐 와도 "있는지 확인 → 넣기"가 끼어들지 않게 한다. 백업 복원도 같은 것을 쓴다.
+    private val mutex: Mutex = Mutex(),
 ) {
     private val logDao = database.notificationLogDao()
     private val entryDao = database.autoEntryDao()
     private val ruleDao = database.merchantRuleDao()
     private val transactionDao = database.transactionDao()
     private val categoryDao = database.categoryDao()
-
-    // 알림 콜백이 겹쳐 와도 "있는지 확인 → 넣기"가 끼어들지 않게 한다.
-    private val mutex = Mutex()
 
     suspend fun handleNotification(n: IncomingNotification): HandleOutcome {
         if (!isCandidate(n.packageName)) return HandleOutcome.NOT_WATCHED

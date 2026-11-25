@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CategoryBudgetDao {
+    @Query("SELECT * FROM category_budgets ORDER BY category_id")
+    suspend fun all(): List<CategoryBudgetEntity>
+
     @Query("SELECT * FROM category_budgets")
     fun observeAll(): Flow<List<CategoryBudgetEntity>>
 
