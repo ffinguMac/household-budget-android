@@ -183,7 +183,7 @@ fun EditTransactionScreen(
         )
 
     BoxWithConstraints {
-        val keyRowHeight = if (maxHeight < 700.dp) 48.dp else 56.dp
+        val keyRowHeight = if (maxHeight < 700.dp) 44.dp else 48.dp
         Scaffold(
             modifier = Modifier.clip(sheetShape),
             containerColor = MaterialTheme.colorScheme.surface,
@@ -702,12 +702,12 @@ private fun AmountKeypad(
 ) {
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Space.sm),
+        verticalArrangement = Arrangement.spacedBy(Space.xs),
     ) {
         KeypadRows.forEach { row ->
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Space.sm),
+                horizontalArrangement = Arrangement.spacedBy(Space.xs),
             ) {
                 row.forEach { key ->
                     Box(
