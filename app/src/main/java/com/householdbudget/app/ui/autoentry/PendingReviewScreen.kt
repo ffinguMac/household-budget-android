@@ -58,6 +58,7 @@ import com.householdbudget.app.data.local.entity.AutoEntryEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.CategoryPicker
 import com.householdbudget.app.ui.components.CategorySearchSheet
@@ -258,7 +259,11 @@ private fun TriageBody(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(entry.amountMinor.formatWon(), style = MaterialTheme.typography.displaySmall)
+                    FitText(
+                        text = entry.amountMinor.formatWon(),
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
         }
