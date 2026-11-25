@@ -93,6 +93,7 @@ import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.EditTransactionViewModel
 import com.householdbudget.app.ui.EditTransactionViewModelFactory
 import com.householdbudget.app.ui.autoCategorySelection
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.CategoryChip
 import com.householdbudget.app.ui.components.CategoryPicker
 import com.householdbudget.app.ui.components.CategorySearchSheet
@@ -237,7 +238,8 @@ fun EditTransactionScreen(
                     }
                     // 금액은 스크롤 밖에 고정한다. 누르면 메모 포커스를 풀고 키패드를 다시 연다.
                     val amountEmpty = ui.amountText.isEmpty()
-                    Text(
+                    // 12자리까지 입력되므로 길면 한 줄 안에서 글자를 줄인다.
+                    FitText(
                         text =
                             if (amountEmpty) {
                                 stringResource(R.string.edit_amount_zero)
