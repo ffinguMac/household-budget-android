@@ -70,6 +70,7 @@ import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.archive.archiveMonthTitle
 import com.householdbudget.app.ui.archive.periodResolver
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.BudgetProgressBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
@@ -551,7 +552,7 @@ private fun FeedHeroCard(
                 }
             }
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(
+                FitText(
                     text = amount,
                     style = MaterialTheme.typography.displaySmall,
                     color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
