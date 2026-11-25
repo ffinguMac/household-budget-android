@@ -10,6 +10,10 @@
     <string name="cash_sheet_deposit">비상금 넣기</string>
     <string name="cash_sheet_withdraw">비상금 빼기</string>
     <string name="cash_error_overdrawn">비상금보다 많이 뺄 수 없어요</string>
+    <string name="cash_error_shrink">이만큼 줄이면 비상금이 모자라요</string>
+    <string name="cash_error_invalid">금액이나 메모를 다시 확인해 주세요</string>
+    <string name="cash_edit_action">고치기</string>
+    <string name="cash_change_date">날짜 바꾸기</string>
     <string name="cash_error_delete">이 기록을 지우면 비상금이 모자라요</string>
     <string name="cash_amount_plus">+%1$s</string>
     <string name="cash_amount_minus">−%1$s</string>

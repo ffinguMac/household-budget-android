@@ -45,6 +45,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,6 +72,7 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 private val rowDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("M.d")
+private val rowDateWithYearFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yy.M.d")
 
 /** 시트 대상: 새 넣기/빼기(entry = null) 또는 기존 기록 고치기. */
 private data class CashSheet(val deposit: Boolean, val entry: CashEntryEntity? = null)
@@ -130,7 +134,7 @@ fun CashReserveScreen(
                                         color = MaterialTheme.colorScheme.outlineVariant,
                                     )
                                 }
-                                CashEntryRow(entry) { sheet = CashSheet(deposit = entry.amountMinor > 0, entry = entry) }
+                                CashEntryRow(entry, today) { sheet = CashSheet(deposit = entry.amountMinor > 0, entry = entry) }
                             }
                         }
                     }
@@ -164,21 +168,25 @@ fun CashReserveScreen(
 }
 
 @Composable
-private fun CashEntryRow(entry: CashEntryEntity, onClick: () -> Unit) {
+private fun CashEntryRow(entry: CashEntryEntity, today: LocalDate, onClick: () -> Unit) {
     val deposit = entry.amountMinor > 0
+    val day = LocalDate.ofEpochDay(entry.occurredEpochDay)
+    val spokenDate = day.formatMonthDayWeekday()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = stringResource(R.string.cash_edit_action), role = Role.Button, onClick = onClick)
             .heightIn(min = 56.dp)
             .padding(horizontal = Space.lg, vertical = Space.sm),
         horizontalArrangement = Arrangement.spacedBy(Space.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = LocalDate.ofEpochDay(entry.occurredEpochDay).format(rowDateFormatter),
+            text = day.format(if (day.year == today.year) rowDateFormatter else rowDateWithYearFormatter),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // "11.25"를 소수로 읽지 않게 한다.
+            modifier = Modifier.semantics { contentDescription = spokenDate },
         )
         Text(
             text = entry.memo.ifEmpty { stringResource(if (deposit) R.string.cash_deposit else R.string.cash_withdraw) },
@@ -211,16 +219,17 @@ private fun CashEntrySheet(
     var amountText by remember { mutableStateOf(entry?.let { kotlin.math.abs(it.amountMinor).toString() }.orEmpty()) }
     var memo by remember { mutableStateOf(entry?.memo.orEmpty()) }
     var date by remember { mutableStateOf(entry?.let { LocalDate.ofEpochDay(it.occurredEpochDay) } ?: today) }
-    var errorRes by remember { mutableStateOf<Int?>(null) }
+    var amountErrorRes by remember { mutableStateOf<Int?>(null) }
+    var deleteError by remember { mutableStateOf(false) }
+    // 두 번 눌러 두 번 저장·삭제되지 않게, 호출이 끝날 때까지 버튼을 막는다.
+    var saving by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val amount = amountText.toLongOrNull() ?: 0L
 
-    fun handle(result: CashResult, overdrawnRes: Int) {
-        if (result == CashResult.OVERDRAWN) errorRes = overdrawnRes else onDismiss()
-    }
-
     fun save() {
+        if (saving) return
+        saving = true
         val signed = if (target.deposit) amount else -amount
         scope.launch {
             val result = if (entry == null) {
@@ -228,7 +237,30 @@ private fun CashEntrySheet(
             } else {
                 repository.updateCashEntry(entry.id, date, signed, memo)
             }
-            handle(result, R.string.cash_error_overdrawn)
+            if (result == CashResult.SAVED) {
+                onDismiss()
+            } else {
+                // 넣기를 줄여서 모자란 경우는 "많이 뺄 수 없어요"가 맞지 않는다.
+                amountErrorRes = when {
+                    result == CashResult.INVALID -> R.string.cash_error_invalid
+                    target.deposit -> R.string.cash_error_shrink
+                    else -> R.string.cash_error_overdrawn
+                }
+                saving = false
+            }
+        }
+    }
+
+    fun delete(id: Long) {
+        if (saving) return
+        saving = true
+        scope.launch {
+            if (repository.deleteCashEntry(id) == CashResult.OVERDRAWN) {
+                deleteError = true
+                saving = false
+            } else {
+                onDismiss()
+            }
         }
     }
 
@@ -251,13 +283,14 @@ private fun CashEntrySheet(
                 // 앞자리 0은 지우고, 콤마는 화면에서만 붙인다(커서 어긋남 방지).
                 onValueChange = {
                     amountText = stripDigits(it).trimStart('0').take(12)
-                    errorRes = null
+                    amountErrorRes = null
+                    deleteError = false
                 },
                 visualTransformation = GroupedDigitsTransformation,
                 label = { Text(stringResource(R.string.edit_amount)) },
                 singleLine = true,
-                isError = errorRes != null,
-                supportingText = errorRes?.let { res -> { Text(stringResource(res)) } },
+                isError = amountErrorRes != null,
+                supportingText = amountErrorRes?.let { res -> { Text(stringResource(res)) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.small,
@@ -273,22 +306,29 @@ private fun CashEntrySheet(
             AssistChip(
                 onClick = { showDatePicker = true },
                 label = { Text(date.formatMonthDayWeekday()) },
-                leadingIcon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Filled.DateRange, contentDescription = stringResource(R.string.cash_change_date)) },
             )
+            if (deleteError) {
+                Text(
+                    text = stringResource(R.string.cash_error_delete),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Space.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (entry != null) {
-                    TextButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                    TextButton(onClick = { showDeleteConfirm = true }, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp)) {
                         Text(stringResource(R.string.edit_delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
                 Spacer(Modifier.weight(1f))
                 Button(
                     onClick = { save() },
-                    enabled = amount > 0,
+                    enabled = amount > 0 && !saving,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.heightIn(min = 48.dp),
                 ) { Text(stringResource(R.string.edit_save)) }
@@ -325,8 +365,9 @@ private fun CashEntrySheet(
                 TextButton(
                     onClick = {
                         showDeleteConfirm = false
-                        scope.launch { handle(repository.deleteCashEntry(entry.id), R.string.cash_error_delete) }
+                        delete(entry.id)
                     },
+                    enabled = !saving,
                 ) { Text(stringResource(R.string.edit_confirm), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
