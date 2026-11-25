@@ -58,6 +58,7 @@ import com.householdbudget.app.R
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.cardBorder
@@ -169,7 +170,7 @@ fun BudgetSettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 if (monthly != null) {
-                                    Text(
+                                    FitText(
                                         text = monthly.formatWon(),
                                         style = MaterialTheme.typography.displaySmall,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -213,7 +214,7 @@ fun BudgetSettingsScreen(
                                 }
                             }
                             Spacer(Modifier.height(Space.sm))
-                            Text(
+                            FitText(
                                 text = if (assigned > monthly) {
                                     stringResource(R.string.budget_settings_over, (assigned - monthly).formatWon())
                                 } else {
@@ -316,7 +317,7 @@ fun BudgetSettingsScreen(
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurface,
                                         )
-                                        Text(
+                                        FitText(
                                             text = buildAnnotatedString {
                                                 append(
                                                     if (spent == 0L) {

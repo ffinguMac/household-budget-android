@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.householdbudget.app.R
@@ -56,6 +57,7 @@ import com.householdbudget.app.data.local.entity.CashEntryEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.data.repository.CashResult
 import com.householdbudget.app.data.repository.MAX_CASH_MEMO
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
@@ -107,7 +109,7 @@ fun CashReserveScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
+                        FitText(
                             text = balance.formatWon(),
                             style = MaterialTheme.typography.displaySmall,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -192,6 +194,9 @@ private fun CashEntryRow(entry: CashEntryEntity, today: LocalDate, onClick: () -
             text = entry.memo.ifEmpty { stringResource(if (deposit) R.string.cash_deposit else R.string.cash_withdraw) },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
+            // 금액이 길어지면 메모가 먼저 줄어든다.
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         Text(
