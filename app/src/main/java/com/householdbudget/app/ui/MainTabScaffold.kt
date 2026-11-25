@@ -321,7 +321,7 @@ fun MainTabScaffold(
                         SettingsPane.Cash ->
                             CashReserveScreen(
                                 repository = repository,
-                                onBack = { settingsPane = SettingsPane.Main },
+                                onBack = leaveCash,
                                 modifier = Modifier.fillMaxSize(),
                             )
                     }
