@@ -46,6 +46,14 @@ class CashReserveRepositoryTest {
         assertEquals("월급 남은 돈", entries().last().memo)
     }
 
+    @Test fun hasEntries_falseWhenEmpty_trueAfterZeroSumEntries() = runBlocking {
+        assertEquals(false, repo.observeHasCashEntries().first())
+        repo.addCashEntry(day, 5_000, "")
+        repo.addCashEntry(day, -5_000, "")
+        assertEquals(0L, balance())
+        assertEquals(true, repo.observeHasCashEntries().first())
+    }
+
     @Test fun entries_areNewestDayFirstThenNewestId() = runBlocking {
         repo.addCashEntry(day.minusDays(1), 1, "a")
         repo.addCashEntry(day, 2, "b")
