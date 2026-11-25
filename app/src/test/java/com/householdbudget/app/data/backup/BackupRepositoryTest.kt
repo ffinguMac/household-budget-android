@@ -1,6 +1,7 @@
 package com.householdbudget.app.data.backup
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.householdbudget.app.data.local.AppDatabase
@@ -17,6 +18,8 @@ import com.householdbudget.app.data.preferences.UserPreferencesRepository
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -51,9 +54,19 @@ class BackupRepositoryTest {
         AppDatabase.seedCategoriesIfEmpty(db.categoryDao())
         prefs = UserPreferencesRepository(context)
         dir = File(context.filesDir, "backups-test").apply { deleteRecursively() }
-        repo = BackupRepository(db, prefs, lock, dir, "1.0", clock = { now })
+        repo = newRepo()
         savedPrefs = BackupCodec.fromJson(repo.exportJson()).getOrThrow().prefs
+        savedCursor = prefs.getLastSeenPeriodStartSnapshot()
     }
+
+    private val restoredPrefs = mutableListOf<BackupPrefs>()
+
+    private fun newRepo() = BackupRepository(
+        context, db, prefs, lock, dir, "1.0", scope = CoroutineScope(Dispatchers.Default),
+        onPrefsRestored = { restoredPrefs += it }, clock = { now },
+    )
+
+    private var savedCursor: Long? = null
 
     // DataStore는 프로세스에 하나라 다른 테스트 클래스로 새지 않게 되돌린다.
     private lateinit var savedPrefs: BackupPrefs
@@ -62,11 +75,7 @@ class BackupRepositoryTest {
         db.close()
         dir.deleteRecursively()
         with(savedPrefs) {
-            prefs.setPaydayDom(paydayDom)
-            prefs.setMonthlyBudgetMinor(monthlyBudgetMinor)
-            prefs.setReminderEnabled(reminderEnabled)
-            prefs.setReminderHour(reminderHour)
-            prefs.setDarkTheme(darkTheme)
+            prefs.restoreBackupPrefs(paydayDom, monthlyBudgetMinor, reminderEnabled, reminderHour, darkTheme, savedCursor)
         }
     }
 
@@ -131,15 +140,72 @@ class BackupRepositoryTest {
         prefs.setAppLockEnabled(false)
     }
 
-    @Test fun restore_clearsAutoEntriesAndNotificationLog() = runBlocking {
+    private fun autoEntry(txId: Long?, amount: Long, status: String) = AutoEntryEntity(
+        logId = 1, packageName = "p", occurredEpochDay = 20_000, postedAtMs = 1, amountMinor = amount, direction = "OUT",
+        merchant = "m", merchantKey = "m", status = status, transactionId = txId,
+    )
+
+    @Test fun restore_keepsLogAndPending_andUnlinksAutoEntriesWhoseTransactionChanged() = runBlocking {
+        seed()
+        val autoTx = db.transactionDao().all().single { it.source == TransactionSource.AUTO }
+        val manualTx = db.transactionDao().all().single { it.source == TransactionSource.MANUAL }
         val json = repo.exportJson()
         db.notificationLogDao().insert(NotificationLogEntity(packageName = "p", notificationKey = "k", postTimeMs = 1, title = "t", body = "b", contentHash = "h"))
-        db.autoEntryDao().insert(
-            AutoEntryEntity(logId = 1, packageName = "p", occurredEpochDay = 1, postedAtMs = 1, amountMinor = 1, direction = "OUT", merchant = "m", merchantKey = "m", status = "PENDING"),
-        )
+        val pending = db.autoEntryDao().insert(autoEntry(null, 1_000, "PENDING"))
+        val linked = db.autoEntryDao().insert(autoEntry(autoTx.id, autoTx.amountMinor, "REGISTERED"))
+        val wrongTx = db.autoEntryDao().insert(autoEntry(manualTx.id, manualTx.amountMinor, "REGISTERED"))
+        val gone = db.autoEntryDao().insert(autoEntry(9_999, 1, "REGISTERED"))
         restoreText(json).getOrThrow()
-        assertEquals(0, db.notificationLogDao().count())
-        assertEquals(0, db.autoEntryDao().observeCountByStatus("PENDING").first())
+        assertEquals(1, db.notificationLogDao().count())
+        assertEquals(1, db.autoEntryDao().observeCountByStatus("PENDING").first())
+        assertNotNull(db.autoEntryDao().getById(pending))
+        assertEquals(autoTx.id, db.autoEntryDao().getById(linked)?.transactionId)
+        assertNull(db.autoEntryDao().getById(wrongTx)?.transactionId)
+        assertNull(db.autoEntryDao().getById(gone)?.transactionId)
+    }
+
+    @Test fun restore_setsArchiveCursorAndResyncsReminder() = runBlocking {
+        seed()
+        val json = repo.exportJson()
+        scramble()
+        restoreText(json).getOrThrow()
+        assertEquals(20_020L, prefs.getLastSeenPeriodStartSnapshot())
+        assertEquals(7, restoredPrefs.last().reminderHour)
+        assertTrue(restoredPrefs.last().reminderEnabled)
+    }
+
+    @Test fun dbVersionMatchesDatabase() {
+        assertEquals(db.openHelper.readableDatabase.version, BackupCodec.DB_VERSION)
+    }
+
+    @Test fun asyncExportAndLoad_reportThroughStatus() = runBlocking {
+        seed()
+        val file = File(dir.apply { mkdirs() }, "out.json")
+        repo.exportTo(Uri.fromFile(file))
+        assertEquals(BackupStatus.Done(BackupOutcome.EXPORTED), repo.status.first { it is BackupStatus.Done })
+        repo.dismissResult()
+        repo.load(Uri.fromFile(file))
+        val confirm = repo.status.first { it !is BackupStatus.Idle && it !is BackupStatus.Working } as BackupStatus.Confirm
+        assertEquals(2, confirm.snapshot.transactions.size)
+        repo.confirmRestore(confirm.snapshot)
+        assertEquals(BackupStatus.Done(BackupOutcome.RESTORED), repo.status.first { it is BackupStatus.Done })
+        assertNotNull(repo.safetyCopy.value)
+        file.writeText("{bad")
+        repo.load(Uri.fromFile(file))
+        assertEquals(
+            BackupStatus.Done(BackupOutcome.INVALID_FILE, BackupError.NOT_BACKUP),
+            repo.status.first { it is BackupStatus.Done && it.outcome == BackupOutcome.INVALID_FILE },
+        )
+    }
+
+    @Test fun staleSafetyCopy_isDroppedAfterSevenDays() = runBlocking {
+        restoreText(repo.exportJson()).getOrThrow()
+        repo.refreshSafetyCopy()
+        assertNotNull(repo.safetyCopy.value)
+        repo.safetyFile.setLastModified(now.toEpochMilli() - BackupRepository.SAFETY_COPY_TTL_MS - 1)
+        repo.refreshSafetyCopy()
+        assertNull(repo.safetyCopy.value)
+        assertFalse(repo.hasSafetyCopy())
     }
 
     @Test fun idsContinueAboveRestoredMax() = runBlocking {
@@ -150,7 +216,8 @@ class BackupRepositoryTest {
         // 새 DB: 시퀀스가 낮은 상태에서 복원해도 새 id가 겹치지 않아야 한다.
         db.close()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
-        repo = BackupRepository(db, prefs, lock, dir, "1.0", clock = { now })
+        AppDatabase.seedCategoriesIfEmpty(db.categoryDao())
+        repo = newRepo()
         restoreText(json).getOrThrow()
         val newTx = db.transactionDao().insert(TransactionEntity(occurredEpochDay = 20_005, amountMinor = 1, kind = "EXPENSE", categoryId = custom))
         val newCat = db.categoryDao().insert(CategoryEntity(name = "새것", kind = "EXPENSE", parentId = parentId("식비"), sortOrder = 0))
@@ -158,18 +225,21 @@ class BackupRepositoryTest {
         assertTrue(newCat > maxCat)
     }
 
-    @Test fun safetyCopyHoldsStateBeforeRestore_andUndoBringsItBack() = runBlocking {
+    @Test fun safetyCopyHoldsStateBeforeRestore_andUndoSwaps() = runBlocking {
         seed()
         val before = repo.exportJson()
         scramble()
         val scrambled = repo.exportJson()
         assertFalse(repo.hasSafetyCopy())
+        assertNull(repo.undoRestore())
         restoreText(before).getOrThrow()
         assertEquals(scrambled, repo.safetyFile.readText())
+        // 되돌리기는 맞바꾸기: 되돌린 뒤 사본은 복원된 상태라 다시 되돌릴 수 있다.
         assertEquals(RestoreResult.RESTORED, repo.undoRestore())
         assertEquals(scrambled, repo.exportJson())
-        assertFalse(repo.hasSafetyCopy())
-        assertNull(repo.undoRestore())
+        assertEquals(before, repo.safetyFile.readText())
+        assertEquals(RestoreResult.RESTORED, repo.undoRestore())
+        assertEquals(before, repo.exportJson())
     }
 
     @Test fun restore_waitsForSharedLock() = runBlocking {

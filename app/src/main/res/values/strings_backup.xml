@@ -21,7 +21,9 @@
     <string name="backup_confirm_title">이 파일로 복원할까요?</string>
     <string name="backup_confirm_body">거래 %1$d건 · 카테고리 %2$d개 · 비상금 %3$d건 · 지난 기록 %4$d개\n지금 기록은 모두 이 파일 내용으로 바뀌어요.</string>
     <string name="backup_undo_confirm_title">복원 전으로 되돌릴까요?</string>
-    <string name="backup_undo_confirm_body">마지막으로 복원하기 직전 기록으로 돌아가요. 지금 기록은 모두 그때 내용으로 바뀌어요.</string>
+    <string name="backup_undo_confirm_body">%1$s 기록으로 돌아가요.\n거래 %2$d건 · 카테고리 %3$d개 · 비상금 %4$d건 · 지난 기록 %5$d개\n지금 기록은 다시 되돌릴 수 있게 남겨 둬요.</string>
+    <string name="backup_undo_hint">마지막 복원 직전 기록을 7일 동안 남겨 둬요</string>
+    <string name="backup_picker_error">파일을 고르는 화면을 열 수 없어요</string>
     <string name="backup_confirm">복원</string>
     <string name="backup_undo_confirm">되돌리기</string>
     <string name="backup_cancel">취소</string>

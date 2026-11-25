@@ -9,6 +9,10 @@ import com.householdbudget.app.data.preferences.UserPreferencesRepository
 import com.householdbudget.app.data.repository.AutoEntryRepository
 import com.householdbudget.app.data.repository.BudgetRepository
 import java.io.File
+import com.householdbudget.app.data.work.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
 
 class AppContainer(context: Context) {
@@ -32,12 +36,18 @@ class AppContainer(context: Context) {
     )
 
     val backupRepository = BackupRepository(
+        context = appContext,
         database = database,
         prefs = userPreferencesRepository,
         lock = writeLock,
         backupDir = File(appContext.filesDir, "backups"),
         appVersion = runCatching { appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName }
             .getOrNull().orEmpty(),
+        // 화면이 사라져도 백업·복원이 끝까지 가도록 앱 범위에서 돈다.
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        onPrefsRestored = { p ->
+            if (p.reminderEnabled) ReminderScheduler.schedule(appContext, p.reminderHour) else ReminderScheduler.cancel(appContext)
+        },
     )
 
     val budgetRepository: BudgetRepository =

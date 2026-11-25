@@ -3,5 +3,7 @@
 <full-backup-content>
     <include domain="database" path="." requireFlags="clientSideEncryption" />
     <include domain="file" path="." />
+    <!-- 복원 전 사본은 전 기록의 평문이라 내보내지 않는다. -->
+    <exclude domain="file" path="backups/" />
     <include domain="sharedpref" path="." />
 </full-backup-content>
