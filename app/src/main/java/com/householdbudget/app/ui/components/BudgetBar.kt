@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,17 +56,20 @@ fun BudgetProgressBar(
                     .background(if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
             )
         }
+        // 두 줄로 넘치지 않게 한 줄을 지키고, 양쪽 글자를 같은 크기로 함께 줄인다.
+        val scale = rememberFitScale(spentMinor, budgetMinor)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
-            Text(
+            FitText(
                 text = stringResource(R.string.budget_bar_spent, spentMinor.formatWon()),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
+                scale = scale,
             )
-            Text(
+            FitText(
                 text =
                     if (over) {
                         stringResource(R.string.budget_bar_over, budgetMinor.formatWon())
@@ -78,6 +80,7 @@ fun BudgetProgressBar(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.End,
                 modifier = Modifier.weight(1f),
+                scale = scale,
             )
         }
     }

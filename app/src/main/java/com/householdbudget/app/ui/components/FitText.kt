@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 
 /** 여러 [FitText]가 나눠 쓰는 글자 배율. 한 칸이 넘치면 같은 그룹의 모든 칸이 같은 크기로 줄어든다. */
 @Stable
@@ -36,6 +37,7 @@ fun FitText(
     modifier: Modifier = Modifier,
     scale: FitScale = rememberFitScale(text, style),
     minScale: Float = 0.6f,
+    textAlign: TextAlign? = null,
 ) {
     var fits by remember(text, style) { mutableStateOf(false) }
     val s = scale.value
@@ -43,6 +45,7 @@ fun FitText(
         text = text,
         style = style.copy(fontSize = style.fontSize * s, lineHeight = style.lineHeight * s),
         color = color,
+        textAlign = textAlign,
         maxLines = 1,
         softWrap = false,
         // 크기를 맞추는 중간 프레임은 그리지 않아 깜빡임을 막는다.
