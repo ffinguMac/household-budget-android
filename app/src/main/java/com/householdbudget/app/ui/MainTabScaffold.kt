@@ -73,6 +73,7 @@ import com.householdbudget.app.ui.autoentry.PendingReviewScreen
 import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.feed.FeedScreen
+import com.householdbudget.app.ui.settings.BackupScreen
 import com.householdbudget.app.ui.settings.BudgetSettingsScreen
 import com.householdbudget.app.ui.settings.CashReserveScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
@@ -114,6 +115,8 @@ private sealed interface SettingsPane {
     data object Pending : SettingsPane
 
     data object Cash : SettingsPane
+
+    data object Backup : SettingsPane
 }
 
 @Composable
@@ -277,6 +280,7 @@ fun MainTabScaffold(
                                     openedFromFeed = false
                                     settingsPane = SettingsPane.Cash
                                 },
+                                onOpenBackup = { settingsPane = SettingsPane.Backup },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->
@@ -322,6 +326,11 @@ fun MainTabScaffold(
                             CashReserveScreen(
                                 repository = repository,
                                 onBack = leaveCash,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.Backup ->
+                            BackupScreen(
+                                onBack = { settingsPane = SettingsPane.Main },
                                 modifier = Modifier.fillMaxSize(),
                             )
                     }

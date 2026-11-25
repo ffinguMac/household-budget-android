@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 백업과 복원 -->
+    <string name="backup_title">백업과 복원</string>
+    <string name="backup_row_subtitle">기록을 파일로 남기고 다시 불러와요</string>
+    <string name="backup_intro">백업 파일에는 거래, 카테고리, 예산, 비상금, 설정이 담겨요. 은행 알림 원문은 담지 않아요.</string>
+    <string name="backup_where">파일은 직접 고른 곳에 저장돼요. 잃어버리지 않게 드라이브 같은 곳에 두세요.</string>
+    <string name="backup_export">백업 파일 만들기</string>
+    <string name="backup_restore">백업에서 복원</string>
+    <string name="backup_undo">복원 전으로 되돌리기</string>
+    <string name="backup_file_name">가계부-백업-%1$s.json</string>
+    <string name="backup_working">처리하고 있어요…</string>
+    <string name="backup_export_done">백업 파일을 만들었어요</string>
+    <string name="backup_export_error">백업 파일을 만들지 못했어요. 다시 시도해 주세요.</string>
+    <string name="backup_invalid">이 파일은 복원할 수 없어요 (%1$s)</string>
+    <string name="backup_reason_not_backup">가계부 백업 파일이 아니에요</string>
+    <string name="backup_reason_newer">더 새 버전 앱에서 만든 파일이에요</string>
+    <string name="backup_reason_damaged">내용이 손상됐어요</string>
+    <string name="backup_reason_too_large">파일이 너무 커요</string>
+    <string name="backup_reason_unreadable">파일을 읽지 못했어요</string>
+    <string name="backup_confirm_title">이 파일로 복원할까요?</string>
+    <string name="backup_confirm_body">거래 %1$d건 · 카테고리 %2$d개 · 비상금 %3$d건 · 지난 기록 %4$d개\n지금 기록은 모두 이 파일 내용으로 바뀌어요.</string>
+    <string name="backup_undo_confirm_title">복원 전으로 되돌릴까요?</string>
+    <string name="backup_undo_confirm_body">마지막으로 복원하기 직전 기록으로 돌아가요. 지금 기록은 모두 그때 내용으로 바뀌어요.</string>
+    <string name="backup_confirm">복원</string>
+    <string name="backup_undo_confirm">되돌리기</string>
+    <string name="backup_cancel">취소</string>
+    <string name="backup_restore_done">복원했어요</string>
+    <string name="backup_undo_done">복원 전으로 되돌렸어요</string>
+    <string name="backup_restore_prefs_failed">기록은 복원했지만 설정 일부는 바꾸지 못했어요</string>
+    <string name="backup_restore_error">복원하지 못했어요. 지금 기록은 그대로예요.</string>
+</resources>

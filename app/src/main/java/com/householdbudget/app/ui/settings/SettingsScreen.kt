@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Lock
@@ -88,6 +89,7 @@ fun SettingsScreen(
     onOpenBudget: (() -> Unit)? = null,
     onOpenCash: (() -> Unit)? = null,
     onExportCsv: (() -> Unit)? = null,
+    onOpenBackup: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val container = remember(context) {
@@ -333,6 +335,15 @@ fun SettingsScreen(
                     },
                     onClick = onExportCsv ?: ::exportCsv,
                 )
+                if (onOpenBackup != null) {
+                    SettingsRowDivider()
+                    SettingsActionRow(
+                        icon = Icons.Filled.Backup,
+                        title = stringResource(R.string.backup_title),
+                        subtitle = stringResource(R.string.backup_row_subtitle),
+                        onClick = onOpenBackup,
+                    )
+                }
             }
         }
 
