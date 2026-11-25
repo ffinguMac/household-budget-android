@@ -142,6 +142,11 @@ fun MainTabScaffold(
     val leavePending = {
         if (openedFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.AutoEntry
     }
+    val hasCash by remember(repository) { repository.observeHasCashEntries() }.collectAsStateWithLifecycle(initialValue = false)
+    val cashBalance by remember(repository) { repository.observeCashBalance() }.collectAsStateWithLifecycle(initialValue = 0L)
+    val leaveCash = {
+        if (openedFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.Main
+    }
     val leaveBudget = {
         if (openedFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.Main
     }
@@ -157,6 +162,7 @@ fun MainTabScaffold(
             is SettingsPane.ArchiveDetail -> settingsPane = SettingsPane.Archive
             SettingsPane.Pending -> leavePending()
             SettingsPane.Budget -> leaveBudget()
+            SettingsPane.Cash -> leaveCash()
             else -> settingsPane = SettingsPane.Main
         }
     }
@@ -233,6 +239,12 @@ fun MainTabScaffold(
                             selectedOrdinal = MainTab.SETTINGS.ordinal
                             settingsPane = SettingsPane.Budget
                         },
+                        cashBalance = if (hasCash) cashBalance else null,
+                        onOpenCash = {
+                            openedFromFeed = true
+                            selectedOrdinal = MainTab.SETTINGS.ordinal
+                            settingsPane = SettingsPane.Cash
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 MainTab.CALENDAR ->
@@ -261,7 +273,10 @@ fun MainTabScaffold(
                                     settingsPane = SettingsPane.Budget
                                 },
                                 onOpenAutoEntry = { settingsPane = SettingsPane.AutoEntry },
-                                onOpenCash = { settingsPane = SettingsPane.Cash },
+                                onOpenCash = {
+                                    openedFromFeed = false
+                                    settingsPane = SettingsPane.Cash
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->

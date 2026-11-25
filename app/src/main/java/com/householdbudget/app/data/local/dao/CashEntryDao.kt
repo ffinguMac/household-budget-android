@@ -13,6 +13,9 @@ interface CashEntryDao {
     @Query("SELECT * FROM cash_entries ORDER BY occurred_epoch_day DESC, id DESC")
     fun observeAll(): Flow<List<CashEntryEntity>>
 
+    @Query("SELECT COUNT(*) > 0 FROM cash_entries")
+    fun observeHasEntries(): Flow<Boolean>
+
     @Query("SELECT COALESCE(SUM(amount_minor), 0) FROM cash_entries")
     fun observeBalance(): Flow<Long>
 

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 비상금: 예산과 따로 관리하는 돈 -->
+    <string name="feed_cash_open">비상금 보기</string>
     <string name="cash_title">비상금</string>
     <string name="cash_row_subtitle">예산과 따로 모아 두는 돈이에요</string>
     <string name="cash_balance_label">지금 비상금</string>

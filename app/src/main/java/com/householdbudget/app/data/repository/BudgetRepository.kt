@@ -249,6 +249,8 @@ class BudgetRepository(
 
     fun observeCashBalance(): Flow<Long> = database.cashEntryDao().observeBalance()
 
+    fun observeHasCashEntries(): Flow<Boolean> = database.cashEntryDao().observeHasEntries()
+
     fun observeCashEntries(): Flow<List<CashEntryEntity>> = database.cashEntryDao().observeAll()
 
     suspend fun addCashEntry(day: LocalDate, signedAmount: Long, memo: String): CashResult =

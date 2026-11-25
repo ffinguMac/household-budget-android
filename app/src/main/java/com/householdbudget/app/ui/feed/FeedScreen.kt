@@ -111,6 +111,8 @@ fun FeedScreen(
     pendingCount: Int = 0,
     onOpenPending: () -> Unit = {},
     onOpenBudget: () -> Unit = {},
+    cashBalance: Long? = null,
+    onOpenCash: () -> Unit = {},
 ) {
     val summary by budgetViewModel.ledgerSummary.collectAsStateWithLifecycle()
     val periodOffset by budgetViewModel.ledgerPeriodOffset.collectAsStateWithLifecycle()
@@ -227,6 +229,10 @@ fun FeedScreen(
                         savingsMinor = currentSummary.totalSavingsMinor,
                         modifier = Modifier.then(periodEnter),
                     )
+                }
+
+                if (cashBalance != null) {
+                    CashBalanceRow(balance = cashBalance, onClick = onOpenCash)
                 }
 
                 if (pendingCount > 0) {
@@ -637,6 +643,44 @@ private fun PendingStrip(
             text = stringResource(R.string.feed_pending_action),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/** 비상금 잔액 한 줄. 예산과 무관해서 히어로와 떨어진 얇은 행으로만 보여준다. */
+@Composable
+private fun CashBalanceRow(
+    balance: Long,
+    onClick: () -> Unit,
+) {
+    val label = stringResource(R.string.feed_cash_open)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(onClickLabel = label, role = Role.Button, onClick = onClick)
+                .padding(horizontal = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.cash_title),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = balance.formatWon(),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
