@@ -15,11 +15,20 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.res.stringResource
 import com.householdbudget.app.R
 import com.householdbudget.app.data.local.entity.CategoryEntity
@@ -50,11 +59,34 @@ fun CustomCategoryDialogs(
     key(request) {
         val scope = rememberCoroutineScope()
         val leaf = (request as? CustomCategoryRequest.Edit)?.leaf
-        var name by remember { mutableStateOf(leaf?.name.orEmpty()) }
+        // 이름 바꾸기는 커서를 끝에 둔다.
+        var name by remember { mutableStateOf(leaf?.name.orEmpty().let { TextFieldValue(it, TextRange(it.length)) }) }
+        val focusRequester = remember { FocusRequester() }
         var error by remember { mutableStateOf<CustomCategories.NameError?>(null) }
         var busy by remember { mutableStateOf(false) }
         var preview by remember { mutableStateOf<CustomCategoryDeletePreview?>(null) }
-        var targetId by remember { mutableStateOf(0L) }
+        var targetId by remember { mutableLongStateOf(0L) }
+
+        fun save() {
+            if (busy) return
+            busy = true
+            scope.launch {
+                val result =
+                    when (request) {
+                        is CustomCategoryRequest.Add -> budgetViewModel.addCustomCategory(request.parent.id, name.text)
+                        is CustomCategoryRequest.Edit -> budgetViewModel.renameCustomCategory(request.leaf.id, name.text)
+                    }
+                busy = false
+                when (result) {
+                    null -> onDismiss()
+                    is CustomCategoryResult.Invalid -> error = result.error
+                    is CustomCategoryResult.Saved -> {
+                        if (request is CustomCategoryRequest.Add) onCreated(result.category)
+                        onDismiss()
+                    }
+                }
+            }
+        }
 
         val current = preview
         if (leaf != null && current != null) {
@@ -129,9 +161,12 @@ fun CustomCategoryDialogs(
                             placeholder = { Text(stringResource(R.string.custom_category_name_hint)) },
                             singleLine = true,
                             isError = error != null,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { save() }),
                             shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                         )
+                        LaunchedEffect(Unit) { focusRequester.requestFocus() }
                         error?.let {
                             Text(
                                 stringResource(
@@ -150,25 +185,7 @@ fun CustomCategoryDialogs(
                 confirmButton = {
                     TextButton(
                         enabled = !busy,
-                        onClick = {
-                            busy = true
-                            scope.launch {
-                                val result =
-                                    when (request) {
-                                        is CustomCategoryRequest.Add -> budgetViewModel.addCustomCategory(request.parent.id, name)
-                                        is CustomCategoryRequest.Edit -> budgetViewModel.renameCustomCategory(request.leaf.id, name)
-                                    }
-                                busy = false
-                                when (result) {
-                                    null -> onDismiss()
-                                    is CustomCategoryResult.Invalid -> error = result.error
-                                    is CustomCategoryResult.Saved -> {
-                                        if (request is CustomCategoryRequest.Add) onCreated(result.category)
-                                        onDismiss()
-                                    }
-                                }
-                            }
-                        },
+                        onClick = ::save,
                     ) {
                         Text(
                             stringResource(

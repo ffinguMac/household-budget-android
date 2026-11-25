@@ -36,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.householdbudget.app.R
@@ -186,7 +189,9 @@ fun CategoryChip(
                 modifier
                     .minimumInteractiveComponentSize()
                     .clip(shape)
+                    .semantics { this.selected = selected }
                     .combinedClickable(
+                        role = Role.Checkbox,
                         onClick = onClick,
                         onLongClick = onLongClick,
                         onLongClickLabel = stringResource(R.string.custom_category_long_press_label),
@@ -199,7 +204,7 @@ fun CategoryChip(
             Text(
                 label,
                 style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.heightIn(min = 32.dp).padding(horizontal = Space.md).wrapContentHeight(),
+                modifier = Modifier.heightIn(min = 32.dp).padding(horizontal = Space.lg).wrapContentHeight(),
             )
         }
         return
