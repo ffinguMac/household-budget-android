@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Palette
@@ -85,6 +86,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onOpenArchive: (() -> Unit)? = null,
     onOpenBudget: (() -> Unit)? = null,
+    onOpenCash: (() -> Unit)? = null,
     onExportCsv: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -107,6 +109,7 @@ fun SettingsScreen(
     val reminderHour by prefs.reminderHour.collectAsStateWithLifecycle(initialValue = 21)
     val darkTheme by prefs.darkTheme.collectAsStateWithLifecycle(initialValue = false)
     val appLockEnabled by prefs.appLockEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val cashBalance by remember(repository) { repository.observeCashBalance() }.collectAsStateWithLifecycle(initialValue = 0L)
 
     var showPaydaySheet by remember { mutableStateOf(false) }
     var showThemeSheet by remember { mutableStateOf(false) }
@@ -215,6 +218,22 @@ fun SettingsScreen(
                             }
                         },
                         onClick = onOpenBudget,
+                    )
+                }
+                if (onOpenCash != null) {
+                    SettingsRowDivider()
+                    SettingsActionRow(
+                        icon = Icons.Filled.Savings,
+                        title = stringResource(R.string.cash_title),
+                        subtitle = stringResource(R.string.cash_row_subtitle),
+                        onClick = onOpenCash,
+                        trailing = {
+                            Text(
+                                text = cashBalance.formatWon(),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
                     )
                 }
             }
