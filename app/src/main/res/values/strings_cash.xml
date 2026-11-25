@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 비상금: 예산과 따로 관리하는 돈 -->
+    <string name="cash_title">비상금</string>
+    <string name="cash_row_subtitle">예산과 따로 모아 두는 돈이에요</string>
+    <string name="cash_balance_label">지금 비상금</string>
+    <string name="cash_empty">아직 기록이 없어요. 지금 가진 비상금을 넣기로 적어 보세요.</string>
+    <string name="cash_deposit">넣기</string>
+    <string name="cash_withdraw">빼기</string>
+    <string name="cash_sheet_deposit">비상금 넣기</string>
+    <string name="cash_sheet_withdraw">비상금 빼기</string>
+    <string name="cash_error_overdrawn">비상금보다 많이 뺄 수 없어요</string>
+    <string name="cash_error_shrink">이만큼 줄이면 비상금이 모자라요</string>
+    <string name="cash_error_invalid">금액이나 메모를 다시 확인해 주세요</string>
+    <string name="cash_edit_action">고치기</string>
+    <string name="cash_change_date">날짜 바꾸기</string>
+    <string name="cash_error_delete">이 기록을 지우면 비상금이 모자라요</string>
+    <string name="cash_amount_plus">+%1$s</string>
+    <string name="cash_amount_minus">−%1$s</string>
+</resources>

@@ -74,6 +74,7 @@ import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.feed.FeedScreen
 import com.householdbudget.app.ui.settings.BudgetSettingsScreen
+import com.householdbudget.app.ui.settings.CashReserveScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
 import com.householdbudget.app.ui.stats.StatsScreen
 
@@ -111,6 +112,8 @@ private sealed interface SettingsPane {
     data object AutoEntry : SettingsPane
 
     data object Pending : SettingsPane
+
+    data object Cash : SettingsPane
 }
 
 @Composable
@@ -258,6 +261,7 @@ fun MainTabScaffold(
                                     settingsPane = SettingsPane.Budget
                                 },
                                 onOpenAutoEntry = { settingsPane = SettingsPane.AutoEntry },
+                                onOpenCash = { settingsPane = SettingsPane.Cash },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->
@@ -297,6 +301,12 @@ fun MainTabScaffold(
                                 repository = repository,
                                 budgetViewModel = budgetViewModel,
                                 onBack = leaveBudget,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.Cash ->
+                            CashReserveScreen(
+                                repository = repository,
+                                onBack = { settingsPane = SettingsPane.Main },
                                 modifier = Modifier.fillMaxSize(),
                             )
                     }

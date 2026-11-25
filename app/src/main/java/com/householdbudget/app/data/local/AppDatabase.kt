@@ -8,6 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.householdbudget.app.data.local.dao.ArchivedPeriodDao
 import com.householdbudget.app.data.local.dao.AutoEntryDao
+import com.householdbudget.app.data.local.dao.CashEntryDao
 import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.MerchantRuleDao
 import com.householdbudget.app.data.local.dao.NotificationLogDao
@@ -16,6 +17,7 @@ import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.AutoEntryEntity
+import com.householdbudget.app.data.local.entity.CashEntryEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.MerchantRuleEntity
 import com.householdbudget.app.data.local.entity.NotificationLogEntity
@@ -34,12 +36,15 @@ import kotlinx.coroutines.runBlocking
             NotificationLogEntity::class,
             AutoEntryEntity::class,
             MerchantRuleEntity::class,
+            CashEntryEntity::class,
         ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
+
+    abstract fun cashEntryDao(): CashEntryDao
 
     abstract fun transactionDao(): TransactionDao
 
@@ -362,8 +367,26 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        /** v8 → v9: 비상금 기록 테이블. 기존 테이블은 건드리지 않는다. */
+        private val MIGRATION_8_9 =
+            object : Migration(8, 9) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `cash_entries` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `occurred_epoch_day` INTEGER NOT NULL, " +
+                            "`amount_minor` INTEGER NOT NULL, `memo` TEXT NOT NULL DEFAULT '', `created_at_ms` INTEGER NOT NULL)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_cash_entries_occurred_epoch_day` ON `cash_entries` (`occurred_epoch_day`)",
+                    )
+                }
+            }
+
         internal val ALL_MIGRATIONS: Array<Migration> =
-            arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            arrayOf(
+                MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                MIGRATION_8_9,
+            )
 
         fun getInstance(context: Context): AppDatabase {
             return instance

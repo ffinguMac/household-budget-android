@@ -7,6 +7,7 @@ import com.householdbudget.app.data.local.dao.CategoryBudgetDao
 import com.householdbudget.app.data.local.dao.CategoryDao
 import com.householdbudget.app.data.local.dao.TransactionDao
 import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
+import com.householdbudget.app.data.local.entity.CashEntryEntity
 import com.householdbudget.app.data.local.entity.CategoryBudgetEntity
 import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
@@ -244,6 +245,51 @@ class BudgetRepository(
         }
     }
 
+    // ── 비상금: 예산·통계·거래와 따로 둔다. 잔액이 음수가 되는 쓰기는 트랜잭션 안에서 막는다. ──
+
+    fun observeCashBalance(): Flow<Long> = database.cashEntryDao().observeBalance()
+
+    fun observeCashEntries(): Flow<List<CashEntryEntity>> = database.cashEntryDao().observeAll()
+
+    suspend fun addCashEntry(day: LocalDate, signedAmount: Long, memo: String): CashResult =
+        database.withTransaction {
+            val dao = database.cashEntryDao()
+            val cleanMemo = validCashMemo(signedAmount, memo) ?: return@withTransaction CashResult.INVALID
+            if (dao.balance() + signedAmount < 0) return@withTransaction CashResult.OVERDRAWN
+            dao.insert(
+                CashEntryEntity(
+                    occurredEpochDay = day.toEpochDay(), amountMinor = signedAmount, memo = cleanMemo,
+                    createdAtMs = System.currentTimeMillis(),
+                ),
+            )
+            CashResult.SAVED
+        }
+
+    suspend fun updateCashEntry(id: Long, day: LocalDate, signedAmount: Long, memo: String): CashResult =
+        database.withTransaction {
+            val dao = database.cashEntryDao()
+            val old = dao.getById(id) ?: return@withTransaction CashResult.INVALID
+            val cleanMemo = validCashMemo(signedAmount, memo) ?: return@withTransaction CashResult.INVALID
+            if (dao.balance() - old.amountMinor + signedAmount < 0) return@withTransaction CashResult.OVERDRAWN
+            dao.update(old.copy(occurredEpochDay = day.toEpochDay(), amountMinor = signedAmount, memo = cleanMemo))
+            CashResult.SAVED
+        }
+
+    suspend fun deleteCashEntry(id: Long): CashResult =
+        database.withTransaction {
+            val dao = database.cashEntryDao()
+            val old = dao.getById(id) ?: return@withTransaction CashResult.INVALID
+            if (dao.balance() - old.amountMinor < 0) return@withTransaction CashResult.OVERDRAWN
+            dao.delete(old)
+            CashResult.SAVED
+        }
+
+    /** 금액 1..999,999,999,999(부호 무관), 메모 앞뒤 공백 뺀 30자 이하. 맞으면 정리한 메모, 아니면 null. */
+    private fun validCashMemo(signedAmount: Long, memo: String): String? {
+        if (signedAmount == 0L || signedAmount !in -MAX_CASH_MINOR..MAX_CASH_MINOR) return null
+        return memo.trim().takeIf { it.length <= MAX_CASH_MEMO }
+    }
+
     private fun kindOf(c: CategoryEntity): CategoryKind = CategoryKind.fromStorage(c.kind)
 
     /** 직접 추가 세부 판정은 이 함수 한 곳에서만 한다. */
@@ -346,6 +392,11 @@ data class HomeSummary(
     /** 순잉여 = 수입 − 지출 − 저축. */
     val netMinor: Long = totalIncomeMinor - totalExpenseMinor - totalSavingsMinor
 }
+
+const val MAX_CASH_MINOR = 999_999_999_999L
+const val MAX_CASH_MEMO = 30
+
+enum class CashResult { SAVED, OVERDRAWN, INVALID }
 
 sealed interface CustomCategoryResult {
     data class Saved(val category: CategoryEntity) : CustomCategoryResult
