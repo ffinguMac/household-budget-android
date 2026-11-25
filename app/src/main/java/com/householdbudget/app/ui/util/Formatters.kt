@@ -1,5 +1,9 @@
 package com.householdbudget.app.ui.util
 
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.theme.kindSignPrefix
@@ -53,6 +57,32 @@ fun formatDigitsGrouped(raw: String): String {
 
 /** [formatDigitsGrouped] 의 역: 콤마 등을 떼고 숫자만 남긴다. */
 fun stripDigits(formatted: String): String = formatted.filter { it.isDigit() }
+
+/**
+ * 숫자만 담긴 값을 화면에서만 "1,234,567"로 보이게 한다. 값 자체를 콤마 문자열로 바꾸면
+ * 콤마가 늘 때마다 커서가 한 칸 어긋나므로, 커서 위치는 [OffsetMapping]으로 옮긴다.
+ */
+object GroupedDigitsTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val digits = text.text
+        val out = StringBuilder()
+        digits.forEachIndexed { i, c ->
+            if (i > 0 && (digits.length - i) % 3 == 0) out.append(',')
+            out.append(c)
+        }
+        val grouped = out.toString()
+        val mapping = object : OffsetMapping {
+            // 원래 위치 o 앞에 들어간 콤마 수만큼 민다.
+            override fun originalToTransformed(offset: Int): Int =
+                offset + (1..minOf(offset, digits.length - 1)).count { (digits.length - it) % 3 == 0 }
+
+            // 화면 위치 t 앞에 있는 숫자 수가 원래 위치다.
+            override fun transformedToOriginal(offset: Int): Int =
+                grouped.take(offset).count { it != ',' }
+        }
+        return TransformedText(AnnotatedString(grouped), mapping)
+    }
+}
 
 /** 부호 접두사 + 금액 + "원". 예: (150000, EXPENSE) -> "−150,000원" */
 fun Long.formatSignedWon(kind: CategoryKind): String = kindSignPrefix(kind) + formatWon()

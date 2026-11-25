@@ -64,7 +64,7 @@ import com.householdbudget.app.ui.components.cardBorder
 import com.householdbudget.app.ui.components.pushedBottomPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.categoryStyleOf
-import com.householdbudget.app.ui.util.formatDigitsGrouped
+import com.householdbudget.app.ui.util.GroupedDigitsTransformation
 import com.householdbudget.app.ui.util.formatWon
 import com.householdbudget.app.ui.util.stripDigits
 import kotlinx.coroutines.launch
@@ -398,8 +398,10 @@ fun BudgetSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
-                    value = formatDigitsGrouped(amountText),
-                    onValueChange = { amountText = stripDigits(it) },
+                    value = amountText,
+                    // 앞자리 0은 지우고, 콤마는 화면에서만 붙인다(커서 어긋남 방지).
+                    onValueChange = { amountText = stripDigits(it).trimStart('0').take(12) },
+                    visualTransformation = GroupedDigitsTransformation,
                     label = { Text(stringResource(R.string.edit_amount)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
