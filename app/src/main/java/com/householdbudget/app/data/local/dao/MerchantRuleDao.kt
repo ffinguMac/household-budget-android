@@ -33,4 +33,7 @@ interface MerchantRuleDao {
         """,
     )
     fun observeAll(): Flow<List<MerchantRuleRow>>
+
+    @Query("UPDATE merchant_rules SET category_id = :toId WHERE category_id = :fromId")
+    suspend fun repointCategory(fromId: Long, toId: Long): Int
 }
