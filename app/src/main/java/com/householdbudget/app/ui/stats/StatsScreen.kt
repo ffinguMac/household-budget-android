@@ -50,6 +50,7 @@ import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.archive.periodResolver
 import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.FitText
+import com.householdbudget.app.ui.components.rememberFitScale
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
@@ -478,6 +479,9 @@ private fun SummaryCard(
                     height = 8.dp,
                 )
             }
+            val leftMinor = stats.incomeMinor - stats.expenseMinor - stats.savingsMinor
+            // 한 칸이 넘치면 세 칸을 같은 크기로 줄인다.
+            val rowScale = rememberFitScale(stats.expenseMinor, stats.savingsMinor, leftMinor)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = Space.sm),
                 horizontalArrangement = Arrangement.spacedBy(Space.sm),
@@ -487,18 +491,21 @@ private fun SummaryCard(
                     value = stats.expenseMinor.formatWon(),
                     dotColor = kindDotColor(CategoryKind.EXPENSE),
                     modifier = Modifier.weight(1f),
+                    scale = rowScale,
                 )
                 StatColumn(
                     label = stringResource(R.string.stats_col_savings),
                     value = stats.savingsMinor.formatWon(),
                     dotColor = kindDotColor(CategoryKind.SAVINGS),
                     modifier = Modifier.weight(1f),
+                    scale = rowScale,
                 )
                 StatColumn(
                     label = stringResource(R.string.stats_col_left),
-                    value = (stats.incomeMinor - stats.expenseMinor - stats.savingsMinor).formatWon(),
+                    value = leftMinor.formatWon(),
                     dotColor = null,
                     modifier = Modifier.weight(1f),
+                    scale = rowScale,
                 )
             }
         }

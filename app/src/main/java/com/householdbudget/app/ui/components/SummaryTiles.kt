@@ -30,6 +30,7 @@ fun StatColumn(
     value: String,
     dotColor: Color?,
     modifier: Modifier = Modifier,
+    scale: FitScale = rememberFitScale(value),
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Space.xs)) {
         Row(
@@ -49,6 +50,7 @@ fun StatColumn(
             text = value,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            scale = scale,
         )
     }
 }
@@ -61,6 +63,8 @@ fun KindSummaryRow(
     savingsMinor: Long,
     modifier: Modifier = Modifier,
 ) {
+    // 한 칸이 넘치면 세 칸을 같은 크기로 줄인다.
+    val scale = rememberFitScale(incomeMinor, expenseMinor, savingsMinor)
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Space.sm),
@@ -70,18 +74,21 @@ fun KindSummaryRow(
             value = incomeMinor.formatWon(),
             dotColor = kindDotColor(CategoryKind.INCOME),
             modifier = Modifier.weight(1f),
+            scale = scale,
         )
         StatColumn(
             label = stringResource(R.string.summary_expense),
             value = expenseMinor.formatWon(),
             dotColor = kindDotColor(CategoryKind.EXPENSE),
             modifier = Modifier.weight(1f),
+            scale = scale,
         )
         StatColumn(
             label = stringResource(R.string.summary_savings),
             value = savingsMinor.formatWon(),
             dotColor = kindDotColor(CategoryKind.SAVINGS),
             modifier = Modifier.weight(1f),
+            scale = scale,
         )
     }
 }
