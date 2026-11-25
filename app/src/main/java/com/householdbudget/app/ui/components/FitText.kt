@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 
@@ -32,6 +33,18 @@ fun rememberFitScale(vararg keys: Any?): FitScale = remember(*keys) { FitScale()
 @Composable
 fun FitText(
     text: String,
+    style: TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+    scale: FitScale = rememberFitScale(text, style),
+    minScale: Float = 0.6f,
+    textAlign: TextAlign? = null,
+) = FitText(AnnotatedString(text), style, color, modifier, scale, minScale, textAlign)
+
+/** 부분 강조(굵은 금액 등)가 있는 한 줄 글자용. */
+@Composable
+fun FitText(
+    text: AnnotatedString,
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
