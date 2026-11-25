@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.householdbudget.app.data.local.entity.TransactionEntity
+import com.householdbudget.app.data.local.model.CategoryLastUsedRow
 import com.householdbudget.app.data.local.model.DayTotalRow
 import com.householdbudget.app.data.local.model.PeriodAggregateRow
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
@@ -102,4 +103,13 @@ interface TransactionDao {
         """,
     )
     suspend fun aggregateBetween(startEx: Long, endEx: Long): PeriodAggregateRow
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE category_id = :categoryId")
+    suspend fun countByCategory(categoryId: Long): Int
+
+    @Query("UPDATE transactions SET category_id = :toId WHERE category_id = :fromId")
+    suspend fun moveCategory(fromId: Long, toId: Long): Int
+
+    @Query("SELECT category_id AS categoryId, MAX(occurred_epoch_day) AS lastEpochDay FROM transactions GROUP BY category_id")
+    fun observeLastUsedByCategory(): Flow<List<CategoryLastUsedRow>>
 }

@@ -9,4 +9,17 @@
     <string name="budget_bar_spent">%1$s 썼어요</string>
     <string name="budget_bar_left">예산 %1$s 중 %2$d%% 남았어요</string>
     <string name="budget_bar_over">예산 %1$s을 넘었어요</string>
+    <!-- 직접 추가 세부 카테고리 (ui/components/CategoryPicker.kt, CustomCategoryDialogs.kt) -->
+    <string name="category_picker_add">+ 직접 추가</string>
+    <string name="custom_category_add_title">%1$s에 세부 항목 추가</string>
+    <string name="custom_category_edit_title">세부 항목 이름 바꾸기</string>
+    <string name="custom_category_name_hint">이름 (10자까지)</string>
+    <string name="custom_category_add_confirm">추가</string>
+    <string name="custom_category_error_empty">이름을 입력해 주세요</string>
+    <string name="custom_category_error_too_long">10자까지 쓸 수 있어요</string>
+    <string name="custom_category_error_duplicate">이미 있는 이름이에요</string>
+    <string name="custom_category_long_press_label">이름 바꾸기·삭제</string>
+    <string name="custom_category_delete_title">\'%1$s\' 항목을 삭제할까요?</string>
+    <string name="custom_category_delete_body_moved">거래 %1$d건은 \'%2$s\'%3$s 옮겨요.</string>
+    <string name="custom_category_delete_body_empty">거래가 없어서 바로 지워요.</string>
 </resources>

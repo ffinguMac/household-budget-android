@@ -1,6 +1,8 @@
 package com.householdbudget.app.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,7 +41,7 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.theme.categoryLabel
 
 /** [CategoryPicker]의 "더 보기": 모든 대분류의 세부를 검색해 고르는 시트. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CategorySearchSheet(
     parents: List<CategoryEntity>,
@@ -47,6 +49,7 @@ fun CategorySearchSheet(
     selectedLeafId: Long?,
     onLeafSelected: (CategoryEntity) -> Unit,
     onDismiss: () -> Unit,
+    onEditCustom: ((leaf: CategoryEntity) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by remember { mutableStateOf("") }
@@ -117,13 +120,22 @@ fun CategorySearchSheet(
                             )
                         }
                         items(children, key = { "leaf-${it.id}" }) { leaf ->
+                            val longPressLabel = stringResource(R.string.custom_category_long_press_label)
                             Row(
                                 Modifier
                                     .fillMaxWidth()
                                     .clip(MaterialTheme.shapes.small)
-                                    .clickable {
-                                        onLeafSelected(leaf)
-                                    }
+                                    .then(
+                                        if (onEditCustom != null && isCustomLeaf(parent, leaf)) {
+                                            Modifier.combinedClickable(
+                                                onClick = { onLeafSelected(leaf) },
+                                                onLongClick = { onEditCustom(leaf) },
+                                                onLongClickLabel = longPressLabel,
+                                            )
+                                        } else {
+                                            Modifier.clickable { onLeafSelected(leaf) }
+                                        },
+                                    )
                                     .heightIn(min = 48.dp)
                                     .padding(horizontal = Space.sm),
                                 verticalAlignment = Alignment.CenterVertically,

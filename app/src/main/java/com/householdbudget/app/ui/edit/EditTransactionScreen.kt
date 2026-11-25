@@ -96,6 +96,8 @@ import com.householdbudget.app.ui.autoCategorySelection
 import com.householdbudget.app.ui.components.CategoryChip
 import com.householdbudget.app.ui.components.CategoryPicker
 import com.householdbudget.app.ui.components.CategorySearchSheet
+import com.householdbudget.app.ui.components.CustomCategoryDialogs
+import com.householdbudget.app.ui.components.CustomCategoryRequest
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatDigitsGrouped
@@ -131,6 +133,7 @@ fun EditTransactionScreen(
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
     val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
+    val hiddenLeafIds by budgetViewModel.hiddenCustomLeafIds.collectAsStateWithLifecycle()
     val recentIdsByKind by vm.recentCategoryIdsByKind.collectAsStateWithLifecycle()
     val today = remember { LocalDate.now(ZoneId.of("Asia/Seoul")) }
 
@@ -157,6 +160,7 @@ fun EditTransactionScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     var showCategorySheet by remember { mutableStateOf(false) }
+    var customRequest by remember { mutableStateOf<CustomCategoryRequest?>(null) }
     // 메모에 포커스가 있으면 시스템 키보드를 쓰므로 내장 키패드를 숨긴다.
     var memoFocused by remember { mutableStateOf(false) }
 
@@ -406,6 +410,9 @@ fun EditTransactionScreen(
                             vm.setParent(leaf.parentId!!, leaf)
                         },
                         onMore = { showCategorySheet = true },
+                        hiddenLeafIds = hiddenLeafIds,
+                        onAddCustom = { customRequest = CustomCategoryRequest.Add(it) },
+                        onEditCustom = { customRequest = CustomCategoryRequest.Edit(it) },
                     )
                 }
 
@@ -457,8 +464,18 @@ fun EditTransactionScreen(
                 showCategorySheet = false
             },
             onDismiss = { showCategorySheet = false },
+            onEditCustom = { customRequest = CustomCategoryRequest.Edit(it) },
         )
     }
+
+    CustomCategoryDialogs(
+        request = customRequest,
+        budgetViewModel = budgetViewModel,
+        onDismiss = { customRequest = null },
+        onCreated = { vm.setParent(it.parentId!!, it) },
+        // 고르던 항목을 지우면 옮겨 간 곳으로 바꿔 둬야 저장이 "Category not found"로 죽지 않는다.
+        onDeleted = { deleted, movedTo -> if (ui.categoryId == deleted.id) vm.setParent(movedTo.parentId!!, movedTo) },
+    )
 
     if (showDatePicker) {
         val millis = ui.date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() // DatePicker 는 UTC 기준

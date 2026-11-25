@@ -8,10 +8,13 @@ import com.householdbudget.app.data.local.entity.CategoryEntity
 import com.householdbudget.app.data.local.model.TransactionWithCategoryRow
 import com.householdbudget.app.data.preferences.UserPreferencesRepository
 import com.householdbudget.app.data.repository.BudgetRepository
+import com.householdbudget.app.data.repository.CustomCategoryDeletePreview
+import com.householdbudget.app.data.repository.CustomCategoryResult
 import com.householdbudget.app.data.repository.HomeSummary
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.domain.PeriodResolver
 import java.time.LocalDate
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -92,6 +95,38 @@ class BudgetViewModel(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = emptyMap(),
             )
+
+    /** 선택 칩에서 숨길 직접 추가 세부 id(90일 넘게 안 쓴 것). */
+    val hiddenCustomLeafIds: StateFlow<Set<Long>> =
+        repository.observeHiddenCustomCategoryIds().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptySet(),
+        )
+
+    /** null = 대분류·항목이 그새 사라졌거나 추가할 수 없는 곳(저장소가 거부). 대화상자는 닫기만 한다. */
+    suspend fun addCustomCategory(parentId: Long, name: String): CustomCategoryResult? =
+        refusedAsNull { repository.addCustomCategory(parentId, name) }
+
+    /** null = 항목이 그새 지워졌거나 직접 추가 항목이 아님. */
+    suspend fun renameCustomCategory(id: Long, name: String): CustomCategoryResult? =
+        refusedAsNull { repository.renameCustomCategory(id, name) }
+
+    /** 저장소의 error(...) 거부(IllegalStateException)만 null로 바꾼다. 취소는 그대로 던진다. */
+    private inline fun <T> refusedAsNull(block: () -> T): T? =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            null
+        }
+
+    suspend fun customCategoryDeletePreview(id: Long): CustomCategoryDeletePreview? =
+        repository.customCategoryDeletePreview(id)
+
+    suspend fun deleteCustomCategory(id: Long, targetId: Long): CategoryEntity? =
+        repository.deleteCustomCategory(id, targetId)
 
     // ── 예산 (라운드 2) ────────────────────────────────────────────────────
 

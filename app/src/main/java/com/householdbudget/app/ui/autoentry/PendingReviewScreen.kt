@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -60,6 +61,8 @@ import com.householdbudget.app.ui.BudgetViewModel
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.CategoryPicker
 import com.householdbudget.app.ui.components.CategorySearchSheet
+import com.householdbudget.app.ui.components.CustomCategoryDialogs
+import com.householdbudget.app.ui.components.CustomCategoryRequest
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
@@ -70,6 +73,7 @@ import com.householdbudget.app.ui.theme.Space
 import com.householdbudget.app.ui.util.formatShortDayLabel
 import com.householdbudget.app.ui.util.formatWon
 import java.time.LocalDate
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -132,7 +136,18 @@ fun PendingReviewScreen(
 
     fun resolve(leafId: Long?) {
         val entry = state.current ?: return
-        lockedAction { resolved = resolved + repo.resolvePending(entry.id, leafId).map { it to leafId } }
+        lockedAction {
+            val done =
+                try {
+                    repo.resolvePending(entry.id, leafId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: IllegalStateException) {
+                    // 방금 지운 세부를 가리키던 탭(추천 칩 등). 그대로 두고 다시 고르게 한다.
+                    emptyList()
+                }
+            resolved = resolved + done.map { it to leafId }
+        }
     }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -158,6 +173,10 @@ fun PendingReviewScreen(
                     upNext = state.upNext,
                     suggestedCategoryId = repo::suggestedCategoryId,
                     onResolve = ::resolve,
+                    // 앞에서 고른 세부가 지워지면 완료 요약도 옮겨 간 곳을 보여 준다.
+                    onCategoryDeleted = { oldId, newId ->
+                        resolved = resolved.map { if (it.second == oldId) it.first to newId else it }
+                    },
                     onDefer = {
                         lockedAction {
                             deferred = deferred + current.id
@@ -191,11 +210,16 @@ private fun TriageBody(
     suggestedCategoryId: suspend (AutoEntryEntity) -> Long?,
     onResolve: (Long?) -> Unit,
     onDefer: () -> Unit,
+    onCategoryDeleted: (oldId: Long, newId: Long) -> Unit,
 ) {
     val parentsByKind by budgetViewModel.parentsByKind.collectAsStateWithLifecycle()
     val childrenByParent by budgetViewModel.childrenByParent.collectAsStateWithLifecycle()
     var kind by remember(current.id) { mutableStateOf(defaultKindFor(current.direction)) }
     var showCategorySheet by remember(current.id) { mutableStateOf(false) }
+    val hiddenLeafIds by budgetViewModel.hiddenCustomLeafIds.collectAsStateWithLifecycle()
+    var customRequest by remember(current.id) { mutableStateOf<CustomCategoryRequest?>(null) }
+    // 삭제하면 추천 규칙이 옮겨 간 곳을 가리키므로 다시 읽는다.
+    var deleteCount by remember { mutableIntStateOf(0) }
     val noName = stringResource(R.string.auto_pending_no_name)
 
     val scroll = rememberScrollState()
@@ -274,7 +298,7 @@ private fun TriageBody(
 
         // 항목이 바뀌면 추천과 펼쳐 둔 대분류를 새로 시작한다.
         key(current.id) {
-            val suggestedId = produceState<Long?>(null) {
+            val suggestedId = produceState<Long?>(null, deleteCount) {
                 // 중복 같은 항목에 한 번 누르기 추천을 내밀지 않는다.
                 if (reasonLabelRes(current.reason) != R.string.auto_reason_duplicate) value = suggestedCategoryId(current)
             }.value
@@ -308,6 +332,9 @@ private fun TriageBody(
                     selectedLeafId = null,
                     onLeafSelected = { onResolve(it.id) },
                     onMore = { showCategorySheet = true },
+                    hiddenLeafIds = hiddenLeafIds,
+                    onAddCustom = { customRequest = CustomCategoryRequest.Add(it) },
+                    onEditCustom = { customRequest = CustomCategoryRequest.Edit(it) },
                 )
             }
         }
@@ -351,8 +378,20 @@ private fun TriageBody(
                 onResolve(it.id)
             },
             onDismiss = { showCategorySheet = false },
+            onEditCustom = { customRequest = CustomCategoryRequest.Edit(it) },
         )
     }
+
+    CustomCategoryDialogs(
+        request = customRequest,
+        budgetViewModel = budgetViewModel,
+        onDismiss = { customRequest = null },
+        onCreated = { onResolve(it.id) },
+        onDeleted = { deleted, movedTo ->
+            deleteCount++
+            onCategoryDeleted(deleted.id, movedTo.id)
+        },
+    )
 }
 
 private val KIND_SWITCH_LABELS = linkedMapOf(

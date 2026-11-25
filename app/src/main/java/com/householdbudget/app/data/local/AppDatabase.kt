@@ -385,7 +385,10 @@ abstract class AppDatabase : RoomDatabase() {
                 }
         }
 
-        /** 신규 설치 시드: 비어 있을 때만 [FixedCategories.TREE]를 넣는다. */
+        /**
+         * 신규 설치 시드: 비어 있을 때만 [FixedCategories.TREE]를 넣는다.
+         * 고정 대분류 아래의 고정 아닌 세부는 사용자가 만든 것이다. 시드·보충 로직은 지우거나 바꾸지 않는다.
+         */
         internal suspend fun seedCategoriesIfEmpty(categoryDao: CategoryDao) {
             if (categoryDao.count() > 0) return
 

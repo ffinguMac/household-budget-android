@@ -26,4 +26,13 @@ interface CategoryDao {
             "WHERE c.kind = :kind AND p.name = :parentName AND c.name = :childName LIMIT 1",
     )
     suspend fun findLeafByPath(kind: String, parentName: String, childName: String): CategoryEntity?
+
+    @Query("SELECT * FROM categories WHERE parent_id = :parentId ORDER BY sort_order ASC, id ASC")
+    suspend fun childrenOf(parentId: Long): List<CategoryEntity>
+
+    @Query("UPDATE categories SET name = :name WHERE id = :id")
+    suspend fun rename(id: Long, name: String)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }
