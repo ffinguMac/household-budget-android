@@ -49,6 +49,7 @@ import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.archive.periodResolver
 import com.householdbudget.app.ui.BudgetViewModel
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
@@ -448,7 +449,7 @@ private fun SummaryCard(
                     )
                 }
             }
-            Text(
+            FitText(
                 text = stats.expenseMinor.formatWon(),
                 style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -456,7 +457,7 @@ private fun SummaryCard(
             if (budgetMinor != null && budgetMinor > 0L) {
                 val status = budgetStatus(budgetMinor, stats.expenseMinor, daysRemaining = 1)
                 val over = status.remainingMinor < 0
-                Text(
+                FitText(
                     text =
                         if (over) {
                             stringResource(R.string.stats_summary_budget_over, budgetMinor.formatWon(), (-status.remainingMinor).formatWon())
@@ -732,7 +733,7 @@ private fun CategoryBudgetRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
+                FitText(
                     text = parent.currentMinor.formatWon(),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,

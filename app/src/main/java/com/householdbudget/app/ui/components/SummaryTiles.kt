@@ -45,7 +45,7 @@ fun StatColumn(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
+        FitText(
             text = value,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
