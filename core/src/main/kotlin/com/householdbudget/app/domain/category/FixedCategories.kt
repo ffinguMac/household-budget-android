@@ -24,4 +24,13 @@ object FixedCategories {
         CategoryKind.INCOME -> CategoryPath(kind, "수입", "기타")
         CategoryKind.SAVINGS -> CategoryPath(kind, "저축", "기타")
     }
+
+    fun fixedChildrenOf(kind: CategoryKind, parentName: String): List<String> =
+        TREE.firstOrNull { it.kind == kind && it.name == parentName }?.children.orEmpty()
+
+    fun isFixedChild(kind: CategoryKind, parentName: String, childName: String): Boolean =
+        childName in fixedChildrenOf(kind, parentName)
+
+    fun allowsCustomChildren(kind: CategoryKind, parentName: String): Boolean =
+        fixedChildrenOf(kind, parentName).size >= 2
 }
