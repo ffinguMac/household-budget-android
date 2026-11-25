@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +74,7 @@ import com.householdbudget.app.ui.autoentry.PendingReviewScreen
 import com.householdbudget.app.ui.calendar.CalendarScreen
 import com.householdbudget.app.ui.calendar.CalendarViewModel
 import com.householdbudget.app.ui.feed.FeedScreen
+import com.householdbudget.app.ui.settings.BackupScreen
 import com.householdbudget.app.ui.settings.BudgetSettingsScreen
 import com.householdbudget.app.ui.settings.CashReserveScreen
 import com.householdbudget.app.ui.settings.SettingsScreen
@@ -114,7 +116,28 @@ private sealed interface SettingsPane {
     data object Pending : SettingsPane
 
     data object Cash : SettingsPane
+
+    data object Backup : SettingsPane
 }
+
+/** 화면을 다시 만들어도(회전·잠금 해제) 열린 설정 화면을 지킨다. 파일 선택 결과가 그 화면에 돌아와야 한다. */
+private val SettingsPaneSaver =
+    Saver<SettingsPane, String>(
+        save = {
+            when (it) {
+                is SettingsPane.ArchiveDetail -> "detail:${it.archiveId}"
+                else -> it::class.simpleName
+            }
+        },
+        restore = { saved ->
+            saved.removePrefix("detail:").toLongOrNull()?.takeIf { saved.startsWith("detail:") }?.let { SettingsPane.ArchiveDetail(it) }
+                ?: listOf(
+                    SettingsPane.Main, SettingsPane.Archive, SettingsPane.Budget, SettingsPane.AutoEntry,
+                    SettingsPane.Pending, SettingsPane.Cash, SettingsPane.Backup,
+                ).firstOrNull { it::class.simpleName == saved }
+                ?: SettingsPane.Main
+        },
+    )
 
 @Composable
 fun MainTabScaffold(
@@ -135,10 +158,9 @@ fun MainTabScaffold(
     }.collectAsStateWithLifecycle(initialValue = 0)
     // 이미 핫한 StateFlow 라 첫 프레임부터 실제 월급일로 제목을 낸다.
     val paydayDom by budgetViewModel.paydayDom.collectAsStateWithLifecycle()
-    // 프로세스 사망 복구는 포기 (설정 탭에 들어올 때 Main 으로 초기화).
-    var settingsPane by remember { mutableStateOf<SettingsPane>(SettingsPane.Main) }
+    var settingsPane by rememberSaveable(stateSaver = SettingsPaneSaver) { mutableStateOf<SettingsPane>(SettingsPane.Main) }
     // 확인할 거래·예산을 홈(띠·히어로·알림)에서 열었으면 뒤로 가기는 가계부 탭으로, 설정 쪽에서 열었으면 그리로.
-    var openedFromFeed by remember { mutableStateOf(false) }
+    var openedFromFeed by rememberSaveable { mutableStateOf(false) }
     val leavePending = {
         if (openedFromFeed) selectedOrdinal = MainTab.FEED.ordinal else settingsPane = SettingsPane.AutoEntry
     }
@@ -277,6 +299,7 @@ fun MainTabScaffold(
                                     openedFromFeed = false
                                     settingsPane = SettingsPane.Cash
                                 },
+                                onOpenBackup = { settingsPane = SettingsPane.Backup },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         SettingsPane.Archive ->
@@ -322,6 +345,11 @@ fun MainTabScaffold(
                             CashReserveScreen(
                                 repository = repository,
                                 onBack = leaveCash,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        SettingsPane.Backup ->
+                            BackupScreen(
+                                onBack = { settingsPane = SettingsPane.Main },
                                 modifier = Modifier.fillMaxSize(),
                             )
                     }

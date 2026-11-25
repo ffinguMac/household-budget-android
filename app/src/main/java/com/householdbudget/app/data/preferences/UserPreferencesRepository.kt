@@ -85,6 +85,26 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[DARK_THEME] = value }
     }
 
+    /** 백업 복원: 설정을 한 번에 바꾼다(중간에 멈춰도 섞이지 않게). [lastSeenPeriodStart] null이면 지운다. */
+    suspend fun restoreBackupPrefs(
+        paydayDom: Int,
+        monthlyBudgetMinor: Long?,
+        reminderEnabled: Boolean,
+        reminderHour: Int,
+        darkTheme: Boolean,
+        lastSeenPeriodStart: Long?,
+    ) {
+        require(paydayDom in 1..31 && reminderHour in 0..23)
+        dataStore.edit {
+            it[PAYDAY_DOM] = paydayDom
+            if (monthlyBudgetMinor == null) it.remove(MONTHLY_BUDGET_MINOR) else it[MONTHLY_BUDGET_MINOR] = monthlyBudgetMinor
+            it[REMINDER_ENABLED] = reminderEnabled
+            it[REMINDER_HOUR] = reminderHour
+            it[DARK_THEME] = darkTheme
+            if (lastSeenPeriodStart == null) it.remove(LAST_SEEN_PERIOD_START) else it[LAST_SEEN_PERIOD_START] = lastSeenPeriodStart
+        }
+    }
+
     companion object {
         private val PAYDAY_DOM = intPreferencesKey("payday_dom")
         private val LAST_SEEN_PERIOD_START = longPreferencesKey("last_seen_period_start_epoch_day")

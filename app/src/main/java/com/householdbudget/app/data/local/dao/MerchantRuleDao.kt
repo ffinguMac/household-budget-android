@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MerchantRuleDao {
+    @Query("SELECT * FROM merchant_rules ORDER BY merchant_key, direction")
+    suspend fun all(): List<MerchantRuleEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(e: MerchantRuleEntity)
 
