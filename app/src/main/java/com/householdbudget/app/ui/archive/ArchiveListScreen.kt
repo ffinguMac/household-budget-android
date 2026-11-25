@@ -27,6 +27,7 @@ import com.householdbudget.app.data.local.entity.ArchivedPeriodEntity
 import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.PeriodResolver
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.AppTopBar
 import com.householdbudget.app.ui.components.EmptyState
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
@@ -142,7 +143,7 @@ private fun ArchiveCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(Space.xs))
-            Text(
+            FitText(
                 text = if (netMinor >= 0) {
                     stringResource(R.string.archive_net_left, netMinor.formatWon())
                 } else {
@@ -152,7 +153,7 @@ private fun ArchiveCard(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(Space.sm))
-            Text(
+            FitText(
                 text = stringResource(
                     R.string.archive_detail_totals,
                     row.totalIncomeMinor.formatWon(),

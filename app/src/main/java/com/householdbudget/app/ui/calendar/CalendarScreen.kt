@@ -59,6 +59,7 @@ import com.householdbudget.app.data.repository.BudgetRepository
 import com.householdbudget.app.domain.BudgetPeriod
 import com.householdbudget.app.domain.CategoryKind
 import com.householdbudget.app.ui.archive.archiveMonthTitle
+import com.householdbudget.app.ui.components.FitText
 import com.householdbudget.app.ui.components.FabContentBottomPadding
 import com.householdbudget.app.ui.components.ScreenHorizontalPadding
 import com.householdbudget.app.ui.components.TransactionRow
@@ -205,7 +206,8 @@ private fun SummaryLine(expenseMinor: Long, incomeMinor: Long, savingsMinor: Lon
         .merge(SpanStyle(color = MaterialTheme.colorScheme.onSurface))
     val expense = stringResource(R.string.cal_summary_expense, expenseMinor.formatWon())
     val rest = stringResource(R.string.cal_summary_rest, incomeMinor.formatWon(), savingsMinor.formatWon())
-    Text(
+    // 금액이 커져도 두 줄로 넘어가지 않게 한 줄 안에서 글자를 줄인다.
+    FitText(
         text = buildAnnotatedString {
             withStyle(emphasis) { append(expense) }
             append(rest)
