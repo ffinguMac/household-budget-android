@@ -57,12 +57,12 @@ class Migration7To8Test {
         assertEquals(1, db.notificationLogDao().count())
     }
 
-    @Test fun countCrossAppOut_excludesSamePackageAndIgnored() = runBlocking {
+    @Test fun countCrossApp_excludesSamePackageAndIgnored() = runBlocking {
         val dao = memDb().autoEntryDao()
         dao.insert(auto("pkg.a", AutoEntryStatus.REGISTERED))
         dao.insert(auto("pkg.c", AutoEntryStatus.IGNORED))
-        assertEquals(1, dao.countCrossAppOut(12000, 20000, "pkg.b", 0, 10_000))
-        assertEquals(0, dao.countCrossAppOut(12000, 20000, "pkg.a", 0, 10_000))
+        assertEquals(1, dao.countCrossApp("OUT", 12000, 20000, "pkg.b", 0, 10_000))
+        assertEquals(0, dao.countCrossApp("OUT", 12000, 20000, "pkg.a", 0, 10_000))
     }
 
     @Test fun countManualMatch_ignoresAutoTransactions() = runBlocking {
