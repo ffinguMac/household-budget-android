@@ -37,13 +37,13 @@ interface AutoEntryDao {
     @Query("SELECT COUNT(*) FROM auto_entries WHERE status = :status")
     fun observeCountByStatus(status: String): Flow<Int>
 
-    /** 다른 앱이 같은 금액·날짜로 이미 기록(또는 검토 대기)한 지출 수. */
+    /** 다른 앱이 같은 방향·금액·날짜로 이미 기록(또는 검토 대기)한 항목 수. */
     @Query(
-        "SELECT COUNT(*) FROM auto_entries WHERE direction = 'OUT' AND amount_minor = :amountMinor " +
+        "SELECT COUNT(*) FROM auto_entries WHERE direction = :direction AND amount_minor = :amountMinor " +
             "AND occurred_epoch_day = :epochDay AND package_name != :excludePackage " +
             "AND status IN ('REGISTERED', 'PENDING') AND posted_at_ms BETWEEN :fromMs AND :toMs",
     )
-    suspend fun countCrossAppOut(amountMinor: Long, epochDay: Long, excludePackage: String, fromMs: Long, toMs: Long): Int
+    suspend fun countCrossApp(direction: String, amountMinor: Long, epochDay: Long, excludePackage: String, fromMs: Long, toMs: Long): Int
 
     /** 같은 금액으로 온 항목(앱·상태 무관). 내 계좌끼리 옮긴 돈 판별용. */
     @Query(

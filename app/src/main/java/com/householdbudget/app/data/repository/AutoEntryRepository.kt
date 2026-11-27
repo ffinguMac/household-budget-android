@@ -107,7 +107,7 @@ class AutoEntryRepository(
         )
         if (sameKeyTexts.isNotEmpty()) return pending(entry, ReviewReason.DUP_REPOST)
         // shortcut: 카드 결제와 무관한 입금이 다른 앱에서 3분 안에 똑같은 금액으로 오면 둘 다 건너뛰고, 이체 직후 5분 안에 다른 앱이
-        // 같은 금액 출금을 알리면 메아리로 보고 건너뛴다. 규칙으로 무시된 출금이 먼저 오면 짝을 못 찾는다. 사용자는 건너뛴 항목에서 되살릴 수 있다.
+        // 같은 금액 출금·입금을 알리면 메아리로 보고 건너뛴다. 규칙으로 무시된 출금이 먼저 오면 짝을 못 찾는다. 사용자는 건너뛴 항목에서 되살릴 수 있다.
         if (selfTransfer(entry)) {
             entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED, reason = ReviewReason.SELF_TRANSFER.name))
             return HandleOutcome.IGNORED
@@ -117,7 +117,7 @@ class AutoEntryRepository(
                 entryDao.insert(entry.copy(status = AutoEntryStatus.IGNORED))
                 return HandleOutcome.IGNORED
             }
-            // 모르는 가맹점이라도 다른 앱의 같은 출금이면 DUP_CROSS_APP으로 둬야 일괄 적용 때 두 번 등록되지 않는다.
+            // 모르는 가맹점이라도 다른 앱의 같은 출금·입금이면 DUP_CROSS_APP으로 둬야 일괄 적용 때 두 번 등록되지 않는다.
             is Decision.NeedsReview ->
                 return pending(entry, if (crossAppDuplicate(entry)) ReviewReason.DUP_CROSS_APP else decision.reason)
             is Decision.RegisterById -> categoryDao.getById(decision.categoryId)
@@ -134,15 +134,16 @@ class AutoEntryRepository(
     }
 
     private suspend fun crossAppDuplicate(e: AutoEntryEntity): Boolean =
-        e.direction == Direction.OUT.name &&
-            entryDao.countCrossAppOut(
-                e.amountMinor, e.occurredEpochDay, e.packageName,
+        // 취소(REFUND)는 카드 취소 처리가 따로 보므로 뺀다.
+        (e.direction == Direction.OUT.name || e.direction == Direction.IN.name) &&
+            entryDao.countCrossApp(
+                e.direction, e.amountMinor, e.occurredEpochDay, e.packageName,
                 e.postedAtMs - CROSS_APP_WINDOW_MS, e.postedAtMs + CROSS_APP_WINDOW_MS,
             ) > 0
 
     /**
      * 다른 앱의 반대 방향 같은 금액(내 계좌끼리 옮긴 돈)이면 그쪽과 그 출금의 다른 앱 중복 알림을 건너뛴 항목으로 돌리고 true.
-     * 이미 건너뛴 이체의 출금을 다른 앱이 늦게 알린 것(토스 등)과, 건너뛴 출금의 같은 앱 취소도 true.
+     * 이미 건너뛴 이체의 출금·입금을 다른 앱이 늦게 알린 것(토스 등)과, 건너뛴 출금의 같은 앱 취소도 true.
      */
     private suspend fun selfTransfer(e: AutoEntryEntity): Boolean {
         val skipped = ReviewReason.SELF_TRANSFER.name
@@ -152,8 +153,9 @@ class AutoEntryRepository(
         fun List<AutoEntryEntity>.hasSkipped(dir: Direction) = any { it.direction == dir.name && it.reason == skipped }
         // 출금을 이체로 건너뛴 뒤 같은 앱이 취소를 알리면 취소 수입만 남지 않게 함께 건너뛴다.
         if (e.direction == Direction.REFUND.name) return close.filter { it.packageName == e.packageName }.hasSkipped(Direction.OUT)
-        // 늦게 온 출금 메아리. 들어온 쪽도 건너뛰었어야 하고(메아리끼리 이어지지 않게), 이 앱의 같은 출금이 이미 건너뛰어졌으면 새 거래다.
-        if (e.direction == Direction.OUT.name && !own.hasSkipped(Direction.OUT) &&
+        // 늦게 온 출금·입금 메아리. 짝의 양쪽이 모두 건너뛰어졌어야 하고(메아리끼리 이어지지 않게), 이 앱의 같은 방향이 이미 건너뛰어졌으면 새 거래다.
+        if ((e.direction == Direction.OUT.name || e.direction == Direction.IN.name) &&
+            !own.any { it.direction == e.direction && it.reason == skipped } &&
             others.hasSkipped(Direction.OUT) && others.hasSkipped(Direction.IN)
         ) return true
         val opposite = when (e.direction) {
@@ -168,8 +170,8 @@ class AutoEntryRepository(
                 it.reason != ReviewReason.RESTORED.name && it.reason != ReviewReason.DUP_CROSS_APP.name &&
                 (it.status == AutoEntryStatus.REGISTERED || it.status == AutoEntryStatus.PENDING)
         } ?: return false
-        val echoes = if (matched.direction != Direction.OUT.name) emptyList() else others.filter {
-            it.direction == Direction.OUT.name && it.reason == ReviewReason.DUP_CROSS_APP.name &&
+        val echoes = others.filter {
+            it.direction == matched.direction && it.reason == ReviewReason.DUP_CROSS_APP.name &&
                 it.status != AutoEntryStatus.IGNORED
         }
         (listOf(matched) + echoes).forEach { m ->

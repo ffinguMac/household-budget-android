@@ -679,11 +679,90 @@ class AutoEntryRepositoryTest {
         assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 8,000원\n김가짜", "k2", T0 + 86_400_000)))
     }
 
+    private suspend fun learnIncome(merchant: String = "가짜상회") =
+        db.merchantRuleDao().upsert(MerchantRuleEntity(merchant, "IN", merchant, leafId("INCOME", "수입", "기타"), 0L))
+
+    private suspend fun tossIn(at: Long, body: String = "가짜상회", amount: String = "50,000") =
+        handle(n(TOSS, "입금 ${amount}원", body, "t$at", at))
+
+    @Test fun crossAppIn_bankThenToss_secondGoesPending() = runBlocking {
+        watched = setOf(KBANK, TOSS)
+        learnIncome()
+        assertEquals(HandleOutcome.REGISTERED, shopIn(at = T0))
+        assertEquals(HandleOutcome.PENDING, tossIn(T0 + 30_000))
+        assertEquals(TOSS to "DUP_CROSS_APP", pending().single().let { it.packageName to it.reason })
+        assertEquals(1, txCount())
+    }
+
+    @Test fun crossAppIn_tossThenBank_secondGoesPending() = runBlocking {
+        watched = setOf(KBANK, TOSS)
+        learnIncome()
+        assertEquals(HandleOutcome.REGISTERED, tossIn(T0))
+        assertEquals(HandleOutcome.PENDING, shopIn(at = T0 + 30_000))
+        assertEquals(KBANK to "DUP_CROSS_APP", pending().single().let { it.packageName to it.reason })
+        assertEquals(1, txCount())
+    }
+
+    @Test fun crossAppIn_after5Min_bothRegistered() = runBlocking {
+        watched = setOf(KBANK, TOSS)
+        learnIncome()
+        shopIn(at = T0)
+        assertEquals(HandleOutcome.REGISTERED, tossIn(T0 + 300_001))
+        assertEquals(2, txCount())
+    }
+
+    /** 같은 앱의 같은 금액 입금은 예전처럼 따로 센다(재게시·메아리 판별만 적용). */
+    @Test fun sameApp_sameAmountInTwice_bothRegistered() = runBlocking {
+        learnIncome()
+        learnIncome("가짜상점")
+        assertEquals(HandleOutcome.REGISTERED, shopIn(at = T0))
+        assertEquals(HandleOutcome.REGISTERED, handle(n(KBANK, "입금 50,000원", "가짜상점 | 가짜통장(1234)", "k4", T0 + 60_000)))
+        assertEquals(2, txCount())
+    }
+
+    @Test fun crossAppIn_personName_onePersonTransferOneDup() = runBlocking {
+        watched = setOf(KBANK, TOSS)
+        assertEquals(HandleOutcome.PENDING, handle(n(KBANK, "입금 50,000원", "김가짜 | 가짜통장(1234)", "p1", T0)))
+        assertEquals(HandleOutcome.PENDING, tossIn(T0 + 20_000, "김가짜"))
+        assertEquals(
+            listOf(KBANK to "PERSON_TRANSFER", TOSS to "DUP_CROSS_APP"),
+            pending().sortedBy { it.postedAtMs }.map { it.packageName to it.reason },
+        )
+    }
+
+    @Test fun selfTransfer_withTossDepositEcho_recordsNothing_anyOrder() = runBlocking {
+        watched = setOf(KBANK, CARD, TOSS)
+        val steps = mapOf<String, suspend (Long) -> HandleOutcome>(
+            "out" to { at -> transferOut(at, "c$at") },
+            "in" to { at -> bankIn(at, key = "k$at") },
+            "echo" to { at -> tossIn(at, "김가짜", "100,000") },
+        )
+        val orders = listOf("out", "in", "echo").let { (a, b, c) ->
+            listOf(listOf(a, b, c), listOf(a, c, b), listOf(b, a, c), listOf(b, c, a), listOf(c, a, b), listOf(c, b, a))
+        }
+        orders.forEachIndexed { i, order ->
+            val day = T0 + i * 86_400_000L
+            order.forEachIndexed { j, step -> steps.getValue(step)(day + j * 30_000L) }
+            assertEquals("$order", emptyList<AutoEntryEntity>(), pending())
+            assertEquals("$order", 0, txCount())
+            assertEquals("$order", 3 * (i + 1), ignored().count { it.reason == "SELF_TRANSFER" })
+        }
+    }
+
+    @Test fun selfTransfer_depositEchoDoesNotChain() = runBlocking {
+        watched = setOf(KBANK, CARD, TOSS, BANK2)
+        transferOut(T0)
+        bankIn()
+        assertEquals(HandleOutcome.IGNORED, tossIn(T0 + 200_000, "김가짜", "100,000"))
+        assertEquals(HandleOutcome.PENDING, handle(n(BANK2, "가짜은행", "입금 100,000원\n김가짜", "b1", T0 + 380_000)))
+    }
+
     companion object {
         const val KBANK = "com.kbankwith.smartbank"
         const val CARD = "com.fake.card"
         const val NPAY = "com.naverfin.payapp"
         const val BANK2 = "com.fake.bank2"
+        const val TOSS = "viva.republica.toss"
         const val T0 = 1_800_000_000_000L
         val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
     }
