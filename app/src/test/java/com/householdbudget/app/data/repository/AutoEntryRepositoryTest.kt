@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.householdbudget.app.data.local.AppDatabase
 import com.householdbudget.app.data.local.entity.AutoEntryEntity
 import com.householdbudget.app.data.local.entity.AutoEntryStatus
+import com.householdbudget.app.data.local.entity.MerchantRuleEntity
 import com.householdbudget.app.data.local.entity.NotificationLogEntity
 import com.householdbudget.app.data.local.entity.TransactionEntity
 import com.householdbudget.app.data.local.entity.TransactionSource
@@ -75,11 +76,11 @@ class AutoEntryRepositoryTest {
             db.openHelper.readableDatabase.query("SELECT MAX(id) FROM transactions").use { it.moveToFirst(); it.getLong(0) },
         )!!
 
-    private suspend fun kimOut(key: String = "k1", at: Long = T0, amount: String = "30,000") =
-        handle(n(KBANK, "출금 ${amount}원", "김가짜 | 가짜통장(1234)", key, at))
+    private suspend fun shopOut(key: String = "k1", at: Long = T0, amount: String = "30,000") =
+        handle(n(KBANK, "출금 ${amount}원", "가짜상회 | 가짜통장(1234)", key, at))
 
-    private suspend fun kimIn(key: String = "k3", at: Long = T0 + 3_600_000) =
-        handle(n(KBANK, "입금 50,000원", "김가짜 | 가짜통장(1234)", key, at))
+    private suspend fun shopIn(key: String = "k3", at: Long = T0 + 3_600_000) =
+        handle(n(KBANK, "입금 50,000원", "가짜상회 | 가짜통장(1234)", key, at))
 
     @Test fun notWatched_storesNothing() = runBlocking {
         assertEquals(HandleOutcome.NOT_WATCHED, handle(n("com.other.app", "가짜", "승인 4,500원\n가짜커피")))
@@ -150,7 +151,7 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun sameKeyDifferentPayment_within5Min_goesToReview() = runBlocking {
-        assertEquals(HandleOutcome.PENDING, kimOut(amount = "10,000"))
+        assertEquals(HandleOutcome.PENDING, shopOut(amount = "10,000"))
         repo.resolvePending(pending().single().id, leafId("EXPENSE", "유동 지출", "기본"))
         // 알림 id를 하나만 쓰는 앱: 키는 같지만 다른 결제다.
         val lee = n(KBANK, "출금 10,000원", "이가짜 | 가짜통장(1234)", "k1", T0 + 30_000)
@@ -167,50 +168,50 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun unknownMerchant_goesPending_thenLearnsRule() = runBlocking {
-        assertEquals(HandleOutcome.PENDING, kimOut())
+        assertEquals(HandleOutcome.PENDING, shopOut())
         assertEquals(0, txCount())
         val p = pending().single()
         assertEquals("UNCLASSIFIED", p.reason)
         val flexible = leafId("EXPENSE", "유동 지출", "기본")
         repo.resolvePending(p.id, flexible)
         assertEquals(1, txCount())
-        assertEquals("김가짜", lastTx().memo)
+        assertEquals("가짜상회", lastTx().memo)
         assertEquals(TransactionSource.AUTO, lastTx().source)
         assertEquals(1, db.merchantRuleDao().count())
 
-        assertEquals(HandleOutcome.REGISTERED, kimOut("k2", T0 + 86_400_000, "20,000"))
+        assertEquals(HandleOutcome.REGISTERED, shopOut("k2", T0 + 86_400_000, "20,000"))
         assertEquals(flexible, lastTx().categoryId)
     }
 
     @Test fun resolveAsIgnore_learnsIgnoreRule() = runBlocking {
-        kimOut()
+        shopOut()
         val p = pending().single()
         repo.resolvePending(p.id, null)
         assertEquals(0, txCount())
         assertEquals(AutoEntryStatus.IGNORED, db.autoEntryDao().getById(p.id)!!.status)
-        assertEquals(HandleOutcome.IGNORED, kimOut("k2", T0 + 86_400_000))
+        assertEquals(HandleOutcome.IGNORED, shopOut("k2", T0 + 86_400_000))
         assertEquals(0, txCount())
     }
 
     @Test fun ruleForOut_doesNotApplyToIncoming() = runBlocking {
         val flexible = leafId("EXPENSE", "유동 지출", "기본")
         val allowance = leafId("INCOME", "수입", "용돈")
-        kimOut()
+        shopOut()
         repo.resolvePending(pending().single().id, flexible)
-        assertEquals(HandleOutcome.PENDING, kimIn())
+        assertEquals(HandleOutcome.PENDING, shopIn())
         assertEquals(1, txCount())
 
         repo.resolvePending(pending().single().id, allowance)
         assertEquals(2, db.merchantRuleDao().count())
-        assertEquals(HandleOutcome.REGISTERED, kimOut("k4", T0 + 86_400_000))
+        assertEquals(HandleOutcome.REGISTERED, shopOut("k4", T0 + 86_400_000))
         assertEquals(flexible, lastTx().categoryId)
-        assertEquals(HandleOutcome.REGISTERED, kimIn("k5", T0 + 2 * 86_400_000))
+        assertEquals(HandleOutcome.REGISTERED, shopIn("k5", T0 + 2 * 86_400_000))
         assertEquals(allowance, lastTx().categoryId)
     }
 
     @Test fun resolvingOne_doesNotTouchPendingOfOtherDirection() = runBlocking {
-        kimOut()
-        kimIn()
+        shopOut()
+        shopIn()
         val out = pending().single { it.direction == "OUT" }
         repo.resolvePending(out.id, leafId("EXPENSE", "유동 지출", "기본"))
         assertEquals("IN", pending().single().direction)
@@ -224,8 +225,8 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun resolvingOne_appliesToOtherPendingOfSameMerchant() = runBlocking {
-        kimOut()
-        kimOut("k2", T0 + 86_400_000)
+        shopOut()
+        shopOut("k2", T0 + 86_400_000)
         assertEquals(2, pending().size)
         repo.resolvePending(pending().first().id, leafId("EXPENSE", "유동 지출", "기본"))
         assertEquals(2, txCount())
@@ -234,8 +235,8 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun resolvePending_returnsTargetThenCascaded() = runBlocking {
-        kimOut()
-        kimOut("k2", T0 + 86_400_000)
+        shopOut()
+        shopOut("k2", T0 + 86_400_000)
         val target = pending().last()
         val resolved = repo.resolvePending(target.id, leafId("EXPENSE", "유동 지출", "기본"))
         assertEquals(2, resolved.size)
@@ -244,8 +245,8 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun resolvePending_skip_returnsCascadedToo() = runBlocking {
-        kimOut()
-        kimOut("k2", T0 + 86_400_000)
+        shopOut()
+        shopOut("k2", T0 + 86_400_000)
         assertEquals(2, repo.resolvePending(pending().first().id, null).size)
     }
 
@@ -257,7 +258,7 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun resolvePending_notPending_returnsEmpty() = runBlocking {
-        kimOut()
+        shopOut()
         val id = pending().single().id
         repo.resolvePending(id, null)
         assertEquals(emptyList<AutoEntryEntity>(), repo.resolvePending(id, null))
@@ -265,7 +266,7 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun suggestedCategoryId_returnsLearnedRule_orNull() = runBlocking {
-        kimOut()
+        shopOut()
         val first = pending().single()
         assertNull(repo.suggestedCategoryId(first))
         val flexible = leafId("EXPENSE", "유동 지출", "기본")
@@ -284,7 +285,7 @@ class AutoEntryRepositoryTest {
 
     @Test fun crossApp_unknownMerchant_resolvingOne_createsOneTransaction() = runBlocking {
         assertEquals(HandleOutcome.PENDING, handle(n(CARD, "가짜카드", "승인 7,000원\n김가짜")))
-        assertEquals(HandleOutcome.PENDING, kimOut("k2", T0 + 120_000, "7,000"))
+        assertEquals(HandleOutcome.PENDING, shopOut("k2", T0 + 120_000, "7,000"))
         assertEquals("DUP_CROSS_APP", pending().single { it.packageName == KBANK }.reason)
         repo.resolvePending(pending().single { it.packageName == CARD }.id, leafId("EXPENSE", "유동 지출", "기본"))
         assertEquals(1, txCount())
@@ -398,7 +399,7 @@ class AutoEntryRepositoryTest {
 
     @Test fun purge_deletesResolvedEntriesAfter90Days_keepsPendingAndTransactions() = runBlocking {
         handle(n(CARD, "가짜카드", "승인 4,500원\n가짜커피"))
-        kimOut("k2")
+        shopOut("k2")
         repo.purgeOldLogs(T0 + TimeUnit.DAYS.toMillis(91))
         assertEquals(1, count("auto_entries")); assertEquals(1, pending().size); assertEquals(1, txCount())
     }
@@ -466,10 +467,10 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun deleteRule_returnsMerchantToBuiltinOrPending() = runBlocking {
-        kimOut()
+        shopOut()
         repo.resolvePending(pending().single().id, leafId("EXPENSE", "유동 지출", "기본"))
-        repo.deleteRule("김가짜", "OUT")
-        assertEquals(HandleOutcome.PENDING, kimOut("k2", T0 + 86_400_000))
+        repo.deleteRule("가짜상회", "OUT")
+        assertEquals(HandleOutcome.PENDING, shopOut("k2", T0 + 86_400_000))
     }
 
     @Test fun budgetRepository_editingAutoCategory_callsHook() = runBlocking {
@@ -586,7 +587,7 @@ class AutoEntryRepositoryTest {
 
     @Test fun selfTransfer_sameBankTransferWithEcho_notMatched() = runBlocking {
         watched = setOf(KBANK, CARD, NPAY)
-        kimOut(amount = "100,000")
+        shopOut(amount = "100,000")
         assertEquals(HandleOutcome.PENDING, payEcho(T0 + 5_000))
         assertEquals(HandleOutcome.PENDING, bankIn())
         assertEquals(3, pending().size)
@@ -624,7 +625,7 @@ class AutoEntryRepositoryTest {
     }
 
     @Test fun selfTransfer_samePackage_notMatched() = runBlocking {
-        kimOut(amount = "100,000")
+        shopOut(amount = "100,000")
         assertEquals(HandleOutcome.PENDING, bankIn())
         assertEquals(2, pending().size)
     }
@@ -634,6 +635,48 @@ class AutoEntryRepositoryTest {
         assertEquals(HandleOutcome.PENDING, bankIn(amount = "99,000"))
         assertEquals(1, txCount())
         assertEquals(0, ignored().size)
+    }
+
+    private suspend fun personOut(key: String, at: Long) = handle(n(KBANK, "출금 30,000원", "김가짜 | 가짜통장(1234)", key, at))
+
+    @Test fun personTransfer_inAndOut_goPending_evenWithRule() = runBlocking {
+        val flexible = leafId("EXPENSE", "유동 지출", "기본")
+        db.merchantRuleDao().upsert(MerchantRuleEntity("김가짜", "OUT", "김가짜", flexible, 0L))   // 예전에 배운 규칙
+        assertEquals(HandleOutcome.PENDING, personOut("p1", T0))
+        assertEquals(HandleOutcome.PENDING, handle(n(KBANK, "입금 50,000원", "김가짜 | 가짜통장(1234)", "p2", T0 + 3_600_000)))
+        assertEquals(listOf("PERSON_TRANSFER", "PERSON_TRANSFER"), pending().map { it.reason })
+        assertEquals(0, txCount())
+        assertEquals(1, db.merchantRuleDao().count())   // 지우지는 않는다
+        assertNull(repo.suggestedCategoryId(pending().first { it.direction == "OUT" }))
+    }
+
+    @Test fun personTransfer_resolve_learnsNothing_andDoesNotCascade() = runBlocking {
+        personOut("p1", T0)
+        personOut("p2", T0 + 86_400_000)
+        val flexible = leafId("EXPENSE", "유동 지출", "기본")
+        assertEquals(1, repo.resolvePending(pending().first().id, flexible).size)
+        assertEquals(1, pending().size)
+        assertEquals(0, db.merchantRuleDao().count())
+        repo.learnFromCorrection(lastTx().id, leafId("EXPENSE", "식비", "간식"))
+        assertEquals(0, db.merchantRuleDao().count())
+        assertEquals(HandleOutcome.PENDING, personOut("p3", T0 + 2 * 86_400_000))
+    }
+
+    @Test fun personTransfer_toMyOwnAccount_isStillSelfTransfer() = runBlocking {
+        assertEquals(HandleOutcome.PENDING, transferOut())
+        assertEquals("PERSON_TRANSFER", pending().single().reason)
+        assertEquals(HandleOutcome.IGNORED, bankIn())
+        assertEquals(emptyList<AutoEntryEntity>(), pending())
+        assertEquals(listOf("SELF_TRANSFER", "SELF_TRANSFER"), ignored().map { it.reason })
+    }
+
+    @Test fun cardPaymentAtNameLikeShop_isUnaffected() = runBlocking {
+        val flexible = leafId("EXPENSE", "유동 지출", "기본")
+        assertEquals(HandleOutcome.PENDING, handle(n(CARD, "가짜카드", "승인 7,000원\n김가짜")))
+        assertEquals("UNCLASSIFIED", pending().single().reason)
+        repo.resolvePending(pending().single().id, flexible)
+        assertEquals(1, db.merchantRuleDao().count())
+        assertEquals(HandleOutcome.REGISTERED, handle(n(CARD, "가짜카드", "승인 8,000원\n김가짜", "k2", T0 + 86_400_000)))
     }
 
     companion object {

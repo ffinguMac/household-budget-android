@@ -239,7 +239,7 @@ class AutoEntryRepository(
 
     /** 이 가맹점에 배운 규칙의 카테고리(기록 안 함 규칙이면 null). */
     suspend fun suggestedCategoryId(entry: AutoEntryEntity): Long? =
-        if (entry.merchantKey.isEmpty()) null else ruleDao.getByKey(entry.merchantKey, entry.direction)?.categoryId
+        if (entry.merchantKey.isEmpty() || entry.reason == ReviewReason.PERSON_TRANSFER.name) null else ruleDao.getByKey(entry.merchantKey, entry.direction)?.categoryId
 
     private suspend fun upsertRule(entry: AutoEntryEntity, categoryId: Long?) {
         ruleDao.upsert(
@@ -256,8 +256,8 @@ class AutoEntryRepository(
 
     suspend fun learnFromCorrection(transactionId: Long, newCategoryId: Long) {
         val entry = entryDao.findByTransactionId(transactionId) ?: return
-        // 되살린 충전을 배우면 이후 충전이 모두 등록되어 이중 기록된다.
-        if (entry.reason == ReviewReason.RESTORED.name) return
+        // 되살린 충전을 배우면 이후 충전이 모두 등록되어 이중 기록된다. 사람에게 오간 돈은 매번 고른다.
+        if (entry.reason == ReviewReason.RESTORED.name || entry.reason == ReviewReason.PERSON_TRANSFER.name) return
         if (entry.merchantKey.isNotEmpty()) upsertRule(entry, newCategoryId)
     }
 

@@ -90,6 +90,7 @@ fun reasonLabelRes(reason: String?): Int =
         "UNKNOWN_DIRECTION" -> R.string.auto_reason_direction
         "RESTORED" -> R.string.auto_reason_restored
         "SELF_TRANSFER" -> R.string.auto_reason_self_transfer
+        "PERSON_TRANSFER" -> R.string.auto_reason_person
         else -> R.string.auto_reason_unclassified
     }
 

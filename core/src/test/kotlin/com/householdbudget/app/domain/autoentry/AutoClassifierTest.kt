@@ -59,9 +59,11 @@ class AutoClassifierTest {
         val parsed = NotificationParsers.parse("com.fake.bank", "가짜은행", text)!!
         assertEquals(path(INCOME, "수입", "캐시백/이자"), AutoClassifier.classify(parsed, "가짜은행\n" + text, "com.fake.bank", setOf(KBANK), null))
     }
-    @Test fun plainDeposit_needsReview() = assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(50000, IN, "김가짜", "입금 50,000원 김가짜"))
-    @Test fun depositFromSenderNamedLikeInterest_needsReview() =
-        assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(50000, IN, "이자영", "입금 50,000원 이자영"))
+    @Test fun plainDeposit_needsReview() = assertEquals(Decision.NeedsReview(UNCLASSIFIED), c(50000, IN, "가짜상회", "입금 50,000원 가짜상회"))
+    @Test fun depositFromPerson_needsPersonReview() =
+        assertEquals(Decision.NeedsReview(ReviewReason.PERSON_TRANSFER), c(50000, IN, "김가짜", "입금 50,000원 김가짜"))
+    @Test fun depositFromSenderNamedLikeInterest_isNotInterest() =
+        assertEquals(Decision.NeedsReview(ReviewReason.PERSON_TRANSFER), c(50000, IN, "이자영", "입금 50,000원 이자영"))
     @Test fun refund_goesToIncomeOther() = assertEquals(path(INCOME, "수입", "기타"), c(8900, REFUND, "테스트상점"))
 
     @Test fun everyBuiltinPath_existsInFixedTree() {
